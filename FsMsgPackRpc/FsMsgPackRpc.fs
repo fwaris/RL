@@ -3,21 +3,18 @@ open System
 open System.IO
 open System.Buffers
 open MessagePack
-open MessagePack.Resolvers
-open MessagePack.FSharp
-open System.Net
 open System.Net.Sockets
 open System.Threading
-open System.Collections.Concurrent
 
-type Msg = Req of (int*(Type*AsyncReplyChannel<obj>)) | Resp of int*obj*byte[]
+type ServerResp = Data of obj | Error of obj
+type Msg = Req of (int*(Type*AsyncReplyChannel<ServerResp>)) | Resp of int*obj*byte[]
 
 module Matcher = 
-    //agent to match responses to pending requests
-    //Note: MsgPack rpc allows for out-of-order responses 
+    ///agent to match responses to pending requests
+    ///Note: MsgPack rpc allows for out-of-order responses 
     let createAgent options (cts:CancellationTokenSource) =
             (fun (inbox:MailboxProcessor<Msg>) ->
-                let pending = new System.Collections.Generic.Dictionary<int,(Type*AsyncReplyChannel<obj>)>()
+                let pending = new System.Collections.Generic.Dictionary<int,(Type*AsyncReplyChannel<ServerResp>)>()
                 async {
                     while not cts.IsCancellationRequested do
                         try                        
@@ -27,15 +24,18 @@ module Matcher =
                                 match pending.TryGetValue id with
                                 | true,(t,rc) -> 
                                     pending.Remove(id) |> ignore
-                                    use ms = new MemoryStream(resp)
-                                    let! obj = task {return! MessagePackSerializer.DeserializeAsync(t,ms,options=options)} |> Async.AwaitTask
-                                    let isnull = (obj = null)
-                                    rc.Reply(obj)
+                                    if err <> null then
+                                        rc.Reply(Error err)
+                                    else
+                                        use ms = new MemoryStream(resp)
+                                        let! obj = task {return! MessagePackSerializer.DeserializeAsync(t,ms,options=options)} |> Async.AwaitTask                                    
+                                        rc.Reply(Data obj)                                   
                                 | _ -> printfn $"unmatched response for id {id}"
                         with ex -> 
                             printfn "%A" ex.Message
             })
 
+///threadsafe client for interacting with MessagePack RPC servers (https://github.com/msgpack-rpc/msgpack-rpc)
 type Client(options:MessagePack.MessagePackSerializerOptions) =    
     let cts = new CancellationTokenSource()
     let tcpClient = new TcpClient()    
@@ -79,7 +79,7 @@ type Client(options:MessagePack.MessagePackSerializerOptions) =
 
     member _.TcpClient = tcpClient
     
-    ///sends a message and waits for response (threadsafe)
+    ///sends a message and waits for a response
     member _.Call<'req,'resp> (method:string,req:'req) =
         let msgId = nextId()
         let reqMsg:obj[] = [|0; msgId; method; req |]        
@@ -91,10 +91,23 @@ type Client(options:MessagePack.MessagePackSerializerOptions) =
                 do! MessagePackSerializer.SerializeAsync(tcpClient.GetStream(),reqMsg)
             finally
                 sem.Set() |> ignore
-            printfn "written"
             match! resp with 
-            | Some o -> return (o :?> 'resp)
+            | Some (Data o) -> return (o :?> 'resp)
+            | Some (Error e) -> return failwith $"%A{e}"
             | None -> return failwith "timeout"
+        }
+
+    ///sends a one-way notification (i.e. response not expected)
+    member _.Notify<'req> (method:string,req:'req) =
+        let msgId = nextId()
+        let reqMsg:obj[] = [|0; msgId; method; req |]        
+        task {        
+            let! _ = Async.AwaitWaitHandle sem
+            let _ = sem.Reset()
+            try
+                do! MessagePackSerializer.SerializeAsync(tcpClient.GetStream(),reqMsg)
+            finally
+                sem.Set() |> ignore
         }
         
     interface IDisposable with
