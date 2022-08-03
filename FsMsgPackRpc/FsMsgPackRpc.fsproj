@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="scripts\sandbox.fsx" />
+    <Compile Include="FsMsgPackRpc.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MessagePack.FSharpExtensions" Version="3.0.0" />
+  </ItemGroup>
+
+  <ItemGroup />
+
+</Project>
