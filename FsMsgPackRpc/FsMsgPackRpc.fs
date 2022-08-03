@@ -11,7 +11,7 @@ type Msg = Req of (int*(Type*AsyncReplyChannel<ServerResp>)) | Resp of int*obj*b
 
 module Matcher = 
     ///agent to match responses to pending requests
-    ///Note: MsgPack rpc allows for out-of-order responses 
+    ///Note: MsgPack rpc protocol allows for out-of-order responses 
     let createAgent options (cts:CancellationTokenSource) =
             (fun (inbox:MailboxProcessor<Msg>) ->
                 let pending = new System.Collections.Generic.Dictionary<int,(Type*AsyncReplyChannel<ServerResp>)>()
