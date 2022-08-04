@@ -48,7 +48,7 @@ type Client(options:MessagePack.MessagePackSerializerOptions) =
     let receive() =
         task {
             try
-                use strm = new MessagePackStreamReader(tcpClient.GetStream(),leaveOpen=true)
+                use strm = new MessagePackStreamReader(tcpClient.GetStream(),leaveOpen=true) //handles framing
                 while not cts.IsCancellationRequested do
                     let! h = strm.ReadArrayHeaderAsync(cts.Token)
                     let! m = strm.ReadAsync(cts.Token)
@@ -62,17 +62,19 @@ type Client(options:MessagePack.MessagePackSerializerOptions) =
                         let errObj = MessagePackSerializer.Deserialize<obj>(&errV)
                         let bytes = data.Value.ToArray()
                         let resp = Resp(msgId,errObj,bytes)
-                        printfn "%A" resp
+                        //printfn "%A" resp
                         mbp.Value.Post resp
             with ex -> 
                 printfn "%A" ex.Message
         }        
 
-    member _.Connect (address:string,port:int) =  
+    member _.Connect (address:string,port:int) =
+        if sem.SafeWaitHandle.IsInvalid then failwith "client disposed"
         tcpClient.Connect(address,port)        
         receive() |> ignore
 
-    member private _.Disconnect() =
+    ///same as Dispose()
+    member _.Disconnect() =
         cts.CancelAfter(100)
         tcpClient.Dispose()
         sem.Dispose()

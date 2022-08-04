@@ -6,14 +6,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="scripts\sandbox.fsx" />
+    <None Include="scripts\EventLoop.fsx" />
+    <None Include="scripts\packages.fsx" />
+    <None Include="scripts\airsimcar_test.fsx" />
+    <None Include="scripts\random_agent.fsx" />
     <Compile Include="FsMsgPackRpc.fs" />
+    <Compile Include="AirSimCar.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="MessagePack.FSharpExtensions" Version="3.0.0" />
   </ItemGroup>
-
-  <ItemGroup />
 
 </Project>
