@@ -30,7 +30,7 @@ module Matcher =
                                         use ms = new MemoryStream(resp)
                                         let! obj = task {return! MessagePackSerializer.DeserializeAsync(t,ms,options=options)} |> Async.AwaitTask                                    
                                         rc.Reply(Data obj)                                   
-                                | _ -> printfn $"unmatched response for id {id}"
+                                | _ -> printfn $"no pending request found for id {id}"
                         with ex -> 
                             printfn "%A" ex.Message
             })
@@ -44,7 +44,9 @@ type Client(options:MessagePack.MessagePackSerializerOptions) =
     let mbp = lazy(MailboxProcessor.Start(Matcher.createAgent options cts,cts.Token))
     let sem = new ManualResetEvent(true)
 
-    //message receive loop
+    //message receive loop 
+    //messages may arrive out-of-order (per MessagePack RPC spec)
+    //continually receive arriving messages
     let receive() =
         task {
             try
@@ -65,7 +67,8 @@ type Client(options:MessagePack.MessagePackSerializerOptions) =
                         //printfn "%A" resp
                         mbp.Value.Post resp
             with ex -> 
-                printfn "%A" ex.Message
+                if not cts.IsCancellationRequested then
+                    printfn "%A" ex.Message
         }        
 
     member _.Connect (address:string,port:int) =
