@@ -5,19 +5,23 @@ open System
 open AirSimCar
 open TorchSharp
 
+let discreteActions = 6
+
 ///state we need for reinforcement learning
 type RLState =
     {
         Pose                : torch.Tensor
         Speed               : float
         Collision           : bool
-        DepthPerpective     : torch.Tensor
+        DepthImage          : torch.Tensor       //depth perspective from front camera transformed
+        PrevDepthImage      : torch.Tensor
     }
     with 
         static member Default =
             {
                 Pose                = torch.zeros([|3L|],dtype=torch.float)
-                DepthPerpective     = torch.zeros(1,84,84,dtype=torch.float)
+                DepthImage          = torch.zeros(1,84,84,dtype=torch.float)
+                PrevDepthImage      = torch.zeros(1,84,84,dtype=torch.float)
                 Speed               = 3.0
                 Collision           = false
             }
@@ -71,7 +75,8 @@ let getObservations (c:CarClient) prevState =
                 Speed           = carState.speed
                 Collision       = collInfo.has_collided
                 Pose            = carState.kinematics_estimated.position.ToArray() |> torch.tensor
-                DepthPerpective = img
+                DepthImage      = img
+                PrevDepthImage  = prevState.DepthImage
             }
         return nextState
     }
@@ -155,7 +160,7 @@ let startRandomAgent (go:bool ref) =
                 else
                     match isDone with
                         | NotDone -> 
-                            let action = rng.Next(6)
+                            let action = rng.Next(discreteActions)
                             return! loop state' ctrls' action
                         | doneRsn ->
                             printfn $"Done: {doneRsn}"                        

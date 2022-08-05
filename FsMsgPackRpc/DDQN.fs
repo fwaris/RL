@@ -6,7 +6,7 @@ open TorchSharp.Fun
 open System.IO
 open FSharpx.Collections
 
-///DDQN maintains target and online versions of a model
+///DDQNModel maintains target and online versions of a model
 type DDQNModel = {Target : IModel;  Online : IModel}
 type Experience = {State:torch.Tensor; NextState:torch.Tensor; Action:int; Reward:float32; Done:bool}
 type ExperienceBuffer = {Buffer : RandomAccessList<Experience>; Max:int}
@@ -29,13 +29,14 @@ module Experience =
 
     let append exp buff = 
         let ls = buff.Buffer
-        let ls = RandomAccessList.append exp ls
+        let ls = RandomAccessList.cons exp ls
         let ls =
             if RandomAccessList.length ls > buff.Max then 
                 RandomAccessList.uncons ls |> snd
             else
                 ls
         {buff with Buffer = ls}
+
     let sample n buff =
         if buff.Buffer.Length <= n then
             buff.Buffer |> Seq.toArray 
