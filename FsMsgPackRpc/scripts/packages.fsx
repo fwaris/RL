@@ -2,8 +2,14 @@
 #r "nuget: OpenCvSharp4.Windows, 4.6.0.20220608"
 #r "nuget: TorchSharp-cpu"
 #r "nuget: MathNet.Numerics.FSharp"
+#r "nuget: FSharpX.Collections"
+#r "nuget: TorchSharp.Fun"
+
 #load "../FsMsgPackRpc.fs"
 #load "../AirSimCar.fs"
+#load "../CarEnvironment.fs"
+#load "../DDQN.fs"
+
 
 open System
 let userProfile = Environment.GetEnvironmentVariable("UserProfile")

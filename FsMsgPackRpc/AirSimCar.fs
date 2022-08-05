@@ -1,4 +1,7 @@
 ﻿namespace AirSimCar
+//MessagePack-rpc client for the the AirSim Car environment
+//AirSim is a simulation environmnet built on top of the Unreal game engine
+//see: https://microsoft.github.io/AirSim/
 open System
 open MessagePack
 open MessagePack.FSharp
@@ -154,6 +157,7 @@ module Defaults =
                     StandardResolver.Instance)
     let options = MessagePackSerializerOptions.Standard.WithResolver(resolver)
 
+///client for the AirSim 'car' environment - only the methods required for the DDQN sample have been implemented
 type CarClient(options) =
     inherit Client(options) 
 

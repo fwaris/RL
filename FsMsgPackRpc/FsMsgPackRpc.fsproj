@@ -8,14 +8,21 @@
   <ItemGroup>
     <None Include="scripts\EventLoop.fsx" />
     <None Include="scripts\packages.fsx" />
-    <None Include="scripts\airsimcar_test.fsx" />
+    <None Include="scripts\hello_car.fsx" />
+    <None Include="scripts\image_transform_test.fsx" />
     <None Include="scripts\random_agent.fsx" />
+    <None Include="scripts\ddqn.fsx" />
     <Compile Include="FsMsgPackRpc.fs" />
     <Compile Include="AirSimCar.fs" />
+    <Compile Include="CarEnvironment.fs" />
+    <Compile Include="DDQN.fs" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FSharpx.Collections" Version="3.0.1" />
     <PackageReference Include="MessagePack.FSharpExtensions" Version="3.0.0" />
+    <PackageReference Include="TorchSharp-cpu" Version="0.97.1" />
+    <PackageReference Include="TorchSharp.Fun" Version="0.50.0" />
   </ItemGroup>
 
 </Project>
