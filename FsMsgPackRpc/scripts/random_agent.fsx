@@ -25,7 +25,7 @@ type RLState =
             }
 
 ///send the given action to car after translating it to the appropriate control message
-let do_action (c:CarClient) action carCtrl = 
+let doAction (c:CarClient) action carCtrl = 
     let carCtrl = {carCtrl with throttle = 1.0; brake = 0.0}
     async {
         let ctl =
@@ -41,7 +41,7 @@ let do_action (c:CarClient) action carCtrl =
     }
 
 ///send random actions to car (for testing)
-let random_agent (c:CarClient) (go:bool ref) =
+let randomAgent (c:CarClient) (go:bool ref) =
     let state = ref {CarControls.Default with throttle = 0.2}
     let rng = Random()
     async {
@@ -49,7 +49,7 @@ let random_agent (c:CarClient) (go:bool ref) =
             do! Async.Sleep 1000
 
             let action = rng.Next(6)           
-            let! st' = do_action c action state.Value
+            let! st' = doAction c action state.Value
             state.Value <- st'
     }
 
@@ -62,7 +62,7 @@ c1.armDisarm(true) |> Async.AwaitTask |> Async.RunSynchronously
 c1.reset() |> Async.AwaitTask |> Async.RunSynchronously
 
 let go = ref true
-random_agent c1 go |> Async.Start
+randomAgent c1 go |> Async.Start
 
 go.Value <- false
 c1.Disconnect()
@@ -81,7 +81,7 @@ let imageRequest : ImageRequest[] =
 
 ///compute next state from previous state and 
 ///new observations from the environment
-let getObjs (c:CarClient) prevState =
+let getObservations (c:CarClient) prevState =
     task {
         let! images = c.simGetImages(imageRequest)
         let! carState = c.getCarState()
@@ -98,7 +98,7 @@ let getObjs (c:CarClient) prevState =
         return nextState
     }
 
-let compute_reward (state:RLState) (ctrls:CarControls) =
+let computeReward (state:RLState) (ctrls:CarControls) =
     let MAX_SPEED = 300.
     let MIN_SPEED = 10.
     let THRESH_DIST = 3.5
@@ -129,6 +129,7 @@ let compute_reward (state:RLState) (ctrls:CarControls) =
                 let reward_speed = (((state.Speed - MIN_SPEED)/(MAX_SPEED - MIN_SPEED)) - 0.5)
                 reward_dist + reward_speed
         let isDone =
+            printfn $"r:{reward},b:{ctrls.brake},s:{state.Speed},c:{state.Collision}"
             match reward, ctrls.brake, state.Speed, state.Collision with
             | rwrd,_,_,_ when rwrd < -1.0           -> true      //significant negative reward
             | _,br,sp,_ when br = 0.0 && sp < 1.0   -> true      //car stuck
@@ -140,12 +141,55 @@ let compute_reward (state:RLState) (ctrls:CarControls) =
 
 let step c (state,ctrls) action =
     task{  
-        let! ctrls' = do_action c action ctrls
-        let! state' = getObjs c state
-        let reward,isDone = compute_reward state' ctrls'
+        let! ctrls' = doAction c action ctrls
+        let! state' = getObservations c state
+        let reward,isDone = computeReward state' ctrls'
         return (state',ctrls',reward,isDone)
     }
 
+let initCar (c:CarClient) = 
+    task {
+        let! _ = c.enableApiControl(true) 
+        let! isApi = c.isApiControlEnabled() 
+        if isApi then
+            let! _ = c.armDisarm(true) 
+            do! c.reset()
+        else
+            return failwith "unable to put car in api mode"
+    }
+
+let start (go:bool ref) =
+    let c = new CarClient(AirSimCar.Defaults.options)
+    c.Connect(AirSimCar.Defaults.address,AirSimCar.Defaults.port)
+    initCar c |> Async.AwaitTask |> Async.RunSynchronously
+    let initState = RLState.Default
+    let initCtrls = {CarControls.Default with throttle = 1.0}
+    let initAction = 1
+    let rng = Random()
+    let rec loop state ctrls nextAction =
+        async {
+            let! (state',ctrls',reward,isDone) = step c (state,ctrls) nextAction |> Async.AwaitTask
+            printfn $"reward: {reward}, isDone: {isDone}"
+            if not go.Value then
+                //do! initCar c |> Async.AwaitTask
+                c.Disconnect()
+                printfn "stopped"
+            else
+                if isDone then
+                    do! c.reset() |> Async.AwaitTask
+                    return! loop initState initCtrls initAction
+                else
+                    let action = rng.Next(6)
+                    return! loop state' ctrls' action
+        }
+    loop initState initCtrls initAction
+
+(*
+let go = ref true
+start go |> Async.Start
+
+go.Value <- false
+*)
 
 
 
