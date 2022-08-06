@@ -20,7 +20,7 @@ let createModel () =
 let model = DDQNModel.create createModel
 let device = torch.CPU
 let gamma = 0.9f
-let exploration = {Rate=1.0; Decay=0.99999975; Min=0.1}
+let exploration = {Rate=0.2; Decay=0.999; Min=0.01}
 let initDDQN = DDQN.create model gamma exploration CarEnvironment.discreteActions device
 let initExperience = Experience.createBuffer 100000
 let lossFn = torch.nn.functional.smooth_l1_loss()
@@ -53,9 +53,9 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
     resetCar clnt |> Async.AwaitTask |> Async.RunSynchronously
     let initState = CarEnvironment.RLState.Default
     let initCtrls = {CarControls.Default with throttle = 1.0}
-    let burnIn = 32
+    let burnIn = 100000
     let learnEvery = 3
-    let syncEvery = 100
+    let syncEvery = 10000
     let rng = System.Random()
     let rec loop count (state:CarEnvironment.RLState) ctrls ddqn experienceBuff =
         async {
@@ -69,7 +69,7 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
 
                 //perform action in environment, observe new state, compute reward
                 let! (state,ctrls,reward,isDone) = CarEnvironment.step clnt (state,ctrls) action 100 |> Async.AwaitTask
-                printfn $"reward: {reward}, isDone: {isDone}, {action}, s,b,t = {ctrls.steering},{ctrls.brake},{ctrls.throttle}, speed={state.Speed}"
+                printfn $"{count},exp: %.03f{ddqn.Step.ExplorationRate}, reward: {reward}, isDone: {isDone}, {action}, s,b,t=({ctrls.steering},{ctrls.brake},{ctrls.throttle}), spd=%0.02f{state.Speed}, buff={experienceBuff.Buffer.Length}"
 
                 //add to experience buffer
                 let experience = {NextState = state.DepthImage; Action=action; State = state.PrevDepthImage; Reward=float32 reward; Done=isDone <> CarEnvironment.NotDone}
