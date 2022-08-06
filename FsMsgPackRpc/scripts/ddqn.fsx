@@ -38,7 +38,8 @@ let updateQ td_estimate td_target =
 let resetCar (clnt:CarClient)=
     task {
          do! clnt.reset() 
-         do! Async.Sleep 1000 // the car needs time to 'settle' after a reset
+         do! clnt.setCarControls({CarControls.Default with throttle = 1.0})
+         do! Async.Sleep 1500 // the car needs time to 'settle' after a reset
     }
 
 let trainDDQN (clnt:CarClient) (go:bool ref) =
@@ -52,7 +53,7 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
     let rec loop count (state:CarEnvironment.RLState) ctrls ddqn experienceBuff =
         async {
             try
-                //select action
+                //select action to take
                 let action,ddqn = 
                     if count <= burnIn then
                         rng.Next(CarEnvironment.discreteActions),ddqn           //select random actions in the beginning to build the experience buffer
@@ -60,8 +61,8 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                         DDQN.selectAction state.DepthImage ddqn                 //select policy action
 
                 //perform action in environment, observe new state, compute reward
-                let! (state,ctrls,reward,isDone) = CarEnvironment.step clnt (state,ctrls) action |> Async.AwaitTask
-                printfn $"reward: {reward}, isDone: {isDone}"
+                let! (state,ctrls,reward,isDone) = CarEnvironment.step clnt (state,ctrls) action 100 |> Async.AwaitTask
+                printfn $"reward: {reward}, isDone: {isDone}, {action}, %A{ctrls}"
 
                 //add to experience buffer
                 let experience = {NextState = state.DepthImage; Action=action; State = state.PrevDepthImage; Reward=float32 reward; Done=isDone <> CarEnvironment.NotDone}
@@ -69,7 +70,6 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
 
                 //check for termination
                 if not go.Value then
-                    clnt.Disconnect()
                     printfn "stopped"
                 else
                     //periodically train online model from a sample of the experience buffer
@@ -86,6 +86,7 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
 
                     let count = count + 1
                     match isDone with CarEnvironment.NotDone -> () | _ ->  do! resetCar clnt |> Async.AwaitTask
+                    
                     return! loop count state ctrls ddqn experienceBuff
                     
             with ex -> printfn "%A" ex.Message
@@ -96,7 +97,7 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
 let runTraining go =
     async {
         use c = new CarClient(AirSimCar.Defaults.options)
-        c.Connect(AirSimCar.Defaults.address,AirSimCar.Defaults.port)
+        c.Connect(AirSimCar.Defaults.address,AirSimCar.Defaults.port)       
         do! trainDDQN c go 
     }
     |> Async.Start

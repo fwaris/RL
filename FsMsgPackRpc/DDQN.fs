@@ -18,7 +18,7 @@ module DDQNModel =
     let create (fmodel: unit -> IModel) = 
         let tgt = fmodel()
         let onln = fmodel()
-        onln.Module.parameters() |> Seq.iter (fun p -> p.requires_grad <- false)
+        tgt.Module.parameters() |> Seq.iter (fun p -> p.requires_grad <- false)
         {Target=tgt; Online=onln}
 
     let sync models =
@@ -46,8 +46,8 @@ module Experience =
 
     let recall n buff =
         let exps = sample n buff
-        let states     = exps |> Array.map (fun x->x.State) |> torch.vstack
-        let nextStates = exps |> Array.map (fun x->x.NextState) |> torch.vstack
+        let states     = exps |> Array.map (fun x->x.State.unsqueeze(0L)) |> torch.vstack
+        let nextStates = exps |> Array.map (fun x->x.NextState.unsqueeze(0L)) |> torch.vstack
         let actions    = exps |> Array.map(fun x->x.Action)
         let rewards    = exps |> Array.map(fun x -> x.Reward)
         let dones      = exps |> Array.map(fun x->x.Done)
@@ -56,8 +56,8 @@ module Experience =
 
 module DDQN =
     //use randomization from single source - pytorch
-    let rand() = torch.rand([|1L|],dtype=torch.float32) |> Tensor.getData<float> |> Array.head
-    let randint n = torch.randint(n,[|1|]) |> Tensor.getData<int> |> Array.head
+    let rand() : float = torch.rand([|1L|],dtype=torch.double).item()
+    let randint n : int = torch.randint(n,[|1|],dtype=torch.int32).item()
 
     let private updateStep (ddqn:DDQN) =
         let step' =
@@ -92,7 +92,8 @@ module DDQN =
 
     let td_estimate (state:torch.Tensor) (actions:int[]) ddqn =
         use q = ddqn.Model.Online.forward(state) //batch x actions
-        q.[torch.TensorIndex.Colon,actions]
+        let idx = [|torch.TensorIndex.Single 0; torch.TensorIndex.Tensor ( torch.tensor(actions,dtype=torch.int64))|]
+        q.index(idx)
 
     let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) ddqn =
         use t = torch.no_grad()
@@ -102,8 +103,10 @@ module DDQN =
         use next_state_q = ddqn.Model.Online.forward(next_state)
         use best_action  = next_state_q.argmax(dimension=1L)
         use next_qs = ddqn.Model.Target.forward(next_state)
-        use next_q = next_qs.[torch.TensorIndex.Colon,best_action]
+        let idx = [|torch.TensorIndex.Single 0; torch.TensorIndex.Tensor(best_action)|]
+        use next_q = next_qs.index(idx)
         use ret = t_reward + (1.0f.ToScalar() -  t_isDoneF) * ddqn.Gamma.ToScalar() * next_q
+        use _ = torch.enable_grad()
         ret.float()
 
 

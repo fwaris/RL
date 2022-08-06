@@ -29,7 +29,7 @@ type RLState =
 type DoneReason = LowReward | Collision | Stuck | NotDone
 
 ///send the given action to car after translating it to the appropriate control message
-let doAction (c:CarClient) action carCtrl = 
+let doAction (c:CarClient) action carCtrl (waitMs:int) = 
     let carCtrl = {carCtrl with throttle = 1.0; brake = 0.0}
     async {
         let ctl =
@@ -41,7 +41,7 @@ let doAction (c:CarClient) action carCtrl =
             | 4 -> {carCtrl with steering = 0.25}
             | _ -> {carCtrl with steering = -0.25}
         do! c.setCarControls(ctl) |> Async.AwaitTask
-        do! Async.Sleep 50
+        do! Async.Sleep waitMs
         return ctl
     }
 
@@ -118,9 +118,9 @@ let computeReward (state:RLState) (ctrls:CarControls) =
         | _                                     -> NotDone
     reward,isDone
 
-let step c (state,ctrls) action =
+let step c (state,ctrls) action waitMs =
     task{  
-        let! ctrls' = doAction c action ctrls
+        let! ctrls' = doAction c action ctrls waitMs
         let! state' = getObservations c state
         let reward,isDone = computeReward state' ctrls'
         return (state',ctrls',reward,isDone)
@@ -151,7 +151,7 @@ let startRandomAgent (go:bool ref) =
     let rec loop state ctrls nextAction =
         async {
             try
-                let! (state',ctrls',reward,isDone) = step c (state,ctrls) nextAction |> Async.AwaitTask
+                let! (state',ctrls',reward,isDone) = step c (state,ctrls) nextAction 1000 |> Async.AwaitTask
                 printfn $"reward: {reward}, isDone: {isDone}"
                 if not go.Value then
                     //do! initCar c |> Async.AwaitTask
@@ -170,11 +170,3 @@ let startRandomAgent (go:bool ref) =
             with ex -> printfn "%A" ex.Message
         }
     loop initState initCtrls initAction
-
-(*
-let go = ref true
-startRandomAgent go |> Async.Start
-
-go.Value <- false
-*)
-
