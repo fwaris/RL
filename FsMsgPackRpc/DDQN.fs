@@ -22,7 +22,7 @@ module DDQNModel =
         {Target=tgt; Online=onln}
 
     let sync models =
-        models.Target.Module.load_state_dict(models.Online.Module.state_dict())
+        models.Target.Module.load_state_dict(models.Online.Module.state_dict()) |> ignore
 
 module Experience =
     let createBuffer maxExperiance = {Buffer =RandomAccessList.empty; Max=maxExperiance}
@@ -43,6 +43,16 @@ module Experience =
         else
             let idx = torch.randperm(int64 buff.Buffer.Length,dtype=torch.int) |> Tensor.getData<int> 
             [|for i in 0..n-1 -> buff.Buffer.[idx.[i]]|]
+
+    let recall n buff =
+        let exps = sample n buff
+        let states     = exps |> Array.map (fun x->x.State) |> torch.vstack
+        let nextStates = exps |> Array.map (fun x->x.NextState) |> torch.vstack
+        let actions    = exps |> Array.map(fun x->x.Action)
+        let rewards    = exps |> Array.map(fun x -> x.Reward)
+        let dones      = exps |> Array.map(fun x->x.Done)
+        states,nextStates,rewards,actions,dones
+
 
 module DDQN =
     //use randomization from single source - pytorch
@@ -69,7 +79,7 @@ module DDQN =
             Device = device
         }
 
-    let act (state:torch.Tensor) (ddqn:DDQN) =
+    let selectAction (state:torch.Tensor) (ddqn:DDQN) =
         let actionIdx =
             if rand() < ddqn.Step.ExplorationRate then //explore
                 randint ddqn.Actions

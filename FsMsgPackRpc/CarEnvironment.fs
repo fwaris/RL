@@ -41,7 +41,7 @@ let doAction (c:CarClient) action carCtrl =
             | 4 -> {carCtrl with steering = 0.25}
             | _ -> {carCtrl with steering = -0.25}
         do! c.setCarControls(ctl) |> Async.AwaitTask
-        do! Async.Sleep 1000
+        do! Async.Sleep 50
         return ctl
     }
 
