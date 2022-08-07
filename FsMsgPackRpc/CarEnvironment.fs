@@ -99,8 +99,6 @@ let computeReward (state:RLState) (ctrls:CarControls) =
     let dist =         
         (10_000_000., List.pairwise pts)
         ||> List.fold (fun st (a,b) -> 
-            use a = a
-            use b = b
             use nrm_t = torch.linalg.cross(car_pt - a, car_pt - b)
             let nrm = nrm_t.norm().ToDouble()
             use denom_t  = a - b

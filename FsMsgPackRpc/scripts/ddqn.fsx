@@ -125,8 +125,8 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
 
 let runTraining go =
     async {
-        use c = new CarClient(AirSimCar.Defaults.options)
-        c.Connect(AirSimCar.Defaults.address,AirSimCar.Defaults.port)       
+        let c = new CarClient(AirSimCar.Defaults.options)
+        c.Connect(AirSimCar.Defaults.address,AirSimCar.Defaults.port)      
         do! trainDDQN c go 
     }
 
