@@ -57,10 +57,11 @@ let imageRequest : ImageRequest[] =
     |]
 
 let transformImage (resp:ImageResponse) =
-    let t1 = torch.tensor resp.image_data_float
-    let t2 = 255.f.ToScalar() / torch.maximum(torch.ones_like t1, t1)
-    let t3 = t2.reshape(1,resp.height,resp.width)
-    torchvision.transforms.Resize(84,84).forward(t3)
+    use t1 = torch.tensor resp.image_data_float
+    use t2 = 255.f.ToScalar() / torch.maximum(torch.ones_like t1, t1)
+    use t3 = t2.reshape(resp.height,resp.width,1)
+    use t4 = t3.permute(2,0,1)
+    torchvision.transforms.Resize(84,84).forward(t4)
 
 ///compute next state from previous state and 
 ///new observations from the environment
@@ -98,8 +99,12 @@ let computeReward (state:RLState) (ctrls:CarControls) =
     let dist =         
         (10_000_000., List.pairwise pts)
         ||> List.fold (fun st (a,b) -> 
-            let nrm = torch.linalg.cross(car_pt - a, car_pt - b).norm().ToDouble()
-            let denom = (a - b).norm().ToDouble()
+            use a = a
+            use b = b
+            use nrm_t = torch.linalg.cross(car_pt - a, car_pt - b)
+            let nrm = nrm_t.norm().ToDouble()
+            use denom_t  = a - b
+            let denom = denom_t.norm().ToDouble()
             let dist' = nrm/denom
             min st dist')
     let reward =

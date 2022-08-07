@@ -2,7 +2,12 @@
 open AirSimCar
 open TorchSharp
 open TorchSharp.Fun
+open System.IO
 open DDQN
+
+
+let root = System.Environment.GetEnvironmentVariable("AIRSIM_DDQN")
+let (@@) a b = Path.Combine(a,b)
 
 //ddqn pytorch model
 let createModel () = 
@@ -17,19 +22,23 @@ let createModel () =
     ->> torch.nn.ReLU()
     ->> torch.nn.Linear(512L,CarEnvironment.discreteActions)
 
-let modelFile = @"d:\s\ddqn\ddqn_airsim.bin"
-let buffFile = @"d:\s\ddqn\expr_buff_airsim.bin"
-let model = DDQNModel.create createModel
+let modelFile = root @@ "ddqn_airsim.bin"
+let exprFile = root @@ "expr_buff_airsim.bin"
+let model = 
+    if File.Exists modelFile then         //restart session
+        DDQNModel.load createModel modelFile
+    else
+        DDQNModel.create createModel
+let initExperience =
+    if File.Exists exprFile then          //reuse saved buffer
+        Experience.load exprFile
+    else
+        Experience.createBuffer 100000
 let lossFn = torch.nn.functional.smooth_l1_loss()
 let device = torch.CPU
 let gamma = 0.9f
 let exploration = {Rate=0.2; Decay=0.999; Min=0.01}
 let initDDQN = DDQN.create model gamma exploration CarEnvironment.discreteActions device
-let initExperience =
-    if System.IO.File.Exists buffFile then
-        Experience.load buffFile
-    else
-        Experience.createBuffer 100000
 let batchSize = 32
 let opt = torch.optim.Adam(model.Online.Module.parameters(), lr=0.00025)
 
@@ -53,7 +62,8 @@ let resetCar (clnt:CarClient) =
         do! Async.Sleep 1500
     }
 
-let burnIn = 100000
+let burnInMax = 100000
+let burnIn = burnInMax - initExperience.Buffer.Length |> max 0
 let learnEvery = 3
 let syncEvery = 10000
 let saveBuffEvery = 5000
@@ -95,7 +105,7 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                         printfn $"{count}, loss: {loss}"
 
                     if count % saveBuffEvery = 0 then
-                        Experience.save buffFile experienceBuff 
+                        Experience.save exprFile experienceBuff 
 
                     //periodically sync target model with online model
                     if count > syncEvery && count % syncEvery = 0 then 
