@@ -17,16 +17,19 @@ let createModel () =
     ->> torch.nn.ReLU()
     ->> torch.nn.Linear(512L,CarEnvironment.discreteActions)
 
+let modelFile = @"d:\s\ddqn\ddqn_airsim.bin"
+let buffFile = @"d:\s\ddqn\expr_buff_airsim.bin"
 let model = DDQNModel.create createModel
+let lossFn = torch.nn.functional.smooth_l1_loss()
 let device = torch.CPU
 let gamma = 0.9f
 let exploration = {Rate=0.2; Decay=0.999; Min=0.01}
 let initDDQN = DDQN.create model gamma exploration CarEnvironment.discreteActions device
-let initExperience = Experience.createBuffer 100000
-let lossFn = torch.nn.functional.smooth_l1_loss()
-let modelFile = @"e:\s\ddqn\ddqn_airsim.bin"
-let buffFile = @"e:\s\ddqn\expr_buff_airsim.bin"
-
+let initExperience =
+    if System.IO.File.Exists buffFile then
+        Experience.load buffFile
+    else
+        Experience.createBuffer 100000
 let batchSize = 32
 let opt = torch.optim.Adam(model.Online.Module.parameters(), lr=0.00025)
 
@@ -53,7 +56,7 @@ let resetCar (clnt:CarClient) =
 let burnIn = 100000
 let learnEvery = 3
 let syncEvery = 10000
-let saveBuffEvery = 100
+let saveBuffEvery = 5000
 
 let trainDDQN (clnt:CarClient) (go:bool ref) =
     resetCar clnt |> Async.AwaitTask |> Async.RunSynchronously

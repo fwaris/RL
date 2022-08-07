@@ -63,7 +63,7 @@ module Experience =
         let dones      = exps |> Array.map (fun x->x.Done)
         states,nextStates,rewards,actions,dones
 
-    type Tser = int*int64[]*seq<float32[]*float32[]*int*float32*bool> //use simple types for serialization
+    type Tser = int*int64[]*List<float32[]*float32[]*int*float32*bool> //use simple types for serialization
     let save path buff =
         let data = 
             buff.Buffer 
@@ -74,6 +74,8 @@ module Experience =
                 x.Reward,
                 x.Done
             )
+            |> Seq.toList
+
         if Seq.isEmpty data then failwithf "empty buffer cannot be saved as tensor shape is unknown"
         let shape = (Seq.head buff.Buffer).State.shape
         let ser = MBrace.FsPickler.BinarySerializer()
