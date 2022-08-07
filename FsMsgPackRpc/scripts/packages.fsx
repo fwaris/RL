@@ -4,6 +4,7 @@
 #r "nuget: MathNet.Numerics.FSharp"
 #r "nuget: FSharpX.Collections"
 #r "nuget: TorchSharp.Fun"
+#r "nuget: FsPickler"
 
 #load "../FsMsgPackRpc.fs"
 #load "../AirSimCar.fs"

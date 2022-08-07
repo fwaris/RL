@@ -24,7 +24,8 @@ let exploration = {Rate=0.2; Decay=0.999; Min=0.01}
 let initDDQN = DDQN.create model gamma exploration CarEnvironment.discreteActions device
 let initExperience = Experience.createBuffer 100000
 let lossFn = torch.nn.functional.smooth_l1_loss()
-let modelFile = @"e:\s\ddqn\ddq_airsim.bin"
+let modelFile = @"e:\s\ddqn\ddqn_airsim.bin"
+let buffFile = @"e:\s\ddqn\expr_buff_airsim.bin"
 
 let batchSize = 32
 let opt = torch.optim.Adam(model.Online.Module.parameters(), lr=0.00025)
@@ -49,13 +50,15 @@ let resetCar (clnt:CarClient) =
         do! Async.Sleep 1500
     }
 
+let burnIn = 100000
+let learnEvery = 3
+let syncEvery = 10000
+let saveBuffEvery = 100
+
 let trainDDQN (clnt:CarClient) (go:bool ref) =
     resetCar clnt |> Async.AwaitTask |> Async.RunSynchronously
     let initState = CarEnvironment.RLState.Default
     let initCtrls = {CarControls.Default with throttle = 1.0}
-    let burnIn = 100000
-    let learnEvery = 3
-    let syncEvery = 10000
     let rng = System.Random()
     let rec loop count (state:CarEnvironment.RLState) ctrls ddqn experienceBuff =
         async {
@@ -88,9 +91,12 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                         let loss = updateQ td_est td_tgt                                                          //update online model 
                         printfn $"{count}, loss: {loss}"
 
+                    if count % saveBuffEvery = 0 then
+                        Experience.save buffFile experienceBuff 
+
                     //periodically sync target model with online model
                     if count > syncEvery && count % syncEvery = 0 then 
-                        ddqn.Model.Online.Module.save(modelFile) |> ignore
+                        DDQNModel.save modelFile ddqn.Model                        
                         DDQNModel.sync ddqn.Model
                         printfn $"Exploration rate: {ddqn.Step.ExplorationRate}"
 

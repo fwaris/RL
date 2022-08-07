@@ -24,6 +24,16 @@ module DDQNModel =
     let sync models =
         models.Target.Module.load_state_dict(models.Online.Module.state_dict()) |> ignore
 
+    let save file ddqn  = ddqn.Online.Module.Save(file)
+
+    let load (fmodel:unit -> IModel) file =
+        let ddqn = create fmodel
+        let mdl = torch.nn.Module.Load(file)
+        ddqn.Online.Module.load_state_dict(mdl.state_dict()) |> ignore
+        ddqn.Target.Module.load_state_dict(mdl.state_dict()) |> ignore
+        ddqn
+
+
 module Experience =
     let createBuffer maxExperiance = {Buffer =RandomAccessList.empty; Max=maxExperiance}
 
@@ -48,11 +58,45 @@ module Experience =
         let exps = sample n buff
         let states     = exps |> Array.map (fun x->x.State.unsqueeze(0L)) |> torch.vstack
         let nextStates = exps |> Array.map (fun x->x.NextState.unsqueeze(0L)) |> torch.vstack
-        let actions    = exps |> Array.map(fun x->x.Action)
-        let rewards    = exps |> Array.map(fun x -> x.Reward)
-        let dones      = exps |> Array.map(fun x->x.Done)
+        let actions    = exps |> Array.map (fun x->x.Action)
+        let rewards    = exps |> Array.map (fun x -> x.Reward)
+        let dones      = exps |> Array.map (fun x->x.Done)
         states,nextStates,rewards,actions,dones
 
+    type Tser = int*int64[]*seq<float32[]*float32[]*int*float32*bool> //use simple types for serialization
+    let save path buff =
+        let data = 
+            buff.Buffer 
+            |> Seq.map (fun x-> 
+                x.State.data<float32>().ToArray(),
+                x.NextState.data<float32>().ToArray(),
+                x.Action,
+                x.Reward,
+                x.Done
+            )
+        if Seq.isEmpty data then failwithf "empty buffer cannot be saved as tensor shape is unknown"
+        let shape = (Seq.head buff.Buffer).State.shape
+        let ser = MBrace.FsPickler.BinarySerializer()
+        use str = System.IO.File.Create (path:string)
+        let sval:Tser = (buff.Max,shape,data)
+        ser.Serialize(str,sval)
+
+    let load path =
+        let ser = MBrace.FsPickler.BinarySerializer()
+        use str = System.IO.File.OpenRead(path:string)        
+        let ((mx,shape,data):Tser) = ser.Deserialize<Tser>(str)
+        let buff = createBuffer mx        
+        (buff,data)
+        ||> Seq.fold (fun acc (st,nst,act,rwd,dn) -> 
+            let exp =
+                {
+                    State       = torch.tensor(st,dimensions=shape)
+                    NextState   = torch.tensor(nst, dimensions=shape)
+                    Action      = act
+                    Reward      = rwd
+                    Done        = dn
+                }
+            append exp acc)
 
 module DDQN =
     //use randomization from single source - pytorch
