@@ -1,6 +1,7 @@
 ﻿#load "packages.fsx"
 open System
 open AirSimCar
+open OpenCvSharp
 
 module Image =
     open OpenCvSharp
@@ -53,9 +54,15 @@ c1.Disconnect()
 let im1 = c1.simGetImage("1",ImageType.Scene) |> Async.AwaitTask |> Async.RunSynchronously
 let im2 = c1.simGetImage("0",ImageType.Scene) |> Async.AwaitTask |> Async.RunSynchronously
 
+let im5s = c1.simGetImages([|{camera_name="0"; image_type=ImageType.DepthVis; pixels_as_float=true; compress=false}|]) |> Async.AwaitTask |> Async.RunSynchronously
 let im3s = c1.simGetImages([|{camera_name="1"; image_type=ImageType.DepthPerspective; pixels_as_float=false; compress=false}|]) |> Async.AwaitTask |> Async.RunSynchronously
-let im4s = c1.simGetImages([|{camera_name="1"; image_type=ImageType.DepthPerspective; pixels_as_float=true; compress=false}|]) |> Async.AwaitTask |> Async.RunSynchronously
-let im5s = c1.simGetImages([|{camera_name="1"; image_type=ImageType.DepthVis; pixels_as_float=true; compress=false}|]) |> Async.AwaitTask |> Async.RunSynchronously
+let im4s = c1.simGetImages([|{camera_name="0"; image_type=ImageType.DepthPerspective; pixels_as_float=true; compress=false}|]) |> Async.AwaitTask |> Async.RunSynchronously
+let im4 = im4s.[0]
+
+let txIm4 = CarEnvironment.transformImage im4
+txIm4.data<float32>().ToArray() |> Array.max
+let m = new Mat(84,84, MatType.CV_16S, txIm4.data<float32>().ToArray())
+Window.ShowImages m
 
 Image.showPng(im1) 
 Image.showPng(im2)
@@ -63,8 +70,6 @@ let im3 = im3s.[0]
 Image.showGray2(im3.width,im3.height,im3.image_data_uint8)
 Image.showPng(im3.image_data_uint8)
 c1.enableApiControl(false)
-let im4 = im4s.[0]
-Image.showGray(im4.width,im4.height,im4.image_data_float)
 
 let im5 = im5s.[0]        
 Image.showGray(im5.width,im5.height,im5.image_data_float)
