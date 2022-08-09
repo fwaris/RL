@@ -183,7 +183,13 @@ type CarClient(options) =
         
     member this.reset() =        
         let name = nameof this.reset
-        base.Call<_,unit>(name,[||])        
+        base.Call<_,unit>(name,[||])     
+        
+    member this.simListSceneObjects(?name_regex:string) =        
+        let name = nameof this.simListSceneObjects
+        let name_regex = defaultArg name_regex ".*"
+        let req:obj[] = [|name_regex|]
+        base.Call<_,string list>(name,req)  
 
     member this.setCarControls(car_controls:CarControls,?vehicle_name:string) =
         let name = nameof this.setCarControls  
@@ -210,6 +216,19 @@ type CarClient(options) =
         let vehicle_name = defaultArg vehicle_name ""
         let req:obj[] = [|vehicle_name|]
         base.Call<_,CarState>(name,req) 
+
+     member this.simSetKinematics(state:KinematicsState, ?ignore_collision:bool, ?vehicle_name:string) =
+        let name = nameof this.simSetKinematics
+        let ignore_collision = defaultArg ignore_collision true
+        let vehicle_name = defaultArg vehicle_name ""
+        let req:obj[] = [|state; ignore_collision; vehicle_name|]
+        base.Call<_,unit>(name,req)    
+
+     member this.simGetGroundTruthKinematics(?vehicle_name:string) =
+        let name = nameof this.simGetGroundTruthKinematics
+        let vehicle_name = defaultArg vehicle_name ""
+        let req:obj[] = [|vehicle_name|]
+        base.Call<_,KinematicsState>(name,req)    
         
     member this.simGetCollisionInfo(?vehicle_name:string) =
         let name = nameof this.simGetCollisionInfo

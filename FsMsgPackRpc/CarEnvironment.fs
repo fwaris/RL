@@ -56,11 +56,12 @@ let imageRequest : ImageRequest[] =
         }
     |]
 
+//scale camera image and resize to 84x84 
 let transformImage (resp:ImageResponse) =
     use t1 = torch.tensor resp.image_data_float
-    use t2 = 255.f.ToScalar() / torch.maximum(torch.ones_like t1, t1)
+    use t2 = 255.f.ToScalar() / torch.maximum(torch.ones_like t1, t1)  //inverts distance near is higher; max 'nearness' is 255
     use t3 = t2.reshape(resp.height,resp.width,1)
-    use t4 = t3.permute(2,0,1)
+    use t4 = t3.permute(2,0,1)                                         //HWC -> CHW 
     torchvision.transforms.Resize(84,84).forward(t4)
 
 ///compute next state from previous state and 

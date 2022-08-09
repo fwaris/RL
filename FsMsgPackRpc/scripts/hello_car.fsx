@@ -2,6 +2,9 @@
 open System
 open AirSimCar
 open OpenCvSharp
+open System.Threading.Tasks
+
+let inline exec (t:Task<_>) = t |> Async.AwaitTask |> Async.RunSynchronously
 
 module Image =
     open OpenCvSharp
@@ -40,23 +43,46 @@ module Image =
 let c1 = new CarClient(AirSimCar.Defaults.options)
 
 c1.Connect(AirSimCar.Defaults.address,AirSimCar.Defaults.port)
-c1.getServerVersion() |> Async.AwaitTask |> Async.RunSynchronously
-c1.enableApiControl(true) |> Async.AwaitTask |> Async.RunSynchronously
-c1.isApiControlEnabled() |> Async.AwaitTask |> Async.RunSynchronously
-c1.armDisarm(true) |> Async.AwaitTask |> Async.RunSynchronously
-c1.reset() |> Async.AwaitTask |> Async.RunSynchronously
-c1.setCarControls({CarControls.Default with throttle = 1.0 }) |> Async.AwaitTask |> Async.RunSynchronously
-let cs = c1.getCarState() |> Async.AwaitTask |> Async.RunSynchronously
-let ci = c1.simGetCollisionInfo() |> Async.AwaitTask |> Async.RunSynchronously
+c1.getServerVersion() |> exec
+c1.enableApiControl(true) |> exec
+c1.isApiControlEnabled() |> exec
+c1.armDisarm(true) |> exec
+c1.reset() |> exec
+c1.setCarControls({CarControls.Default with throttle = 1.0 }) |> exec
+let cs = c1.getCarState() |> exec
+let ci = c1.simGetCollisionInfo() |> exec
+
+c1.enableApiControl(false) |> exec 
+
+let obs = c1.simListSceneObjects() |> exec 
+obs |> List.choose(fun x->
+    let y= x.IndexOf("_")
+    if y > 0 then
+        x.Substring(0,y) |> Some
+    else
+        None)
+    |> List.countBy (fun x -> x)
+    |> List.iter (printfn "%A")
+
+let carId = c1.simListSceneObjects(name_regex="P.*Car") |> exec |> List.head
+
+let km1 = c1.getCarState() |> exec
+km1.kinematics_estimated.position
+km1.kinematics_estimated.orientation
+
+let gt = c1.simGetGroundTruthKinematics() |> exec
+let km2 = {gt with position={gt.position with x_val=5.0}}
+c1.simSetKinematics(km2) |> exec
+
 c1.Disconnect()
 
 
-let im1 = c1.simGetImage("1",ImageType.Scene) |> Async.AwaitTask |> Async.RunSynchronously
-let im2 = c1.simGetImage("0",ImageType.Scene) |> Async.AwaitTask |> Async.RunSynchronously
+let im1 = c1.simGetImage("1",ImageType.Scene) |> exec
+let im2 = c1.simGetImage("0",ImageType.Scene) |> exec
 
-let im5s = c1.simGetImages([|{camera_name="0"; image_type=ImageType.DepthVis; pixels_as_float=true; compress=false}|]) |> Async.AwaitTask |> Async.RunSynchronously
-let im3s = c1.simGetImages([|{camera_name="1"; image_type=ImageType.DepthPerspective; pixels_as_float=false; compress=false}|]) |> Async.AwaitTask |> Async.RunSynchronously
-let im4s = c1.simGetImages([|{camera_name="0"; image_type=ImageType.DepthPerspective; pixels_as_float=true; compress=false}|]) |> Async.AwaitTask |> Async.RunSynchronously
+let im5s = c1.simGetImages([|{camera_name="0"; image_type=ImageType.DepthVis; pixels_as_float=true; compress=false}|]) |> exec
+let im3s = c1.simGetImages([|{camera_name="1"; image_type=ImageType.DepthPerspective; pixels_as_float=false; compress=false}|]) |> exec
+let im4s = c1.simGetImages([|{camera_name="0"; image_type=ImageType.DepthPerspective; pixels_as_float=true; compress=false}|]) |> exec
 let im4 = im4s.[0]
 
 let txIm4 = CarEnvironment.transformImage im4

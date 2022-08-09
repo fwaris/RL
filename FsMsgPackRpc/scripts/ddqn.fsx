@@ -84,7 +84,7 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                         DDQN.selectAction state.DepthImage ddqn                 //select policy action
 
                 //perform action in environment, observe new state, compute reward
-                let! (state,ctrls,reward,isDone) = CarEnvironment.step clnt (state,ctrls) action 100 |> Async.AwaitTask
+                let! (state,ctrls,reward,isDone) = CarEnvironment.step clnt (state,ctrls) action 1000 |> Async.AwaitTask
                 printfn $"{count},exp: %.03f{ddqn.Step.ExplorationRate}, reward: {reward}, isDone: {isDone}, {action}, s,b,t=({ctrls.steering},{ctrls.brake},{ctrls.throttle}), spd=%0.02f{state.Speed}, buff={experienceBuff.Buffer.Length}"
 
                 //add to experience buffer
