@@ -83,22 +83,26 @@ let getObservations (c:CarClient) prevState =
         return nextState
     }
 
+//points that represent the center points of the road network corners in NED coordinates
+let roadPts =
+    [
+        (0, -1); (130, -1); (130, 125); (0, 125);
+        (0, -1); (130, -1); (130, -128); (0, -128);
+        (0, -1);        
+    ]
+    |> List.map (fun (x,y) -> torch.tensor([|float x;float y; 0.0|],dtype=torch.float))
+
 let computeReward (state:RLState) (ctrls:CarControls) =
     let MAX_SPEED = 300.
     let MIN_SPEED = 10.
     let THRESH_DIST = 3.5
     let BETA = 3.
-    let pts =
-        [
-            (0, -1); (130, -1); (130, 125); (0, 125);
-            (0, -1); (130, -1); (130, -128); (0, -128);
-            (0, -1);        
-        ]
-        |> List.map (fun (x,y) -> torch.tensor([|float x;float y; 0.0|],dtype=torch.float))
 
     let car_pt = state.Pose
+
+    //find distance to center line of the nearest road
     let dist =         
-        (10_000_000., List.pairwise pts)
+        (10_000_000., List.pairwise roadPts)
         ||> List.fold (fun st (a,b) -> 
             use nrm_t = torch.linalg.cross(car_pt - a, car_pt - b)
             let nrm = nrm_t.norm().ToDouble()
@@ -130,6 +134,71 @@ let step c (state,ctrls) action waitMs =
         return (state',ctrls',reward,isDone)
     }
 
+let rng = Random()
+let randRoadPoint() = 
+    let i = rng.Next(roadPts.Length-1)
+    let t1 = roadPts.[i] 
+    let t2 = roadPts.[i+1]
+    use n = torch.linalg.norm(t2 - t1)
+    let d2 = rng.NextDouble().ToScalar() * n
+    let x1 = t1.[0]
+    let x2 = t2.[0]
+    let y1 = t1.[1]
+    let y2 = t2.[1]
+    let intrpltd =
+        if x1 = x2 then                       
+            if y1.le(y2).ToBoolean() then
+                let t = t1.clone()
+                t.index_put_(y1+d2,1)
+            else
+                let t = t2.clone()
+                t.index_put_(y2+d2,1)
+        else
+            if x1.le(x2).ToBoolean() then
+                let t = t1.clone()
+                t.index_put_(x1+d2,0)
+            else
+                let t = t2.clone()
+                t.index_put_(x2+d2,0)
+    t1,t2,intrpltd 
+
+let randPose() =
+    let t1,t2,t = randRoadPoint()
+    let x1 = t1.[0].ToDouble()
+    let x2 = t2.[0].ToDouble()
+    let sameX = x1=x2 //moved across y (vertical)
+    let zmin,zmax =
+        if sameX then
+            if rng.NextDouble() < 0.5 then
+                1.0,1.0
+            else
+                -1.0,-1.0
+        else
+            if rng.NextDouble() < 0.5 then
+                -0.01,0.01
+            else
+                1.0,1.0
+    let m = rng.NextDouble()
+    let z = zmin + (zmax-zmin) * m        
+    //printfn $"{x1},{x2},sameX={sameX};z={z}"
+    {
+        position = 
+            {    
+                x_val = t.[0].ToDouble()
+                y_val = t.[1].ToDouble()
+                z_val = t.[2].ToDouble()
+            }
+        orientation = 
+            {
+                w_val = if sameX then 1.0 else 0.0
+                x_val = 0.0
+                y_val = 0.0
+                z_val = z
+            }
+    }
+    
+
+let carId = "PhysXCar"
 let initCar (c:CarClient) = 
     task {
         let! _ = c.enableApiControl(true) 

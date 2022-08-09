@@ -55,11 +55,12 @@ let resetCar (clnt:CarClient) =
         let! isApi = clnt.isApiControlEnabled() 
         if isApi then
             let! _ = clnt.armDisarm(true) 
-            do! clnt.reset()
-            do! clnt.setCarControls({CarControls.Default with throttle = 1.0})
+            let! _ = clnt.simSetObjectPose(CarEnvironment.carId,CarEnvironment.randPose(),true)
+            ()
+            //do! clnt.setCarControls({CarControls.Default with throttle = 1.0})
         else
             return failwith "unable to put car in api mode"
-        do! Async.Sleep 1500
+        do! Async.Sleep 10
     }
 
 let burnInMax = 100000

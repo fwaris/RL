@@ -230,6 +230,16 @@ type CarClient(options) =
         let req:obj[] = [|vehicle_name|]
         base.Call<_,KinematicsState>(name,req)    
         
+    member this.simSetObjectPose(object_name:string, pose:Pose, teleport:bool) =
+        let name = nameof this.simSetObjectPose     
+        let req:obj[] = [|object_name; pose; teleport|]
+        base.Call<_,bool>(name,req)  
+
+    member this.simGetObjectPose(object_name:string) =
+        let name = nameof this.simGetObjectPose     
+        let req:obj[] = [|object_name|]
+        base.Call<_,Pose>(name,req)  
+
     member this.simGetCollisionInfo(?vehicle_name:string) =
         let name = nameof this.simGetCollisionInfo
         let vehicle_name = defaultArg vehicle_name ""

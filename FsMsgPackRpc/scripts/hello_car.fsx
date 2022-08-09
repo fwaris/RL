@@ -3,6 +3,7 @@ open System
 open AirSimCar
 open OpenCvSharp
 open System.Threading.Tasks
+open TorchSharp
 
 let inline exec (t:Task<_>) = t |> Async.AwaitTask |> Async.RunSynchronously
 
@@ -65,6 +66,26 @@ obs |> List.choose(fun x->
     |> List.iter (printfn "%A")
 
 let carId = c1.simListSceneObjects(name_regex="P.*Car") |> exec |> List.head
+let p1 = c1.simGetObjectPose(carId) |> exec
+let p2 = {p1 with position = {p1.position with x_val=100.0}; orientation={p1.orientation with z_val=0.11}}
+let p3 = {p1 with orientation={p1.orientation with z_val= -0.03}}
+c1.simSetObjectPose(carId,p3,true) |> exec
+
+//rotate car
+for z in -1.0 .. 0.1 .. 1.0 do
+    let pz = {p1 with orientation={p1.orientation with z_val= z}}
+    let isSet = c1.simSetObjectPose(carId,pz,true) |> exec
+    printfn $"z={z}, isSet={isSet}"
+    Threading.Thread.Sleep(1000)
+
+
+let pr = CarEnvironment.randPose()
+c1.simSetObjectPose(CarEnvironment.carId,pr,true) |> exec
+let pr2 = {pr with orientation = {pr.orientation with z_val= 1.0; w_val=0.0}}
+c1.simSetObjectPose(CarEnvironment.carId,pr2,true) |> exec
+
+
+
 
 let km1 = c1.getCarState() |> exec
 km1.kinematics_estimated.position
