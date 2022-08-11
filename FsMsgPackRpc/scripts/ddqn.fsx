@@ -67,7 +67,7 @@ let resetCar (clnt:CarClient) =
 let burnInMax = 100000
 let burnIn = burnInMax - initExperience.Buffer.Length |> max 0
 let learnEvery = 3
-let syncEvery = 100
+let syncEvery = 10000
 let saveBuffEvery = 5000
 
 let trainDDQN (clnt:CarClient) (go:bool ref) =
