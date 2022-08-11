@@ -113,7 +113,7 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
 
                     //periodically sync target model with online model
                     if count % syncEvery = 0 then 
-                        DDQNModel.save modelFile ddqn.Model                        
+                        DDQNModel.save modelFile ddqn.Device ddqn.Model                        
                         DDQNModel.sync ddqn.Model ddqn.Device
                         printfn $"Exploration rate: {ddqn.Step.ExplorationRate}"
 

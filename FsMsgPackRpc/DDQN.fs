@@ -29,7 +29,10 @@ module DDQNModel =
         onlineMdl.``to``(device) |> ignore
         tgtMdl.``to``(device) |> ignore
 
-    let save file ddqn  = ddqn.Online.Module.Save(file)
+    let save file (device:torch.Device) ddqn  = 
+       let cpuModel =  ddqn.Online.Module.cpu()
+       cpuModel.Save(file)
+       cpuModel.``to``(device) |> ignore
 
     let load (fmodel:unit -> IModel) file =
         let ddqn = create fmodel
