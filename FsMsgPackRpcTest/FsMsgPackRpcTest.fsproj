@@ -10,7 +10,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="TorchSharp-cuda-windows" Version="0.97.2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\FsMsgPackRpc\FsMsgPackRpc.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="6.0.5" />
   </ItemGroup>
 
 </Project>

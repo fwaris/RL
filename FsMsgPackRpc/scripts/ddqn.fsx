@@ -31,6 +31,7 @@ let model =
 let BUFF_MAX = 500_000
 let initExperience =
     if File.Exists exprFile then          //reuse saved buffer
+        printfn $"loading experience buffer from file {exprFile}"
         {Experience.load exprFile with Max = BUFF_MAX}
     else
         Experience.createBuffer BUFF_MAX
@@ -66,7 +67,7 @@ let resetCar (clnt:CarClient) =
 let burnInMax = 100000
 let burnIn = burnInMax - initExperience.Buffer.Length |> max 0
 let learnEvery = 3
-let syncEvery = 10000
+let syncEvery = 100
 let saveBuffEvery = 5000
 
 let trainDDQN (clnt:CarClient) (go:bool ref) =
@@ -107,13 +108,13 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                         let loss = updateQ td_est td_tgt                                                          //update online model 
                         printfn $"{count}, loss: {loss}"
 
-                    if count % saveBuffEvery = 0 then
+                    if count > 0 && count % saveBuffEvery = 0 then
                         Experience.save exprFile experienceBuff 
 
                     //periodically sync target model with online model
-                    if count > syncEvery && count % syncEvery = 0 then 
+                    if count > 0 && count % syncEvery = 0 then 
                         DDQNModel.save modelFile ddqn.Model                        
-                        DDQNModel.sync ddqn.Model
+                        DDQNModel.sync ddqn.Model ddqn.Device
                         printfn $"Exploration rate: {ddqn.Step.ExplorationRate}"
 
                     let count = count + 1
@@ -122,7 +123,7 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                     return! loop count state ctrls ddqn experienceBuff
                     
             with ex -> printfn "trainDDQN: %A" (ex.Message,ex.StackTrace)
-                  }
+        }
     loop 0 initState initCtrls initDDQN initExperience
 
 

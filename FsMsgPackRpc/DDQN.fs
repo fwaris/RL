@@ -21,16 +21,23 @@ module DDQNModel =
         tgt.Module.parameters() |> Seq.iter (fun p -> p.requires_grad <- false)
         {Target=tgt; Online=onln}
 
-    let sync models =
-        models.Target.Module.load_state_dict(models.Online.Module.state_dict()) |> ignore
+    let sync models (device:torch.Device) =
+        let onlineMdl = models.Online.Module.cpu()
+        let tgtMdl = models.Target.Module.cpu()
+        let dict = onlineMdl.state_dict()
+        tgtMdl.load_state_dict(dict) |> ignore
+        onlineMdl.``to``(device) |> ignore
+        tgtMdl.``to``(device) |> ignore
 
     let save file ddqn  = ddqn.Online.Module.Save(file)
 
     let load (fmodel:unit -> IModel) file =
         let ddqn = create fmodel
-        let mdl = torch.nn.Module.Load(file)
-        ddqn.Online.Module.load_state_dict(mdl.state_dict()) |> ignore
-        ddqn.Target.Module.load_state_dict(mdl.state_dict()) |> ignore
+        try
+            let mdl = torch.nn.Module.Load(file)
+            ddqn.Online.Module.load_state_dict(mdl.state_dict()) |> ignore
+            ddqn.Target.Module.load_state_dict(mdl.state_dict()) |> ignore
+        with ex -> printfn $"invalid model file {file} - returning empty model"
         ddqn
 
 
@@ -87,18 +94,21 @@ module Experience =
         let ser = MBrace.FsPickler.BinarySerializer()
         use str = System.IO.File.OpenRead(path:string)        
         let ((mx,shape,data):Tser) = ser.Deserialize<Tser>(str)
-        let buff = createBuffer mx        
-        (buff,data)
-        ||> Seq.fold (fun acc (st,nst,act,rwd,dn) -> 
-            let exp =
-                {
-                    State       = torch.tensor(st,dimensions=shape)
-                    NextState   = torch.tensor(nst, dimensions=shape)
-                    Action      = act
-                    Reward      = rwd
-                    Done        = dn
-                }
-            append exp acc)
+        let buff = createBuffer mx    
+        let buff = 
+            (buff,data)
+            ||> Seq.fold (fun acc (st,nst,act,rwd,dn) -> 
+                let exp =
+                    {
+                        State       = torch.tensor(st,dimensions=shape)
+                        NextState   = torch.tensor(nst, dimensions=shape)
+                        Action      = act
+                        Reward      = rwd
+                        Done        = dn
+                    }
+                append exp acc)
+        buff
+
 
 module DDQN =
     //use randomization from single source - pytorch
