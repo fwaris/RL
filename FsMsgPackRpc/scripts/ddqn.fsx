@@ -5,7 +5,6 @@ open TorchSharp.Fun
 open System.IO
 open DDQN
 
-
 let root = System.Environment.GetEnvironmentVariable("AIRSIM_DDQN")
 let (@@) a b = Path.Combine(a,b)
 
@@ -29,15 +28,16 @@ let model =
         DDQNModel.load createModel modelFile
     else
         DDQNModel.create createModel
+let BUFF_MAX = 500_000
 let initExperience =
     if File.Exists exprFile then          //reuse saved buffer
-        Experience.load exprFile
+        {Experience.load exprFile with Max = BUFF_MAX}
     else
-        Experience.createBuffer 100000
+        Experience.createBuffer BUFF_MAX
 let lossFn = torch.nn.functional.smooth_l1_loss()
-let device = torch.CPU
+let device = torch.CUDA
 let gamma = 0.9f
-let exploration = {Rate=0.2; Decay=0.999; Min=0.01}
+let exploration = {Rate=0.5; Decay=0.9999; Min=0.1}
 let initDDQN = DDQN.create model gamma exploration CarEnvironment.discreteActions device
 let batchSize = 32
 let opt = torch.optim.Adam(model.Online.Module.parameters(), lr=0.00025)
@@ -99,8 +99,10 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                     //periodically train online model from a sample of the experience buffer
                     if count > burnIn && count % learnEvery = 0 then                      
                         let states,nextStates,rewards,actions,dones = Experience.recall batchSize experienceBuff  //sample from experience
+                        use states = states.``to``(ddqn.Device)
+                        use nextStates = nextStates.``to``(ddqn.Device)
                         let td_est = DDQN.td_estimate states actions ddqn        
-                        let td_est_d = td_est.data<float32>().ToArray() //ddqn invocations
+                        //let td_est_d = td_est.data<float32>().ToArray() //ddqn invocations
                         let td_tgt = DDQN.td_target rewards nextStates dones ddqn
                         let loss = updateQ td_est td_tgt                                                          //update online model 
                         printfn $"{count}, loss: {loss}"
@@ -119,8 +121,8 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                     
                     return! loop count state ctrls ddqn experienceBuff
                     
-            with ex -> printfn "%A" ex.Message
-        }
+            with ex -> printfn "trainDDQN: %A" (ex.Message,ex.StackTrace)
+                  }
     loop 0 initState initCtrls initDDQN initExperience
 
 
@@ -137,3 +139,4 @@ runTraining go |> Async.Start
 
 go.Value <- false
 *)
+

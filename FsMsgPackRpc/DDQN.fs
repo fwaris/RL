@@ -143,8 +143,8 @@ module DDQN =
 
     let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) ddqn =
         use t = torch.no_grad()
-        use t_reward = torch.tensor(reward)
-        use t_isDone = torch.tensor(isDone)
+        use t_reward = torch.tensor(reward).``to``(ddqn.Device)
+        use t_isDone = torch.tensor(isDone).``to``(ddqn.Device)
         use t_isDoneF = t_isDone.float()
         use next_state_q = ddqn.Model.Online.forward(next_state)
         use best_action  = next_state_q.argmax(dimension=1L)
