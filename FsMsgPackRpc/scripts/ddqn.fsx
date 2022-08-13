@@ -139,5 +139,6 @@ let go = ref true
 runTraining go |> Async.Start
 
 go.Value <- false
+model.Online.Module.save(modelFile)
 *)
 
