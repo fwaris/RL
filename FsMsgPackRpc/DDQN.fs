@@ -29,18 +29,17 @@ module DDQNModel =
         onlineMdl.``to``(device) |> ignore
         tgtMdl.``to``(device) |> ignore
 
-    let save file (device:torch.Device) ddqn  = 
-       let cpuModel =  ddqn.Online.Module.cpu()
-       cpuModel.Save(file)
-       cpuModel.``to``(device) |> ignore
+    let save file ddqn  = 
+       Model.saveParms file ddqn.Online
 
     let load (fmodel:unit -> IModel) file =
         let ddqn = create fmodel
         try
-            let mdl = torch.nn.Module.Load(file)
-            ddqn.Online.Module.load_state_dict(mdl.state_dict()) |> ignore
-            ddqn.Target.Module.load_state_dict(mdl.state_dict()) |> ignore
-        with ex -> printfn $"invalid model file {file} - returning empty model"
+            Model.loadParms file ddqn.Online
+            Model.loadParms file ddqn.Target
+        with ex -> 
+            printfn $"invalid model file {file} - returning empty model"
+            printfn "%A" (ex.Message,ex.StackTrace)
         ddqn
 
 

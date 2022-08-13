@@ -10,6 +10,7 @@
     <None Include="scripts\packages.fsx" />
     <None Include="scripts\hello_car.fsx" />
     <None Include="scripts\image_transform_test.fsx" />
+    <None Include="scripts\model_tests.fsx" />
     <None Include="scripts\random_agent.fsx" />
     <None Include="scripts\ddqn.fsx" />
     <Compile Include="FsMsgPackRpc.fs" />

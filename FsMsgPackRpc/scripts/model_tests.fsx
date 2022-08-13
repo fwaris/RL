@@ -1,4 +1,4 @@
-﻿//#load "packages.fsx"
+﻿#load "packages.fsx"
 open AirSimCar
 open TorchSharp
 open TorchSharp.Fun
@@ -21,13 +21,14 @@ let createModel () =
     ->> torch.nn.ReLU()
     ->> torch.nn.Linear(512L,CarEnvironment.discreteActions)
 
-let modelFile = root @@ "ddqn_airsim.bin"
-let exprFile = root @@ "expr_buff_airsim.bin"
-let model = 
-    if File.Exists modelFile then         //restart session
-        DDQNModel.load createModel modelFile
-    else
-        DDQNModel.create createModel
+let modelFile = root @@ "ddqn_airsim_test1.bin"
 
-(*
-*)
+let mm  = DDQNModel.create createModel
+DDQNModel.save  modelFile mm
+let mm2 = DDQNModel.load createModel modelFile
+
+let d_mm = mm.Online.Module.state_dict()
+let d_mm2 = mm2.Online.Module.state_dict()
+
+Seq.zip d_mm d_mm2 |> Seq.forall (fun (a,b) -> a.Key=b.Key && a.Value.shape = b.Value.shape)
+
