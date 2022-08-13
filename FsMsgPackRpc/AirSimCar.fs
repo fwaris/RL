@@ -17,6 +17,7 @@ type Vector3r =
     }
     with 
         member x.ToArray() = [|x.x_val; x.y_val; x.z_val|]
+        static member Default = {x_val=0.; y_val=0.; z_val=0.}
 
 [<MessagePackObject(true)>]
 type Quaternionr =
@@ -28,6 +29,7 @@ type Quaternionr =
     }
     with 
         member x.ToArray() = [|x.x_val; x.y_val; x.z_val; x.z_val|]
+        static member Default = {w_val= 1.; x_val=0.; y_val=0.; z_val=0.}
 
 [<MessagePackObject(true)>]
 type CarControls =
@@ -83,6 +85,15 @@ type KinematicsState =
         linear_acceleration : Vector3r
         angular_acceleration : Vector3r
     }
+    static member Default = 
+        {
+            position = Vector3r.Default
+            orientation = Quaternionr.Default
+            linear_velocity = Vector3r.Default
+            angular_velocity = Vector3r.Default
+            linear_acceleration = Vector3r.Default
+            angular_acceleration = Vector3r.Default
+        }
 
 [<MessagePackObject(true)>]
 type CollisionInfo =

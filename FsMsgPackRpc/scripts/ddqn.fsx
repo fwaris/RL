@@ -50,18 +50,25 @@ let updateQ td_estimate td_target =
     use t = opt.step() 
     loss.ToDouble()
 
-let resetCar (clnt:CarClient) = 
+let initCar (clnt:CarClient) = 
     task {
         let! _ = clnt.enableApiControl(true) 
         let! isApi = clnt.isApiControlEnabled() 
         if isApi then
             let! _ = clnt.armDisarm(true) 
-            let! _ = clnt.simSetObjectPose(CarEnvironment.carId,CarEnvironment.randPose(),true)
-            ()
-            //do! clnt.setCarControls({CarControls.Default with throttle = 1.0})
+            do!  clnt.reset()
         else
             return failwith "unable to put car in api mode"
         do! Async.Sleep 10
+    }
+
+let resetCar (clnt:CarClient) = 
+    task {
+        do! clnt.reset()
+        do! Async.Sleep 100
+        do! clnt.setCarControls({CarControls.Default with throttle = 0.4})
+        let! _ = clnt.simSetObjectPose(CarEnvironment.carId,CarEnvironment.randPose(),true) 
+        ()
     }
 
 let burnInMax = 100000
@@ -71,7 +78,7 @@ let syncEvery = 10000
 let saveBuffEvery = 5000
 
 let trainDDQN (clnt:CarClient) (go:bool ref) =
-    resetCar clnt |> Async.AwaitTask |> Async.RunSynchronously
+    initCar clnt |> Async.AwaitTask |> Async.RunSynchronously
     let initState = CarEnvironment.RLState.Default
     let initCtrls = {CarControls.Default with throttle = 1.0}
     let rng = System.Random()
@@ -138,7 +145,6 @@ let runTraining go =
 let go = ref true
 runTraining go |> Async.Start
 
+DDQNModel.save modelFile model
 go.Value <- false
-model.Online.Module.save(modelFile)
 *)
-
