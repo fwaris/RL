@@ -15,6 +15,7 @@ type RLState =
         Collision           : bool
         DepthImage          : torch.Tensor       //depth perspective from front camera transformed
         PrevDepthImage      : torch.Tensor
+        WasReset            : bool
     }
     with 
         static member Default =
@@ -24,6 +25,7 @@ type RLState =
                 PrevDepthImage      = torch.zeros(1,84,84,dtype=torch.float)
                 Speed               = 3.0
                 Collision           = false
+                WasReset            = false
             }
 
 type DoneReason = LowReward | Collision | Stuck | NotDone
@@ -79,6 +81,7 @@ let getObservations (c:CarClient) prevState =
                 Pose            = carState.kinematics_estimated.position.ToArray() |> torch.tensor
                 DepthImage      = img
                 PrevDepthImage  = prevState.DepthImage
+                WasReset        = prevState.WasReset
             }
         return nextState
     }
@@ -120,17 +123,17 @@ let computeReward (state:RLState) (ctrls:CarControls) =
     let isDone =
         //printfn $"d:{dist},r:{reward},b:{ctrls.brake},s:{state.Speed},c:{state.Collision}"
         match reward, ctrls.brake, state.Speed, state.Collision with
-        | rwrd,_,_,_ when rwrd < -1.0           -> LowReward //prob off course
-        | _,br,sp,_ when br = 0.0 && sp < 0.2   -> Stuck
-        | _,_,_,true                            -> Collision
-        | _                                     -> NotDone
-    reward,isDone
+        | rwrd,_,_,_ when rwrd < -1.0                                 -> LowReward //prob off course
+        | _,br,sp,_ when br = 0.0 && sp < 0.2 && not state.WasReset   -> Stuck
+        | _,_,_,true                                                  -> Collision
+        | _                                                           -> NotDone
+    reward,isDone, {state with WasReset=false}
 
 let step c (state,ctrls) action waitMs =
     task{  
         let! ctrls' = doAction c action ctrls waitMs
         let! state' = getObservations c state
-        let reward,isDone = computeReward state' ctrls'
+        let reward,isDone,state' = computeReward state' ctrls'
         return (state',ctrls',reward,isDone)
     }
 

@@ -126,7 +126,11 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                         printfn $"Exploration rate: {ddqn.Step.ExplorationRate}"
 
                     let count = count + 1
-                    match isDone with CarEnvironment.NotDone -> () | _ ->  do! resetCar clnt |> Async.AwaitTask
+                    let state = 
+                        match isDone with 
+                        | CarEnvironment.NotDone -> state
+                        | _ ->  resetCar clnt |> Async.AwaitTask |> Async.RunSynchronously
+                                {state with WasReset=true}
                     
                     return! loop count state ctrls ddqn experienceBuff
                     
