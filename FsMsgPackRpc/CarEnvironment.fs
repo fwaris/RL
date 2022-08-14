@@ -121,7 +121,7 @@ let computeReward (state:RLState) (ctrls:CarControls) =
         //printfn $"d:{dist},r:{reward},b:{ctrls.brake},s:{state.Speed},c:{state.Collision}"
         match reward, ctrls.brake, state.Speed, state.Collision with
         | rwrd,_,_,_ when rwrd < -1.0           -> LowReward //prob off course
-        | _,br,sp,_ when br = 0.0 && sp < 1.0   -> Stuck
+        | _,br,sp,_ when br = 0.0 && sp < 0.2   -> Stuck
         | _,_,_,true                            -> Collision
         | _                                     -> NotDone
     reward,isDone

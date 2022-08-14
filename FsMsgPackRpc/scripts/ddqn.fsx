@@ -28,7 +28,7 @@ let model =
         DDQNModel.load createModel modelFile
     else
         DDQNModel.create createModel
-let BUFF_MAX = 500_000
+let BUFF_MAX = 200_000
 let initExperience =
     if File.Exists exprFile then          //reuse saved buffer
         printfn $"loading experience buffer from file {exprFile}"
@@ -66,7 +66,7 @@ let resetCar (clnt:CarClient) =
     task {
         do! clnt.reset()
         do! Async.Sleep 100
-        do! clnt.setCarControls({CarControls.Default with throttle = 0.4})
+        do! clnt.setCarControls({CarControls.Default with throttle = 0.1})
         let! _ = clnt.simSetObjectPose(CarEnvironment.carId,CarEnvironment.randPose(),true) 
         ()
     }
@@ -114,6 +114,7 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                         let td_tgt = DDQN.td_target rewards nextStates dones ddqn
                         let loss = updateQ td_est td_tgt                                                          //update online model 
                         printfn $"{count}, loss: {loss}"
+                        System.GC.Collect()
 
                     if count > 0 && count % saveBuffEvery = 0 then
                         Experience.save exprFile experienceBuff 
@@ -147,4 +148,7 @@ runTraining go |> Async.Start
 
 DDQNModel.save modelFile model
 go.Value <- false
+System.Runtime.GCSettings.IsServerGC
+
 *)
+
