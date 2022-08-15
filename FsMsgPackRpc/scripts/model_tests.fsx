@@ -27,6 +27,8 @@ let mm  = DDQNModel.create createModel
 DDQNModel.save  modelFile mm
 let mm2 = DDQNModel.load createModel modelFile
 
+mm.Online.Module.save(modelFile)
+
 let d_mm = mm.Online.Module.state_dict()
 let d_mm2 = mm2.Online.Module.state_dict()
 

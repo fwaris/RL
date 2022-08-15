@@ -29,19 +29,17 @@ module DDQNModel =
         onlineMdl.``to``(device) |> ignore
         tgtMdl.``to``(device) |> ignore
 
-    let save file ddqn  = 
-       Model.saveParms file ddqn.Online
+    let save (file:string) (ddqn:DDQNModel)  = ddqn.Online.Module.save(file) |> ignore
 
-    let load (fmodel:unit -> IModel) file =
+    let load (fmodel:unit -> IModel) (file:string) =
         let ddqn = create fmodel
         try
-            Model.loadParms file ddqn.Online
-            Model.loadParms file ddqn.Target
+            ddqn.Online.Module.load(file) |> ignore
+            ddqn.Target.Module.load(file) |> ignore
         with ex -> 
             printfn $"invalid model file {file} - returning empty model"
             printfn "%A" (ex.Message,ex.StackTrace)
         ddqn
-
 
 module Experience =
     let createBuffer maxExperiance = {Buffer =RandomAccessList.empty; Max=maxExperiance}

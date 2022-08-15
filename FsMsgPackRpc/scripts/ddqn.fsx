@@ -28,7 +28,7 @@ let model =
         DDQNModel.load createModel modelFile
     else
         DDQNModel.create createModel
-let BUFF_MAX = 200_000
+let BUFF_MAX = 250_000
 let initExperience =
     if File.Exists exprFile then          //reuse saved buffer
         printfn $"loading experience buffer from file {exprFile}"
@@ -65,7 +65,7 @@ let initCar (clnt:CarClient) =
 let resetCar (clnt:CarClient) = 
     task {
         do! clnt.reset()
-        do! Async.Sleep 100
+        do! Async.Sleep 10
         do! clnt.setCarControls({CarControls.Default with throttle = 0.1})
         let! _ = clnt.simSetObjectPose(CarEnvironment.carId,CarEnvironment.randPose(),true) 
         ()
