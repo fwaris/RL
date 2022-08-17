@@ -71,7 +71,7 @@ let transformImage (resp:ImageResponse) =
 let getObservations (c:CarClient) prevState =
     task {
         let! images = c.simGetImages(imageRequest)
-        let img = transformImage( images.[0])
+        let img = try transformImage( images.[0]) with _ -> prevState.DepthImage //occaisionally a bad image is received
         let! carState = c.getCarState()
         let! collInfo = c.simGetCollisionInfo()
         let nextState =
