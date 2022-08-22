@@ -11,7 +11,6 @@
 #load "../CarEnvironment.fs"
 #load "../DDQN.fs"
 
-
 open System
 let userProfile = Environment.GetEnvironmentVariable("UserProfile")
 let nugetPath = @$"{userProfile}\.nuget"
