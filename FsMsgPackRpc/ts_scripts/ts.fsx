@@ -102,7 +102,7 @@ module Agent =
             let tPlus1 = s.TimeStep + 1
             let isDone = env.IsDone tPlus1
             if verbose then
-                printfn $"{s.TimeStep} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, "
+                printfn $"{s.TimeStep} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.S_expRate} "
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone}
             let experienceBuff = Experience.append experience s.ExpBuff  
             {s with ExpBuff = experienceBuff; TimeStep=tPlus1; S_reward=reward},isDone,reward
@@ -159,10 +159,14 @@ module Policy =
                         //let td_est_d = td_est.data<float32>().ToArray() //ddqn invocations
                         let td_tgt = DDQN.td_target rewards nextStates dones ddqn
                         let loss = updateQ td_est td_tgt //update online model 
-                        if s.TimeStep % s.SyncEvery = 0 then 
+                        if verbose then 
+                            printfn $"Loss  %0.4f{loss}"
+                        if s.TimeStep % s.SyncEvery = 0 then                  
                             System.GC.Collect()
                             DDQNModel.sync ddqn.Model ddqn.Device
-                        let s = {s with S_expRate = ddqn.Exploration.Rate}
+                            if verbose then
+                                printfn "Synced"
+                        let s = {s with S_expRate = ddqn.Step.ExplorationRate}
                         policy ddqn,s
                     else
                         policy ddqn,s
@@ -184,7 +188,7 @@ let runEpisode (policy,state) =
 
 let run() =
     let rec loop (p,s) count = 
-        if count < 2 then
+        if count < 1000 then
             let p,s = runEpisode (p,s)
             printfn $"Run: {count}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}"
             let s = RLState.Default s.ExpBuff s.InitialCash
