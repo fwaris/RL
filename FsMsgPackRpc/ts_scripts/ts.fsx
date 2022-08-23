@@ -12,7 +12,7 @@ let device = torch.CUDA
 
 let fn = @"E:\s\tradestation\mes_5_min.bin"
 
-let data = TsData.loadBars fn
+let data = TsData.loadBars fn 
 let mutable verbose = false
 
 //keep track of all the information we need to run RL in here
@@ -30,6 +30,7 @@ type RLState =
         SyncEvery       : int
         S_reward        : float
         S_expRate       : float
+        S_gain          : float
     }
     with 
         static member Default expBuff initialCash = 
@@ -47,6 +48,7 @@ type RLState =
                 SyncEvery       = 100                
                 S_reward        = -1.0
                 S_expRate       = -1.0
+                S_gain          = -1.0
 
 
             }
@@ -102,14 +104,15 @@ module Agent =
             let sign = if action = 0 (*buy*) then 1.0 else -1.0
             let reward = (avgP2-avgP1) * sign * float s.Stock
             let tPlus1 = s.TimeStep + 1
-            let isDone = env.IsDone tPlus1
+            let isDone = env.IsDone (tPlus1 + 1)
+            let sGain = (avgP1 * float s.Stock + s.CashOnHand) / s.InitialCash
             if verbose then
-                printfn $"{s.TimeStep} - P:%0.3f{avgP1}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.S_expRate} "
-            let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone}
+                printfn $"{s.TimeStep} - P:%0.3f{avgP1}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.S_expRate} Gain:{sGain}"
+            let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
             let experienceBuff = Experience.append experience s.ExpBuff  
-            {s with ExpBuff = experienceBuff; TimeStep=tPlus1; S_reward=reward},isDone,reward
+            {s with ExpBuff = experienceBuff; TimeStep=tPlus1; S_reward=reward; S_gain = sGain},isDone,reward
         )
-        |> Option.defaultValue (s,true,0.0)
+        |> Option.defaultWith (fun _ -> failwith "should not reach here")
 
     let agent = 
         {
@@ -183,7 +186,7 @@ module Policy =
 let market = {prices = data}
 let runEpisode (policy,state) =
     let rec loop (policy,state) =
-        if market.IsDone state.TimeStep |> not then
+        if market.IsDone (state.TimeStep + 1) |> not then
             let p,s = RL.step market Agent.agent (policy,state)
             loop (p,s)
         else
@@ -194,7 +197,7 @@ let run() =
     let rec loop (p,s) count = 
         if count < 1000 then
             let p,s = runEpisode (p,s)
-            printfn $"Run: {count}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}"
+            printfn $"Run: {count}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}; Gain:%03f{s.S_gain}"
             let s = RLState.Default s.ExpBuff s.InitialCash
             loop (p,s) (count+1)
         else
@@ -202,7 +205,8 @@ let run() =
     let p,s = Policy.initPolicy(), RLState.Default Policy.expBuff 1000000.
     loop (p,s) 0
 
-async {run()} |> Async.Start
+async {try run() with ex -> printfn "%A" (ex.Message,ex.StackTrace)} |> Async.Start
+
 
 //Agent.bar market 0 |> Option.map Agent.avgPrice
 //let s = RLState.Default Policy.expBuff 1000_000.
