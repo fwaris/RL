@@ -27,9 +27,9 @@ let skipHead = torch.TensorIndex.Slice(1L)
 
 let ts = torch.tensor(prev |> Seq.collect (fun x->x) |> Seq.toArray,dtype=torch.float32).reshape(40,-1)
 let tn = torch.tensor(n, dtype=torch.float32)
-let ts = torch.vstack([|ts;tn|])
+let ts2 = torch.vstack([|ts;tn|])
 
-let ts2 = if ts.shape.[0] > 40L then ts.index(skipHead) else ts  // 40 x 5 
+let ts3 = if ts.shape.[0] > 40L then ts.index(skipHead) else ts  // 40 x 5 
 
 
 let t1inp = 
@@ -47,11 +47,14 @@ let l2 = torch.nn.Linear(5L,2L)
 let tout = l2.forward(t1c1)
 
 let mt =
-        torch.nn.Conv1d(40L, 64L, 4L, stride=2L,padding=3L)
+        torch.nn.Conv1d(40L, 64L, 4L, stride=2L, padding=3L)     //b x 64L x 4L   
+        ->> torch.nn.BatchNorm1d(64L)
+        ->> torch.nn.Dropout(0.3)
         ->> torch.nn.ReLU()
         ->> torch.nn.Conv1d(64L,64L,3L)
         ->> torch.nn.ReLU()
         ->> torch.nn.Flatten()
+        ->> torch.nn.Linear(128L,2L)
 
 mt.forward(t1inp)
 

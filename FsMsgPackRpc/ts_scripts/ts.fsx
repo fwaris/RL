@@ -95,14 +95,16 @@ module Agent =
         
     let computeRewards env s action =         
         bar env s.TimeStep
-        |> Option.map (fun bar -> 
-            let avgP = avgPrice  bar
-            let total = s.CashOnHand + (float s.Stock * avgP)
-            let reward = total / s.InitialCash
+        |> Option.bind (fun b1 -> bar env (s.TimeStep+1) |> Option.map (fun b2 -> b1,b2))
+        |> Option.map (fun (bar,nextBar) -> 
+            let avgP1 = avgPrice  bar            
+            let avgP2 = avgPrice nextBar
+            let sign = if action = 0 (*buy*) then 1.0 else -1.0
+            let reward = (avgP2-avgP1) * sign * float s.Stock
             let tPlus1 = s.TimeStep + 1
             let isDone = env.IsDone tPlus1
             if verbose then
-                printfn $"{s.TimeStep} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.S_expRate} "
+                printfn $"{s.TimeStep} - P:%0.3f{avgP1}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.S_expRate} "
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone}
             let experienceBuff = Experience.append experience s.ExpBuff  
             {s with ExpBuff = experienceBuff; TimeStep=tPlus1; S_reward=reward},isDone,reward
@@ -120,7 +122,9 @@ module Policy =
     open DDQN
 
     let createModel() = 
-        torch.nn.Conv1d(40L, 64L, 4L, stride=2L, padding=3L)
+        torch.nn.Conv1d(40L, 64L, 4L, stride=2L, padding=3L)     //b x 64L x 4L   
+        ->> torch.nn.BatchNorm1d(64L)
+        ->> torch.nn.Dropout(0.3)
         ->> torch.nn.ReLU()
         ->> torch.nn.Conv1d(64L,64L,3L)
         ->> torch.nn.ReLU()
