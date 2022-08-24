@@ -33,7 +33,18 @@ type RLState =
         S_gain          : float
     }
     with 
-        static member Default expBuff initialCash = 
+        ///reset for new episode
+        static member Reset x = 
+            {x with 
+                TimeStep=0
+                CashOnHand=x.InitialCash
+                Stock=0
+                State           = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
+                PrevState       = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
+            }
+
+        static member Default initialCash = 
+            let expBuff = {DDQN.Buffer=RandomAccessList.empty; DDQN.Max=50000}
             let lookback = 40L
             {
                 State           = torch.zeros([|lookback;5L|],dtype=torch.float32)
@@ -49,9 +60,8 @@ type RLState =
                 S_reward        = -1.0
                 S_expRate       = -1.0
                 S_gain          = -1.0
-
-
             }
+
 
 type Market = {prices : Bar array}
     with 
@@ -138,7 +148,6 @@ module Policy =
     let lossFn = torch.nn.functional.smooth_l1_loss()
 
     let exp = {Rate = 1.0; Decay=0.999; Min=0.01}
-    let expBuff = {Buffer=RandomAccessList.empty; Max=50000}
     let ddqn = DDQN.create model 0.9999f exp 2 device
     let batchSize = 32
     let opt = torch.optim.Adam(model.Online.Module.parameters(), lr=0.00025)
@@ -162,9 +171,8 @@ module Policy =
                         let states,nextStates,rewards,actions,dones = Experience.recall batchSize s.ExpBuff  //sample from experience
                         use states = states.``to``(ddqn.Device)
                         use nextStates = nextStates.``to``(ddqn.Device)
-                        let td_est = DDQN.td_estimate states actions ddqn        
-                        //let td_est_d = td_est.data<float32>().ToArray() //ddqn invocations
-                        let td_tgt = DDQN.td_target rewards nextStates dones ddqn
+                        let td_est = DDQN.td_estimate states actions ddqn           //estimate the Q-value of state-action pairs from online model
+                        let td_tgt = DDQN.td_target rewards nextStates dones ddqn   //
                         let loss = updateQ td_est td_tgt //update online model 
                         if verbose then 
                             printfn $"Loss  %0.4f{loss}"
@@ -184,6 +192,7 @@ module Policy =
     let initPolicy() = policy ddqn 
         
 let market = {prices = data}
+
 let runEpisode (policy,state) =
     let rec loop (policy,state) =
         if market.IsDone (state.TimeStep + 1) |> not then
@@ -194,15 +203,15 @@ let runEpisode (policy,state) =
     loop (policy,state)
 
 let run() =
-    let rec loop (p,s) count = 
+    let rec loop (p,s:RLState) count = 
         if count < 1000 then
+            let s = RLState.Reset s
             let p,s = runEpisode (p,s)
-            printfn $"Run: {count}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}; Gain:%03f{s.S_gain}"
-            let s = RLState.Default s.ExpBuff s.InitialCash
+            printfn $"Run: {count}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}; Gain:%03f{s.S_gain}; Experienced:{s.ExpBuff.Buffer.Length}"
             loop (p,s) (count+1)
         else
             printfn "done"
-    let p,s = Policy.initPolicy(), RLState.Default Policy.expBuff 1000000.
+    let p,s = Policy.initPolicy(), RLState.Default 1000000.
     loop (p,s) 0
 
 async {try run() with ex -> printfn "%A" (ex.Message,ex.StackTrace)} |> Async.Start

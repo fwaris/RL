@@ -109,7 +109,6 @@ module Experience =
                 append exp acc)
         buff
 
-
 module DDQN =
     //use randomization from single source - pytorch
     let rand() : float = torch.rand([|1L|],dtype=torch.double).item()
@@ -146,24 +145,32 @@ module DDQN =
                 action_values.argmax().ToInt32()
         actionIdx,updateStep ddqn 
 
+    let actionIdx (actions) = 
+        [|
+            torch.TensorIndex.Colon            //batch dimension
+            torch.TensorIndex.Tensor (actions) //actions dimension
+        |]
+
     let td_estimate (state:torch.Tensor) (actions:int[]) ddqn =
-        use q = ddqn.Model.Online.forward(state) //batch x actions
-        let idx = [|torch.TensorIndex.Single 0; torch.TensorIndex.Tensor ( torch.tensor(actions,dtype=torch.int64))|]
-        q.index(idx)
+        use q = ddqn.Model.Online.forward(state)                         //value of each available action (when taken from the give state)
+        let idx = actionIdx (torch.tensor(actions,dtype=torch.int64))    //index of action actually taken 
+        q.index(idx)                                                     //value of taken action
 
     let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) ddqn =
-        use t = torch.no_grad()
-        use t_reward = torch.tensor(reward).``to``(ddqn.Device)
-        use t_isDone = torch.tensor(isDone).``to``(ddqn.Device)
-        use t_isDoneF = t_isDone.float()
-        use next_state_q = ddqn.Model.Online.forward(next_state)
-        use best_action  = next_state_q.argmax(dimension=1L)
-        use next_qs = ddqn.Model.Target.forward(next_state)
-        let idx = [|torch.TensorIndex.Single 0; torch.TensorIndex.Tensor(best_action)|]
-        use next_q = next_qs.index(idx)
-        use ret = t_reward + (1.0f.ToScalar() -  t_isDoneF) * ddqn.Gamma.ToScalar() * next_q
-        use _ = torch.enable_grad()
-        ret.float()
+        use t = torch.no_grad()                              //turn off gradient calculation
+        use q_online = ddqn.Model.Online.forward(next_state) //online model estimate of value (from next state)
+        use best_action = q_online.argmax(dimension=1L)      //optimum value action from online
+        let idx = actionIdx best_action                      //index of optimum value action
+
+        use q_target      = ddqn.Model.Target.forward(next_state) //target model estimates of value (from next state)
+        use q_target_best = q_target.index(idx)                   //value of best action according to target model 
+                                                                  //where the 'best action' is determined by the online model
+
+        use t_reward = torch.tensor(reward).``to``(ddqn.Device)  //reward to device (cpu/gpu)
+        use t_isDone = torch.tensor(isDone).``to``(ddqn.Device)  //was episode done?
+        use t_isDoneF = t_isDone.float()                         //convert boolean to float32
+        use ret = t_reward + (1.0f.ToScalar() -  t_isDoneF) * ddqn.Gamma.ToScalar() * q_target_best //reward + discounted value
+        ret.float()                                                                                 //convert to float32
 
 
 
