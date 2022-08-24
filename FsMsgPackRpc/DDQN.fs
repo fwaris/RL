@@ -145,10 +145,10 @@ module DDQN =
                 action_values.argmax().ToInt32()
         actionIdx,updateStep ddqn 
 
-    let actionIdx (actions) = 
+    let actionIdx (actions:torch.Tensor) = 
         [|
-            torch.TensorIndex.Colon            //batch dimension
-            torch.TensorIndex.Tensor (actions) //actions dimension
+            torch.TensorIndex.Tensor (torch.arange(actions.shape.[0], dtype=torch.int64))  //batch dimension
+            torch.TensorIndex.Tensor (actions)                                             //actions dimension
         |]
 
     let td_estimate (state:torch.Tensor) (actions:int[]) ddqn =

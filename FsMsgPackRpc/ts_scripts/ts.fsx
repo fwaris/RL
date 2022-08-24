@@ -13,6 +13,7 @@ let device = torch.CUDA
 let fn = @"E:\s\tradestation\mes_5_min.bin"
 
 let data = TsData.loadBars fn 
+let d1,d2 = data.[0],Array.last data
 let mutable verbose = false
 
 //keep track of all the information we need to run RL in here
@@ -224,5 +225,5 @@ async {try run() with ex -> printfn "%A" (ex.Message,ex.StackTrace)} |> Async.St
 (*
 verbose <- true
 verbose <- false
-*)
+Data*)
 
