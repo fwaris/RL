@@ -11,9 +11,13 @@ open RL
 let device = torch.CUDA
 
 let fn = @"E:\s\tradestation\mes_5_min.bin"
+let fnTest = @"E:\s\tradestation\mes_5_min_test.bin"
 
 let data = TsData.loadBars fn 
-let d1,d2 = data.[0],Array.last data
+let d1,d2 = data.[0], Array.last data
+let dataTest = TsData.loadBars fnTest
+let d1Test,d2Test = dataTest.[0],Array.last dataTest
+dataTest.Length
 let mutable verbose = false
 
 //keep track of all the information we need to run RL in here
@@ -227,3 +231,38 @@ verbose <- true
 verbose <- false
 Data*)
 
+module Test =
+    let saveLoad() =
+        let modelFn = @"E:\s\tradestation\ddqn.bin"
+        DDQN.DDQNModel.save modelFn Policy.ddqn.Model
+        DDQN.DDQNModel.load Policy.createModel modelFn
+
+    let testMarket() = {prices = dataTest}
+    
+    let runTest() =
+        let model = saveLoad().Online
+        let testMarket = testMarket()
+        let s = RLState.Default 1_000_000 
+        let lookback = 40
+        let dataChunks = dataTest |> Array.windowed lookback
+        let s' = 
+            (s,dataChunks) 
+            ||> Array.fold (fun s bars -> 
+                let inp = bars |> Array.collect (fun b -> [|b.Open;b.High;b.Low;b.Close;b.Volume|])
+                use t_inp = torch.tensor(inp,dtype=torch.float32,dimensions=[|1L;40L;5L|])
+                use q = model.forward t_inp
+                let act = q.argmax(1L).flatten().ToInt32()
+                let s = 
+                    //printfn $"act = {act}"
+                    if act = 0 then 
+                        Agent.buy testMarket s
+                    else
+                        Agent.sell testMarket s
+                {s with TimeStep=s.TimeStep+1})
+        let gain = ((float s'.Stock * (Agent.avgPrice (Array.last dataTest)) + s'.CashOnHand) - s.InitialCash)  / s'.InitialCash
+        let adjGain = gain /  float dataTest.Length * float data.Length
+        printfn $"gain: {gain}, adjGain: {adjGain}"
+
+(*
+Test.runTest()
+*)
