@@ -58,20 +58,20 @@ type RLState =
             let expBuff = {DDQN.Buffer=RandomAccessList.empty; DDQN.Max=50000}
             let lookback = 40L
             {
-                State           = torch.zeros([|lookback;5L|],dtype=torch.float32)
-                PrevState       = torch.zeros([|lookback;5L|],dtype=torch.float32)
-                TimeStep        = 0
-                Stock           = 0
-                CashOnHand      = initialCash
-                InitialCash     = initialCash
-                LookBack        = lookback
-                ExpBuff         = expBuff
-                LearnEverySteps      = 3
-                SyncEveryEpisode       = 3                
-                S_reward        = -1.0
-                S_expRate       = -1.0
-                S_gain          = -1.0
-                Episode         = 0
+                State            = torch.zeros([|lookback;5L|],dtype=torch.float32)
+                PrevState        = torch.zeros([|lookback;5L|],dtype=torch.float32)
+                TimeStep         = 0
+                Stock            = 0
+                CashOnHand       = initialCash
+                InitialCash      = initialCash
+                LookBack         = lookback
+                ExpBuff          = expBuff
+                LearnEverySteps  = 3
+                SyncEveryEpisode = 3                
+                S_reward         = -1.0
+                S_expRate        = -1.0
+                S_gain           = -1.0
+                Episode          = 0
             }
 
 
@@ -171,6 +171,25 @@ module Policy =
         use t = opt.step() 
         loss.ToDouble()
 
+    let learn s = 
+        let states,nextStates,rewards,actions,dones = Experience.recall batchSize s.ExpBuff  //sample from experience
+        use states = states.``to``(ddqn.Device)
+        use nextStates = nextStates.``to``(ddqn.Device)
+        let td_est = DDQN.td_estimate states actions ddqn           //estimate the Q-value of state-action pairs from online model
+        let td_tgt = DDQN.td_target rewards nextStates dones ddqn   //
+        let loss = updateQ td_est td_tgt //update online model 
+        if verbose then 
+            printfn $"Loss  %0.4f{loss}"
+        {s with S_expRate = ddqn.Step.ExplorationRate}
+
+    let syncModel s = 
+        System.GC.Collect()
+        DDQNModel.sync ddqn.Model ddqn.Device
+        let fn = root @@ "models" @@ $"model_{s.Episode}_{s.TimeStep}.bin"
+        DDQNModel.save fn ddqn.Model 
+        //if verbose then
+        printfn "Synced"
+
     let rec policy ddqn = 
         {
             selectAction  = fun (s:RLState) -> 
@@ -178,56 +197,42 @@ module Policy =
                 (policy ddqn),act
 
             update = fun (s:RLState) isDone reward ->    
-                if s.TimeStep >= int s.LookBack then 
-                    if s.TimeStep % s.LearnEverySteps = 0 then  
-                        let states,nextStates,rewards,actions,dones = Experience.recall batchSize s.ExpBuff  //sample from experience
-                        use states = states.``to``(ddqn.Device)
-                        use nextStates = nextStates.``to``(ddqn.Device)
-                        let td_est = DDQN.td_estimate states actions ddqn           //estimate the Q-value of state-action pairs from online model
-                        let td_tgt = DDQN.td_target rewards nextStates dones ddqn   //
-                        let loss = updateQ td_est td_tgt //update online model 
-                        if verbose then 
-                            printfn $"Loss  %0.4f{loss}"
-                        if s.Episode % s.SyncEveryEpisode = 0 then                  
-                            System.GC.Collect()
-                            DDQNModel.sync ddqn.Model ddqn.Device
-                            let fn = root @@ "models" @@ $"model_{s.Episode}_{s.TimeStep}.bin"
-                            DDQNModel.save fn ddqn.Model 
-                            if verbose then
-                                printfn "Synced"
-                        let s = {s with S_expRate = ddqn.Step.ExplorationRate}
-                        policy ddqn,s
+                let s = 
+                    if s.TimeStep > 0 && s.TimeStep % s.LearnEverySteps = 0 then    
+                        learn s
                     else
-                        policy ddqn,s
-                else
-                    policy ddqn,s
+                        s
+                policy ddqn, s                
+
+            sync = syncModel
         }
 
     let initPolicy() = policy ddqn 
         
 let market = {prices = data}
 
-let runEpisode (policy,state) =
-    let rec loop (policy,state) =
-        if market.IsDone (state.TimeStep + 1) |> not then
-            let p,s = RL.step market Agent.agent (policy,state)
+let runEpisode (p,s) =
+    let rec loop (p,s) =
+        if market.IsDone (s.TimeStep + 1) |> not then
+            let p,s = RL.step market Agent.agent (p,s)
             loop (p,s)
         else
-           policy,state
-    loop (policy,state)
+           p,s
+    loop (p,s)
 
 let run() =
-    let rec loop (p,s:RLState) count = 
-        if count < 140 then
+    let rec loop (p,s:RLState) = 
+        if s.Episode < 140 then
             let s = RLState.Reset s
             let p,s = runEpisode (p,s)
-            printfn $"Run: {count}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}; Gain:%03f{s.S_gain}; Experienced:{s.ExpBuff.Buffer.Length}"
-            let s = {s with Episode = count + 1}
-            loop (p,s) (count+1)
+            if s.Episode > 0 && s.Episode % s.SyncEveryEpisode = 0 then p.sync s
+            printfn $"Run: {s.Episode}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}; Gain:%03f{s.S_gain}; Experienced:{s.ExpBuff.Buffer.Length}"
+            let s = {s with Episode = s.Episode + 1}
+            loop (p,s) 
         else
             printfn "done"
     let p,s = Policy.initPolicy(), RLState.Default 1000000.
-    loop (p,s) 0
+    loop (p,s)
 
 
 module Test = 

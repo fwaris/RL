@@ -11,6 +11,7 @@ type Policy<'state> =
     {
         selectAction : 'state -> Policy<'state>*int
         update : 'state -> bool -> float -> Policy<'state>*'state
+        sync  :  'state -> unit
     }
 
 let step env agent (policy,s0) =   
