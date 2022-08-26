@@ -28,20 +28,20 @@ let mutable verbose = false
 //keep track of all the information we need to run RL in here
 type RLState =
     {
-        State           : torch.Tensor
-        PrevState       : torch.Tensor
-        TimeStep        : int
-        Stock           : int
-        CashOnHand      : float
-        InitialCash     : float
-        LookBack        : int64
-        ExpBuff         : DDQN.ExperienceBuffer
-        LearnEvery      : int
-        SyncEvery       : int
-        S_reward        : float
-        S_expRate       : float
-        S_gain          : float
-        Episode         : int
+        State            : torch.Tensor
+        PrevState        : torch.Tensor
+        TimeStep         : int
+        Stock            : int
+        CashOnHand       : float
+        InitialCash      : float
+        LookBack         : int64
+        ExpBuff          : DDQN.ExperienceBuffer
+        LearnEverySteps  : int
+        SyncEveryEpisode : int
+        S_reward         : float
+        S_expRate        : float
+        S_gain           : float
+        Episode          : int
     }
     with 
         ///reset for new episode
@@ -66,8 +66,8 @@ type RLState =
                 InitialCash     = initialCash
                 LookBack        = lookback
                 ExpBuff         = expBuff
-                LearnEvery      = 3
-                SyncEvery       = 100                
+                LearnEverySteps      = 3
+                SyncEveryEpisode       = 3                
                 S_reward        = -1.0
                 S_expRate       = -1.0
                 S_gain          = -1.0
@@ -127,7 +127,7 @@ module Agent =
             let reward = (avgP2-avgP1) * sign * float s.Stock
             let tPlus1 = s.TimeStep + 1
             let isDone = env.IsDone (tPlus1 + 1)
-            let sGain = (avgP1 * float s.Stock + s.CashOnHand) / s.InitialCash
+            let sGain = ((avgP1 * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
             if verbose then
                 printfn $"{s.TimeStep} - P:%0.3f{avgP1}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.S_expRate} Gain:{sGain}"
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
@@ -179,7 +179,7 @@ module Policy =
 
             update = fun (s:RLState) isDone reward ->    
                 if s.TimeStep >= int s.LookBack then 
-                    if s.TimeStep % s.LearnEvery = 0 then  
+                    if s.TimeStep % s.LearnEverySteps = 0 then  
                         let states,nextStates,rewards,actions,dones = Experience.recall batchSize s.ExpBuff  //sample from experience
                         use states = states.``to``(ddqn.Device)
                         use nextStates = nextStates.``to``(ddqn.Device)
@@ -188,7 +188,7 @@ module Policy =
                         let loss = updateQ td_est td_tgt //update online model 
                         if verbose then 
                             printfn $"Loss  %0.4f{loss}"
-                        if s.TimeStep % s.SyncEvery = 0 then                  
+                        if s.Episode % s.SyncEveryEpisode = 0 then                  
                             System.GC.Collect()
                             DDQNModel.sync ddqn.Model ddqn.Device
                             let fn = root @@ "models" @@ $"model_{s.Episode}_{s.TimeStep}.bin"
