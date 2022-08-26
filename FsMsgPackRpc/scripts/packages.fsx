@@ -5,6 +5,7 @@
 #r "nuget: FSharpX.Collections"
 #r "nuget: TorchSharp.Fun"
 #r "nuget: FsPickler"
+#r "nuget: Plotly.NET"
 
 #load "../FsMsgPackRpc.fs"
 #load "../AirSimCar.fs"

@@ -7,11 +7,16 @@ open TorchSharp.Fun
 open TsData
 open FSharpx.Collections
 open RL
+open System.IO
+open Plotly.NET
 
 let device = torch.CUDA
 
-let fn = @"E:\s\tradestation\mes_5_min.bin"
-let fnTest = @"E:\s\tradestation\mes_5_min_test.bin"
+let root = @"E:\s\tradestation"
+let ( @@ ) a b = Path.Combine(a,b)
+
+let fn = root @@ "mes_5_min.bin"
+let fnTest = root @@ "mes_5_min_test.bin"
 
 let data = TsData.loadBars fn 
 let d1,d2 = data.[0], Array.last data
@@ -36,14 +41,15 @@ type RLState =
         S_reward        : float
         S_expRate       : float
         S_gain          : float
+        Episode         : int
     }
     with 
         ///reset for new episode
         static member Reset x = 
             {x with 
-                TimeStep=0
-                CashOnHand=x.InitialCash
-                Stock=0
+                TimeStep        = 0
+                CashOnHand      = x.InitialCash
+                Stock           = 0
                 State           = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
                 PrevState       = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
             }
@@ -65,6 +71,7 @@ type RLState =
                 S_reward        = -1.0
                 S_expRate       = -1.0
                 S_gain          = -1.0
+                Episode         = 0
             }
 
 
@@ -142,7 +149,7 @@ module Policy =
     let createModel() = 
         torch.nn.Conv1d(40L, 64L, 4L, stride=2L, padding=3L)     //b x 64L x 4L   
         ->> torch.nn.BatchNorm1d(64L)
-        ->> torch.nn.Dropout(0.3)
+        //->> torch.nn.Dropout(0.5)
         ->> torch.nn.ReLU()
         ->> torch.nn.Conv1d(64L,64L,3L)
         ->> torch.nn.ReLU()
@@ -154,7 +161,7 @@ module Policy =
 
     let exp = {Rate = 1.0; Decay=0.999; Min=0.01}
     let ddqn = DDQN.create model 0.9999f exp 2 device
-    let batchSize = 32
+    let batchSize = 100
     let opt = torch.optim.Adam(model.Online.Module.parameters(), lr=0.00025)
 
     let updateQ td_estimate td_target =
@@ -184,6 +191,8 @@ module Policy =
                         if s.TimeStep % s.SyncEvery = 0 then                  
                             System.GC.Collect()
                             DDQNModel.sync ddqn.Model ddqn.Device
+                            let fn = root @@ "models" @@ $"model_{s.Episode}_{s.TimeStep}.bin"
+                            DDQNModel.save fn ddqn.Model 
                             if verbose then
                                 printfn "Synced"
                         let s = {s with S_expRate = ddqn.Step.ExplorationRate}
@@ -209,38 +218,29 @@ let runEpisode (policy,state) =
 
 let run() =
     let rec loop (p,s:RLState) count = 
-        if count < 1000 then
+        if count < 140 then
             let s = RLState.Reset s
             let p,s = runEpisode (p,s)
             printfn $"Run: {count}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}; Gain:%03f{s.S_gain}; Experienced:{s.ExpBuff.Buffer.Length}"
+            let s = {s with Episode = count + 1}
             loop (p,s) (count+1)
         else
             printfn "done"
     let p,s = Policy.initPolicy(), RLState.Default 1000000.
     loop (p,s) 0
 
-async {try run() with ex -> printfn "%A" (ex.Message,ex.StackTrace)} |> Async.Start
 
+module Test = 
+    let interimModel = root @@ "test_ddqn.bin"
 
-//Agent.bar market 0 |> Option.map Agent.avgPrice
-//let s = RLState.Default Policy.expBuff 1000_000.
-//let s' = Agent.buy market s
-//let s'' = Agent.sell market s'
-(*
-verbose <- true
-verbose <- false
-Data*)
-
-module Test =
-    let saveLoad() =
-        let modelFn = @"E:\s\tradestation\ddqn.bin"
-        DDQN.DDQNModel.save modelFn Policy.ddqn.Model
-        DDQN.DDQNModel.load Policy.createModel modelFn
+    let saveInterim() =    
+        DDQN.DDQNModel.save interimModel Policy.ddqn.Model
 
     let testMarket() = {prices = dataTest}
     
-    let runTest() =
-        let model = saveLoad().Online
+    let evalModel modelFile  =
+        let model = (DDQN.DDQNModel.load Policy.createModel modelFile).Target
+        model.Module.eval()
         let testMarket = testMarket()
         let s = RLState.Default 1_000_000 
         let lookback = 40
@@ -261,8 +261,47 @@ module Test =
                 {s with TimeStep=s.TimeStep+1})
         let gain = ((float s'.Stock * (Agent.avgPrice (Array.last dataTest)) + s'.CashOnHand) - s.InitialCash)  / s'.InitialCash
         let adjGain = gain /  float dataTest.Length * float data.Length
-        printfn $"gain: {gain}, adjGain: {adjGain}"
+        printfn $"model: {modelFile}, gain: {gain}, adjGain: {adjGain}"
+        modelFile,adjGain
+
+    let copyModels() =
+        let dir = root @@ "models_eval" 
+        if Directory.Exists dir |> not then Directory.CreateDirectory dir |> ignore
+        dir |> Directory.GetFiles |> Seq.iter File.Delete        
+        let dirIn = Path.Combine(root,"models")
+        Directory.GetFiles(dirIn,"*.bin")
+        |> Seq.map FileInfo
+        |> Seq.sortByDescending (fun f->f.CreationTime)
+        |> Seq.truncate 50                                  //most recent 50 models
+        |> Seq.map (fun f->f.FullName)
+        |> Seq.iter (fun f->File.Move(f,Path.Combine(dir,Path.GetFileName(f)),true))
+
+    let evalModels() =
+        copyModels()
+        Directory.GetFiles(Path.Combine(root,"models_eval"),"*.bin")
+        |> Seq.map evalModel
+        |> Seq.map snd
+        |> Chart.Histogram
+        |> Chart.show
+
+    let runTest() = 
+        saveInterim()
+        evalModel interimModel
+
+    let clearModels() = 
+        root @@ "models" |> Directory.GetFiles |> Seq.iter File.Delete
+        root @@ "models_eval" |> Directory.GetFiles |> Seq.iter File.Delete
 
 (*
+*)
+
+Test.clearModels()
+async {try run() with ex -> printfn "%A" (ex.Message,ex.StackTrace)} |> Async.Start
+(*
+verbose <- true
+verbose <- false
+
 Test.runTest()
+
+async {Test.evalModels()} |> Async.Start
 *)
