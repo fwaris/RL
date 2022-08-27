@@ -4,49 +4,73 @@ open TorchSharp.Fun
 open TsData
 open FSharpx.Collections
 open RL
+open System.IO
+open Plotly.NET
 
 let device = torch.CUDA
 
-let fn = @"E:\s\tradestation\mes_5_min.bin"
+let root = @"E:\s\tradestation"
+let ( @@ ) a b = Path.Combine(a,b)
 
-let data = TsData.loadBars fn |> Array.take 1000
+let fn = root @@ "mes_5_min.bin"
+let fnTest = root @@ "mes_5_min_test.bin"
+
+let data = TsData.loadBars fn 
+let d1,d2 = data.[0], Array.last data
+let dataTest = TsData.loadBars fnTest
+let d1Test,d2Test = dataTest.[0],Array.last dataTest
+dataTest.Length
 let mutable verbose = false
 
 //keep track of all the information we need to run RL in here
 type RLState =
     {
-        State           : torch.Tensor
-        PrevState       : torch.Tensor
-        TimeStep        : int
-        Stock           : int
-        CashOnHand      : float
-        InitialCash     : float
-        LookBack        : int64
-        ExpBuff         : DDQN.ExperienceBuffer
-        LearnEvery      : int
-        SyncEvery       : int
-        S_reward        : float
-        S_expRate       : float
+        State            : torch.Tensor
+        PrevState        : torch.Tensor
+        TimeStep         : int
+        Stock            : int
+        CashOnHand       : float
+        InitialCash      : float
+        LookBack         : int64
+        ExpBuff          : DDQN.ExperienceBuffer
+        LearnEverySteps  : int
+        SyncEveryEpisode : int
+        S_reward         : float
+        S_expRate        : float
+        S_gain           : float
+        Episode          : int
     }
     with 
-        static member Default expBuff initialCash = 
+        ///reset for new episode
+        static member Reset x = 
+            {x with 
+                TimeStep        = 0
+                CashOnHand      = x.InitialCash
+                Stock           = 0
+                State           = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
+                PrevState       = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
+            }
+
+        static member Default initialCash = 
+            let expBuff = {DDQN.Buffer=RandomAccessList.empty; DDQN.Max=50000}
             let lookback = 40L
             {
-                State           = torch.zeros([|lookback;5L|],dtype=torch.float32)
-                PrevState       = torch.zeros([|lookback;5L|],dtype=torch.float32)
-                TimeStep        = 0
-                Stock           = 0
-                CashOnHand      = initialCash
-                InitialCash     = initialCash
-                LookBack        = lookback
-                ExpBuff         = expBuff
-                LearnEvery      = 3
-                SyncEvery       = 100                
-                S_reward        = -1.0
-                S_expRate       = -1.0
-
-
+                State            = torch.zeros([|lookback;5L|],dtype=torch.float32)
+                PrevState        = torch.zeros([|lookback;5L|],dtype=torch.float32)
+                TimeStep         = 0
+                Stock            = 0
+                CashOnHand       = initialCash
+                InitialCash      = initialCash
+                LookBack         = lookback
+                ExpBuff          = expBuff
+                LearnEverySteps  = 3
+                SyncEveryEpisode = 3                
+                S_reward         = -1.0
+                S_expRate        = -1.0
+                S_gain           = -1.0
+                Episode          = 0
             }
+
 
 type Market = {prices : Bar array}
     with 
@@ -79,7 +103,7 @@ module Agent =
     let doAction env s act = 
         if act = 0 then buy env s else sell env s      
 
-    let skipHead = torch.TensorIndex.Slice(1L)
+    let skipHead = torch.TensorIndex.Slice(1)
 
     let getObservations (env:Market) (s:RLState) =         
         if env.IsDone s.TimeStep then s 
@@ -88,6 +112,8 @@ module Agent =
             let t1 = torch.tensor([|b.Open;b.High;b.Low;b.Close;b.Volume|],dtype=torch.float32)
             let ts = torch.vstack([|s.State;t1|])
             let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // 40 x 5 
+            let ts_d = Tensor.getDataNested<float32> ts
+            let ts2_d = Tensor.getDataNested<float32> ts2
             {s with State = ts2; PrevState = s.State}
         
     let computeRewards env s action =         
@@ -100,11 +126,12 @@ module Agent =
             let reward = (avgP2-avgP1) * sign * float s.Stock
             let tPlus1 = s.TimeStep + 1
             let isDone = env.IsDone (tPlus1 + 1)
+            let sGain = ((avgP1 * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
             if verbose then
-                printfn $"{s.TimeStep} - P:%0.3f{avgP1}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.S_expRate} "
-            let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone}
+                printfn $"{s.TimeStep} - P:%0.3f{avgP1}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.S_expRate} Gain:{sGain}"
+            let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
             let experienceBuff = Experience.append experience s.ExpBuff  
-            {s with ExpBuff = experienceBuff; TimeStep=tPlus1; S_reward=reward},isDone,reward
+            {s with ExpBuff = experienceBuff; TimeStep=tPlus1; S_reward=reward; S_gain = sGain},isDone,reward
         )
         |> Option.defaultWith (fun _ -> failwith "should not reach here")
 
@@ -120,10 +147,12 @@ module Policy =
 
     let createModel() = 
         torch.nn.Conv1d(40L, 64L, 4L, stride=2L, padding=3L)     //b x 64L x 4L   
-        //->> torch.nn.BatchNorm1d(64L)
-        //->> torch.nn.Dropout(0.3)
+        ->> torch.nn.BatchNorm1d(64L)
+        ->> torch.nn.Dropout(0.5)
         ->> torch.nn.ReLU()
         ->> torch.nn.Conv1d(64L,64L,3L)
+        ->> torch.nn.BatchNorm1d(64L)
+        ->> torch.nn.Dropout(0.5)
         ->> torch.nn.ReLU()
         ->> torch.nn.Flatten()
         ->> torch.nn.Linear(128L,2L)
@@ -131,10 +160,9 @@ module Policy =
     let model = DDQNModel.create createModel
     let lossFn = torch.nn.functional.smooth_l1_loss()
 
-    let exp = {Rate = 1.0; Decay=0.999; Min=0.01}
-    let expBuff = {Buffer=RandomAccessList.empty; Max=50000}
+    let exp = {Rate = 1.0; Decay=0.999995; Min=0.01}
     let ddqn = DDQN.create model 0.9999f exp 2 device
-    let batchSize = 32
+    let batchSize = 100
     let opt = torch.optim.Adam(model.Online.Module.parameters(), lr=0.00025)
 
     let updateQ td_estimate td_target =
@@ -144,6 +172,25 @@ module Policy =
         use t = opt.step() 
         loss.ToDouble()
 
+    let learn ddqn s = 
+        let states,nextStates,rewards,actions,dones = Experience.recall batchSize s.ExpBuff  //sample from experience
+        use states = states.``to``(ddqn.Device)
+        use nextStates = nextStates.``to``(ddqn.Device)
+        let td_est = DDQN.td_estimate states actions ddqn           //estimate the Q-value of state-action pairs from online model
+        let td_tgt = DDQN.td_target rewards nextStates dones ddqn   //
+        let loss = updateQ td_est td_tgt //update online model 
+        if verbose then 
+            printfn $"Loss  %0.4f{loss}"
+        {s with S_expRate = ddqn.Step.ExplorationRate}
+
+    let syncModel s = 
+        System.GC.Collect()
+        DDQNModel.sync ddqn.Model ddqn.Device
+        let fn = root @@ "models" @@ $"model_{s.Episode}_{s.TimeStep}.bin"
+        DDQNModel.save fn ddqn.Model 
+        //if verbose then
+        printfn "Synced"
+
     let rec policy ddqn = 
         {
             selectAction  = fun (s:RLState) -> 
@@ -151,62 +198,150 @@ module Policy =
                 (policy ddqn),act
 
             update = fun (s:RLState) isDone reward ->    
-                if s.TimeStep >= int s.LookBack then 
-                    if s.TimeStep % s.LearnEvery = 0 then  
-                        let states,nextStates,rewards,actions,dones = Experience.recall batchSize s.ExpBuff  //sample from experience
-                        use states = states.``to``(ddqn.Device)
-                        use nextStates = nextStates.``to``(ddqn.Device)
-                        let td_est = DDQN.td_estimate states actions ddqn        
-                        //let td_est_d = td_est.data<float32>().ToArray() //ddqn invocations
-                        let td_tgt = DDQN.td_target rewards nextStates dones ddqn
-                        let loss = updateQ td_est td_tgt //update online model 
-                        if verbose then 
-                            printfn $"Loss  %0.4f{loss}"
-                        if s.TimeStep % s.SyncEvery = 0 then                  
-                            System.GC.Collect()
-                            DDQNModel.sync ddqn.Model ddqn.Device
-                            if verbose then
-                                printfn "Synced"
-                        let s = {s with S_expRate = ddqn.Step.ExplorationRate}
-                        policy ddqn,s
+                let s = 
+                    if s.TimeStep > 0 && s.TimeStep % s.LearnEverySteps = 0 then    
+                        learn ddqn s
                     else
-                        policy ddqn,s
-                else
-                    policy ddqn,s
+                        s
+                policy ddqn, s                
+
+            sync = syncModel
         }
 
     let initPolicy() = policy ddqn 
         
 let market = {prices = data}
-let runEpisode (policy,state) =
-    let rec loop (policy,state) =
-        if market.IsDone (state.TimeStep + 1) |> not then
-            let p,s = RL.step market Agent.agent (policy,state)
+
+let runEpisode (p,s) =
+    let rec loop (p,s) =
+        if market.IsDone (s.TimeStep + 1) |> not then
+            let p,s = RL.step market Agent.agent (p,s)
             loop (p,s)
         else
-           policy,state
-    loop (policy,state)
+           p,s
+    loop (p,s)
 
 let run() =
-    let rec loop (p,s) count = 
-        if count < 1000 then
+    let rec loop (p,s:RLState) = 
+        if s.Episode < 140 then
+            let s = RLState.Reset s
             let p,s = runEpisode (p,s)
-            printfn $"Run: {count}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}"
-            let s = RLState.Default s.ExpBuff s.InitialCash
-            loop (p,s) (count+1)
+            if s.Episode > 0 && s.Episode % s.SyncEveryEpisode = 0 then p.sync s
+            printfn $"Run: {s.Episode}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}; Gain:%03f{s.S_gain}; Experienced:{s.ExpBuff.Buffer.Length}"
+            let s = {s with Episode = s.Episode + 1}
+            loop (p,s) 
         else
             printfn "done"
-    let p,s = Policy.initPolicy(), RLState.Default Policy.expBuff 1000000.
-    loop (p,s) 0
+    let p,s = Policy.initPolicy(), RLState.Default 1000000.
+    loop (p,s)
 
-async {try run() with ex -> printfn "%A" (ex.Message,ex.StackTrace)} |> Async.RunSynchronously
+module Test = 
+    let interimModel = root @@ "test_ddqn.bin"
 
+    let saveInterim() =    
+        DDQN.DDQNModel.save interimModel Policy.ddqn.Model
 
-//Agent.bar market 0 |> Option.map Agent.avgPrice
-//let s = RLState.Default Policy.expBuff 1000_000.
-//let s' = Agent.buy market s
-//let s'' = Agent.sell market s'
+    let testMarket() = {prices = dataTest}
+
+    let evalModelTT (model:IModel) market data refLen = 
+        let s = RLState.Default 1_000_000 
+        let lookback = 40
+        let dataChunks = data |> Array.windowed lookback
+        (*
+        let bars = dataChunks.[100]
+        let tx = torch.tensor ([|for i in 0 .. 10 -> i|],dtype=torch.float32)
+        let tx_d = Tensor.getData<float32> tx
+        let tx2 = tx.index Agent.skipHead
+        let tx2_d = Tensor.getData<float32> tx2
+        let model = (DDQN.DDQNModel.load Policy.createModel @"E:\s\tradestation\models_eval\model_42_57599.bin").Online
+        *)
+        let s' = 
+            (s,dataChunks) 
+            ||> Array.fold (fun s bars -> 
+                let inp = bars |> Array.collect (fun b -> [|b.Open;b.High;b.Low;b.Close;b.Volume|])
+                use t_inp = torch.tensor(inp,dtype=torch.float32,dimensions=[|1L;40L;5L|])
+                //let t_inp_d = Tensor.getDataNested<float32> t_inp
+                //let t_inp_1 = t_inp.index Agent.skipHead
+                //let t_inp_1_d = Tensor.getDataNested<float32> t_inp_1
+                //let t_inp_2 = t_inp.index [|torch.TensorIndex.Colon; torch.TensorIndex.Slice(1,41)|]
+                //let t_inp_2_d = Tensor.getDataNested<float32> t_inp_2
+                use q = model.forward t_inp
+                let act = q.argmax(-1L).flatten().ToInt32()               
+                let s = 
+                    //printfn $"act = {act}"
+                    if act = 0 then 
+                        Agent.buy market s
+                    else
+                        Agent.sell market s
+                printfn $" {s.TimeStep} act: {act}, cash:{s.CashOnHand}, stock:{s.Stock}"
+                {s with TimeStep=s.TimeStep+1})
+
+        let avgP1 = Agent.avgPrice (Array.last data)
+        let sGain = ((avgP1 * float s'.Stock + s'.CashOnHand) - s'.InitialCash) / s'.InitialCash
+        let adjGain = sGain /  float data.Length * float refLen
+        adjGain
+        //printfn $"model: {modelFile}, gain: {gain}, adjGain: {adjGain}"
+        //modelFile,adjGain
+    
+    let evalModel modelFile  =
+        let model = (DDQN.DDQNModel.load Policy.createModel modelFile).Online
+        model.Module.eval()
+        let testMarket,testData = testMarket(), dataTest
+        let trainMarket,trainData = market, data
+        let gainTest = evalModelTT model testMarket testData data.Length
+        let gainTrain = evalModelTT model trainMarket trainData data.Length
+        printfn $"model: {modelFile}, Adg. Gain -  Test: {gainTest}, Train: {gainTrain}"
+        modelFile,gainTest,gainTrain
+
+    let copyModels() =
+        let dir = root @@ "models_eval" 
+        if Directory.Exists dir |> not then Directory.CreateDirectory dir |> ignore
+        dir |> Directory.GetFiles |> Seq.iter File.Delete        
+        let dirIn = Path.Combine(root,"models")
+        Directory.GetFiles(dirIn,"*.bin")
+        |> Seq.map FileInfo
+        |> Seq.sortByDescending (fun f->f.CreationTime)
+        |> Seq.truncate 50                                  //most recent 50 models
+        |> Seq.map (fun f->f.FullName)
+        |> Seq.iter (fun f->File.Copy(f,Path.Combine(dir,Path.GetFileName(f)),true))
+
+    let evalModels() =
+        copyModels()
+        let evals = 
+            Directory.GetFiles(Path.Combine(root,"models_eval"),"*.bin")
+            |> Seq.map evalModel
+            |> Seq.toArray
+        evals
+        |> Seq.map (fun (m,tst,trn) -> tst)
+        |> Chart.Histogram
+        |> Chart.show
+        evals
+        |> Seq.map (fun (m,tst,trn) -> trn,tst)
+        |> Chart.Point
+        |> Chart.withXAxisStyle "Train"
+        |> Chart.withYAxisStyle "Test"
+        |> Chart.show
+
+    let runTest() = 
+        saveInterim()
+        evalModel interimModel
+
+    let clearModels() = 
+        root @@ "models" |> Directory.GetFiles |> Seq.iter File.Delete
+        root @@ "models_eval" |> Directory.GetFiles |> Seq.iter File.Delete
+
+run()
+
+(*
+Test.clearModels()
+async {try run() with ex -> printfn "%A" (ex.Message,ex.StackTrace)} |> Async.Start
+*)
+
 (*
 verbose <- true
 verbose <- false
+
+Test.runTest()
+
+async {Test.evalModels()} |> Async.Start
 *)
