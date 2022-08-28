@@ -37,7 +37,7 @@ type RLState =
         LookBack         : int64
         ExpBuff          : DDQN.ExperienceBuffer
         LearnEverySteps  : int
-        SyncEveryEpisode : int
+        SyncEverySteps   : int
         S_reward         : float
         S_expRate        : float
         S_gain           : float
@@ -67,7 +67,7 @@ type RLState =
                 LookBack         = lookback
                 ExpBuff          = expBuff
                 LearnEverySteps  = 3
-                SyncEveryEpisode = 3                
+                SyncEverySteps   = 10000
                 S_reward         = -1.0
                 S_expRate        = -1.0
                 S_gain           = -1.0
@@ -82,7 +82,7 @@ type Market = {prices : Bar array}
 
 module Agent = 
     open DDQN
-    let bar (env:Market) t = if t < env.prices.Length then env.prices.[t] |> Some else None
+    let bar (env:Market) t = if t < env.prices.Length && t >= 0 then env.prices.[t] |> Some else None
     let avgPrice bar = 0.5 * (bar.High + bar.Low)        
 
     let buy (env:Market) (s:RLState) = 
@@ -119,22 +119,22 @@ module Agent =
         
     let computeRewards env s action =         
         bar env s.TimeStep
-        |> Option.bind (fun b1 -> bar env (s.TimeStep+1) |> Option.map (fun b2 -> b1,b2))
-        |> Option.map (fun (bar,nextBar) -> 
-            let avgP1 = avgPrice  bar            
-            let avgP2 = avgPrice nextBar
-            let sign = if action = 0 (*buy*) then 1.0 else -1.0
-            let reward = (avgP2-avgP1) * sign * float s.Stock
-            let tPlus1 = s.TimeStep + 1
-            let isDone = env.IsDone (tPlus1 + 1)
-            let sGain = ((avgP1 * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
+        |> Option.bind (fun cBar -> bar env (s.TimeStep-1) |> Option.map (fun pBar -> pBar,cBar))
+        |> Option.map (fun (prevBar,bar) -> 
+            let avgP     = avgPrice  bar            
+            let avgPprev = avgPrice prevBar
+            let sign     = if action = 0 (*buy*) then 1.0 else -1.0 
+            let reward   = (avgP-avgPprev) * sign //* float s.Stock            
+            let tPlus1   = s.TimeStep + 1
+            let isDone   = env.IsDone (tPlus1 + 1)
+            let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
             if verbose then
-                printfn $"{s.TimeStep} - P:%0.3f{avgP1}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.S_expRate} Gain:{sGain}"
+                printfn $"{s.TimeStep} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.S_expRate} Gain:{sGain}"
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
             let experienceBuff = Experience.append experience s.ExpBuff  
             {s with ExpBuff = experienceBuff; TimeStep=tPlus1; S_reward=reward; S_gain = sGain},isDone,reward
         )
-        |> Option.defaultWith (fun _ -> failwith "should not reach here")
+        |> Option.defaultValue ({s with TimeStep = s.TimeStep+1},false,0.0)
 
     let agent = 
         {
@@ -161,7 +161,7 @@ module Policy =
     let model = DDQNModel.create createModel
     let lossFn = torch.nn.functional.smooth_l1_loss()
 
-    let exp = {Rate = 1.0; Decay=0.9; Min=0.01}
+    let exp = {Rate = 1.0; Decay=0.9995; Min=0.01}
     let ddqn = DDQN.create model 0.9999f exp 2 device
     let batchSize = 100
     let opt = torch.optim.Adam(model.Online.Module.parameters(), lr=0.00025)
@@ -170,8 +170,11 @@ module Policy =
         use loss = lossFn.Invoke(td_estimate,td_target)
         opt.zero_grad()
         loss.backward()
+        //torch.nn.utils.clip_grad_value_(model.Online.Module.parameters(),1.0)
+        torch.nn.utils.clip_grad_norm_(model.Online.Module.parameters(),10.0) |> ignore
         use t = opt.step() 
         loss.ToDouble()
+
 
     let learn ddqn s = 
         let states,nextStates,rewards,actions,dones = Experience.recall batchSize s.ExpBuff  //sample from experience
@@ -179,10 +182,10 @@ module Policy =
         use nextStates = nextStates.``to``(ddqn.Device)
         let td_est = DDQN.td_estimate states actions ddqn           //estimate the Q-value of state-action pairs from online model
         let td_tgt = DDQN.td_target rewards nextStates dones ddqn   //
-        let loss = updateQ td_est td_tgt //update online model 
+        let loss = updateQ td_est td_tgt //update online model         
         if verbose then 
             printfn $"Loss  %0.4f{loss}"
-        {s with S_expRate = ddqn.Step.ExplorationRate}
+        {s with S_expRate = ddqn.Step.ExplorationRate}        
 
     let syncModel s = 
         System.GC.Collect()
@@ -204,42 +207,15 @@ module Policy =
                         learn ddqn s
                     else
                         s
+                if s.TimeStep > 0 && s.TimeStep % s.SyncEverySteps = 0 then
+                    syncModel s
                 policy ddqn, s                
 
             sync = syncModel
         }
-
+        
     let initPolicy() = policy ddqn 
         
-let market = {prices = data}
-
-let runEpisode (p,s) =
-    let rec loop (p,s) =
-        if market.IsDone (s.TimeStep + 1) |> not then
-            let p,s = RL.step market Agent.agent (p,s)
-            loop (p,s)
-        else
-           p,s
-    loop (p,s)
-
-let run(p,s) =
-    let rec loop (p,s:RLState) = 
-        if s.Episode < 4 then
-            let s = RLState.Reset s
-            let p,s = runEpisode (p,s)
-            if s.Episode > 0 && s.Episode % s.SyncEveryEpisode = 0 then p.sync s
-            printfn $"Run: {s.Episode}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}; Gain:%03f{s.S_gain}; Experienced:{s.ExpBuff.Buffer.Length}"
-            let s = {s with Episode = s.Episode + 1}
-            loop (p,s) 
-        else
-            printfn "done"
-            p,s
-    loop (p,s)
-
-let resetRun() = 
-    let p,s = Policy.initPolicy(), RLState.Default 1000000.
-    run (p,s)
-
 module Test = 
     let interimModel = root @@ "test_ddqn.bin"
 
@@ -247,6 +223,7 @@ module Test =
         DDQN.DDQNModel.save interimModel Policy.ddqn.Model
 
     let testMarket() = {prices = dataTest}
+    let trainMarket() = {prices = data}
 
     let evalModelTT (model:IModel) market data refLen = 
         let s = RLState.Default 1_000_000 
@@ -260,11 +237,13 @@ module Test =
         let tx2_d = Tensor.getData<float32> tx2
         let model = (DDQN.DDQNModel.load Policy.createModel @"E:\s\tradestation\models_eval\model_42_57599.bin").Online
         *)
+        let modelDevice = model.Module.parameters() |> Seq.head |> fun t -> t.device
         let s' = 
             (s,dataChunks) 
             ||> Array.fold (fun s bars -> 
                 let inp = bars |> Array.collect (fun b -> [|b.Open;b.High;b.Low;b.Close;b.Volume|])
-                use t_inp = torch.tensor(inp,dtype=torch.float32,dimensions=[|1L;40L;5L|])
+                use t_inp = torch.tensor(inp,dtype=torch.float32,dimensions=[|1L;40L;5L|])                
+                use t_inp = t_inp.``to``(modelDevice)
                 //let t_inp_d = Tensor.getDataNested<float32> t_inp
                 //let t_inp_1 = t_inp.index Agent.skipHead
                 //let t_inp_1_d = Tensor.getDataNested<float32> t_inp_1
@@ -287,16 +266,22 @@ module Test =
         adjGain
         //printfn $"model: {modelFile}, gain: {gain}, adjGain: {adjGain}"
         //modelFile,adjGain
+
+    let evalModel (name:string) (model:IModel) =
+        try
+            model.Module.eval()
+            let testMarket,testData = testMarket(), dataTest
+            let trainMarket,trainData = trainMarket(), data
+            let gainTest = evalModelTT model testMarket testData data.Length
+            let gainTrain = evalModelTT model trainMarket trainData data.Length
+            printfn $"model: {name}, Adg. Gain -  Test: {gainTest}, Train: {gainTrain}"
+            name,gainTest,gainTrain
+        finally
+            model.Module.train()
     
-    let evalModel modelFile  =
+    let evalModelFile modelFile  =
         let model = (DDQN.DDQNModel.load Policy.createModel modelFile).Online
-        model.Module.eval()
-        let testMarket,testData = testMarket(), dataTest
-        let trainMarket,trainData = market, data
-        let gainTest = evalModelTT model testMarket testData data.Length
-        let gainTrain = evalModelTT model trainMarket trainData data.Length
-        printfn $"model: {modelFile}, Adg. Gain -  Test: {gainTest}, Train: {gainTrain}"
-        modelFile,gainTest,gainTrain
+        evalModel modelFile model
 
     let copyModels() =
         let dir = root @@ "models_eval" 
@@ -314,7 +299,7 @@ module Test =
         copyModels()
         let evals = 
             Directory.GetFiles(Path.Combine(root,"models_eval"),"*.bin")
-            |> Seq.map evalModel
+            |> Seq.map evalModelFile
             |> Seq.toArray
         evals
         |> Seq.map (fun (m,tst,trn) -> tst)
@@ -334,6 +319,36 @@ module Test =
     let clearModels() = 
         root @@ "models" |> Directory.GetFiles |> Seq.iter File.Delete
         root @@ "models_eval" |> Directory.GetFiles |> Seq.iter File.Delete
+
+let market = {prices = data}
+
+let runEpisode (p,s) =
+    let rec loop (p,s) =
+        if market.IsDone (s.TimeStep + 1) |> not then
+            let p,s = RL.step market Agent.agent (p,s)
+            loop (p,s)
+        else
+           p,s
+    loop (p,s)
+
+let run(p,s) =
+    let rec loop (p,s:RLState) = 
+        if s.Episode < 150 then
+            let s = RLState.Reset s
+            let p,s = runEpisode (p,s)
+            printfn $"Run: {s.Episode}, R:{s.S_reward}, E:%0.3f{s.S_expRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}; Gain:%03f{s.S_gain}; Experienced:{s.ExpBuff.Buffer.Length}"
+            Test.evalModel "current" Policy.model.Online |> ignore
+            let s = {s with Episode = s.Episode + 1}
+            loop (p,s) 
+        else
+            printfn "done"
+            p,s
+    loop (p,s)
+
+let resetRun() = 
+    let p,s = Policy.initPolicy(), RLState.Default 1000000.
+    run (p,s)
+
 
 let mutable _ps = Unchecked.defaultof<_>
 
@@ -368,4 +383,17 @@ verbose <- false
 Test.runTest()
 
 async {Test.evalModels()} |> Async.Start
+(fst _ps).sync (snd _ps)
+
+Policy.model.Online.Module.save @"e:/s/tradestation/temp.bin" 
+
+let m2 = DDQN.DDQNModel.load Policy.createModel  @"e:/s/tradestation/temp.bin" 
+
+Policy.model.Online.Module.parameters() |> Seq.iter (printfn "%A")
+
+m2.Online.Module.parameters() |> Seq.iter (printfn "%A")
+
+let p1 = m2.Online.Module.parameters() |> Seq.head |> Tensor.getDataNested<float32>
+let p2 = Policy.model.Online.Module.parameters() |> Seq.head |> Tensor.getDataNested<float32>
+p1 = p2
 *)
