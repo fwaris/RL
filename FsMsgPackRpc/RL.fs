@@ -1,26 +1,25 @@
 ﻿module RL
 
-type Agent<'env,'state> = 
+type Agent<'parms,'env,'state> = //note: 'parms are hyper parameters that are not expected to change during the run
     {
-        doAction        : 'env -> 'state -> int -> 'state
-        getObservations : 'env -> 'state -> 'state
-        computeRewards  : 'env -> 'state -> int -> 'state*bool*float
+        doAction        : 'parms -> 'env -> 'state -> int -> 'state                         
+        getObservations : 'parms -> 'env -> 'state -> 'state
+        computeRewards  : 'parms -> 'env -> 'state -> int -> 'state*bool*float
     }
 
-type Policy<'state> =
+type Policy<'parms,'state> =
     {
-        selectAction : 'state -> Policy<'state>*int
-        update : 'state -> bool -> float -> Policy<'state>*'state
-        sync  :  'state -> unit
+        selectAction : 'parms  -> 'state -> Policy<'parms,'state>*int
+        update       : 'parms -> 'state -> bool -> float -> Policy<'parms,'state>*'state
+        sync         : 'parms -> 'state -> unit
     }
 
-let step env agent (policy,s0) =   
-    let policy,act        = policy.selectAction s0
-    let s1                = agent.doAction env s0 act
-    let s2                = agent.getObservations env s1
-    let s3,isDone,reward  = agent.computeRewards env s2 act
-    let policy,s4         = policy.update s3 isDone reward
+let step parms env agent (policy,s0) =   
+    let policy,act        = policy.selectAction parms s0
+    let s1                = agent.doAction parms env s0 act
+    let s2                = agent.getObservations parms env s1
+    let s3,isDone,reward  = agent.computeRewards parms env s2 act
+    let policy,s4         = policy.update parms s3 isDone reward
     (policy,s4)
     
-
 

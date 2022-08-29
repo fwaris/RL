@@ -10,9 +10,9 @@ open FSharpx.Collections
 type DDQNModel = {Target : IModel;  Online : IModel}
 type Experience = {State:torch.Tensor; NextState:torch.Tensor; Action:int; Reward:float32; Done:bool}
 type ExperienceBuffer = {Buffer : RandomAccessList<Experience>; Max:int}
-type Exploration = {Rate:float; Decay:float; Min:float}
-type Step = {Step:int; ExplorationRate:float}
-type DDQN = {Model:DDQNModel; Gamma:float32; Exploration:Exploration; Step:Step; Actions:int; Device:torch.Device }
+type Exploration = {Decay:float; Min:float} with static member Default = {Decay = 0.999; Min=0.01}
+type Step = {Num:int; ExplorationRate:float}
+type DDQN = {Model:DDQNModel; Gamma:float32; Exploration:Exploration; Actions:int; Device:torch.Device }
 
 module DDQNModel =
     let create (fmodel: unit -> IModel) = 
@@ -114,13 +114,11 @@ module DDQN =
     let rand() : float = torch.rand([|1L|],dtype=torch.double).item()
     let randint n : int = torch.randint(n,[|1|],dtype=torch.int32).item()
 
-    let private updateStep (ddqn:DDQN) =
-        let step' =
-            {
-                Step = ddqn.Step.Step + 1
-                ExplorationRate = ddqn.Step.ExplorationRate * ddqn.Exploration.Decay |> max ddqn.Exploration.Min
-            }
-        {ddqn with Step = step'}
+    let updateStep exp step =
+        {
+            Num = step.Num + 1
+            ExplorationRate = step.ExplorationRate * exp.Decay |> max exp.Min
+        }
 
     let create model gamma exploration actions (device:torch.Device) =
         model.Target.Module.``to``(device) |> ignore
@@ -129,21 +127,20 @@ module DDQN =
             Model = model
             Exploration = exploration
             Gamma = gamma
-            Step = {Step=0; ExplorationRate=exploration.Rate}
             Actions = actions
             Device = device
         }
 
-    let selectAction (state:torch.Tensor) (ddqn:DDQN) =
+    let selectAction (state:torch.Tensor) ddqn step =
         let actionIdx =
-            if rand() < ddqn.Step.ExplorationRate then //explore
+            if rand() < step.ExplorationRate then //explore
                 randint ddqn.Actions
             else
                 use state = state.``to``(ddqn.Device)  //exploit
                 use state = state.unsqueeze(0)
                 use action_values = ddqn.Model.Online.forward(state)
                 action_values.argmax().ToInt32()
-        actionIdx,updateStep ddqn 
+        actionIdx
 
     let actionIdx (actions:torch.Tensor) = 
         [|
