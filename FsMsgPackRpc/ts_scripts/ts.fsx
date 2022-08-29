@@ -30,7 +30,7 @@ let mutable verbose = false
 //can support multiple concurrent runs
 type Parms =
     {
-        CreateModel      : unit -> IModel
+        CreateModel      : unit -> IModel                   //need model creation function so that we can load weights from file
         DDQN             : DDQN
         LossFn           : Loss
         Opt              : torch.optim.Optimizer
@@ -51,7 +51,7 @@ type Parms =
                 BatchSize       = 32
             }
 
-//keep track  the information we need to run RL in here
+//keep track of the information we need to run RL in here
 type RLState =
     {
         State            : torch.Tensor
@@ -384,7 +384,8 @@ let parms1() =
     let model = DDQNModel.create createModel
     let exp = {Decay=0.9995; Min=0.01}
     let ddqn = DDQN.create model 0.9999f exp 2 device
-    Parms.Default createModel ddqn 0.00001
+    {Parms.Default createModel ddqn 0.00025 with SyncEverySteps = 15000}
+
 (*
 Test.clearModels()
 let p1 = parms1()
