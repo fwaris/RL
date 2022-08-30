@@ -370,21 +370,25 @@ let startReRun parms =
 //
 let parms1() = 
     let createModel() = 
-        torch.nn.Conv1d(40L, 64L, 4L, stride=2L, padding=3L)     //b x 64L x 4L   
-        ->> torch.nn.BatchNorm1d(64L)
+        torch.nn.Conv1d(40L, 128L, 4L, stride=2L, padding=3L)     //b x 64L x 4L   
+        ->> torch.nn.BatchNorm1d(128L)
         ->> torch.nn.Dropout(0.5)
         ->> torch.nn.ReLU()
-        ->> torch.nn.Conv1d(64L,64L,3L)
+        ->> torch.nn.Conv1d(128L,64L,3L)
         ->> torch.nn.BatchNorm1d(64L)
         ->> torch.nn.Dropout(0.5)
         ->> torch.nn.ReLU()
         ->> torch.nn.Flatten()
-        ->> torch.nn.Linear(128L,2L)
+        ->> torch.nn.Linear(128L,20L)
+        ->> torch.nn.SELU()
+        ->> torch.nn.Linear(20L,2L)
 
     let model = DDQNModel.create createModel
     let exp = {Decay=0.9995; Min=0.01}
     let ddqn = DDQN.create model 0.9999f exp 2 device
-    {Parms.Default createModel ddqn 0.00025 with SyncEverySteps = 15000}
+    {Parms.Default createModel ddqn 0.00025 with 
+        SyncEverySteps = 15000
+        BatchSize = 300}
 
 (*
 Test.clearModels()
@@ -399,7 +403,7 @@ verbose <- false
 
 Test.runTest()
 
-async {Test.evalModels()} |> Async.Start
+async {Test.evalModels p1} |> Async.Start
 (fst _ps).sync (snd _ps)
 
 Policy.model.Online.Module.save @"e:/s/tradestation/temp.bin" 

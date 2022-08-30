@@ -1,856 +1,4 @@
 ﻿let s = """
-
-Run: 0, R:0, E:0.010; Cash:3386.12; Stock:270; Gain:0.183084; Experienced:50000
-model: current, Adg. Gain -  Test: 0.14539536, Train: -0.197589875
-
-
-
-
-
-Run: 1, R:-0, E:0.010; Cash:1175627.38; Stock:0; Gain:0.175627; Experienced:50000
-model: current, Adg. Gain -  Test: 0.11045088, Train: 0.267460125
-
-
-
-
-
-Run: 2, R:0, E:0.010; Cash:3829.50; Stock:289; Gain:0.266543; Experienced:50000
-model: current, Adg. Gain -  Test: 0.09333359999999999, Train: -0.011640375
-
-
-
-
-
-Run: 3, R:-0, E:0.010; Cash:937068.50; Stock:0; Gain:-0.062932; Experienced:50000
-model: current, Adg. Gain -  Test: 0.058184639999999996, Train: 0.21462075
-
-
-
-
-
-Run: 4, R:0, E:0.010; Cash:4215.75; Stock:232; Gain:0.017882; Experienced:50000
-model: current, Adg. Gain -  Test: -0.01118736, Train: 0.27270675
-
-
-
-
-
-Run: 5, R:0, E:0.010; Cash:449.88; Stock:271; Gain:0.184517; Experienced:50000
-model: current, Adg. Gain -  Test: 0.03559104, Train: 0.26885475
-
-
-
-
-
-Run: 6, R:0, E:0.010; Cash:2782.50; Stock:311; Gain:0.361619; Experienced:50000
-model: current, Adg. Gain -  Test: 0.25690464, Train: 0.171897125
-
-
-
-
-
-Run: 7, R:0, E:0.010; Cash:723.38; Stock:298; Gain:0.302760; Experienced:50000
-model: current, Adg. Gain -  Test: 0.19824624, Train: 0.12378499999999999
-
-
-
-
-
-Run: 8, R:0, E:0.010; Cash:3172.62; Stock:266; Gain:0.165393; Experienced:50000
-model: current, Adg. Gain -  Test: 0.270756, Train: -0.1495165
-
-
-
-
-
-Run: 9, R:0, E:0.010; Cash:2216.25; Stock:243; Gain:0.063944; Experienced:50000
-model: current, Adg. Gain -  Test: 0.1323792, Train: -0.12430100000000001
-
-
-
-
-
-Run: 10, R:-0, E:0.010; Cash:1162679.88; Stock:0; Gain:0.162680; Experienced:50000
-model: current, Adg. Gain -  Test: 0.18438623999999998, Train: -0.178147375
-
-
-
-
-
-Run: 11, R:0, E:0.010; Cash:952.00; Stock:265; Gain:0.158803; Experienced:50000
-model: current, Adg. Gain -  Test: 0.024894720000000002, Train: 0.203931375
-
-
-
-
-
-Run: 12, R:0, E:0.010; Cash:2868.25; Stock:272; Gain:0.191304; Experienced:50000
-model: current, Adg. Gain -  Test: 0.32818032, Train: -0.144296
-
-
-
-
-
-Run: 13, R:0, E:0.010; Cash:2500.12; Stock:273; Gain:0.195305; Experienced:50000
-model: current, Adg. Gain -  Test: -0.08890992, Train: 0.096185875
-
-
-
-
-
-Run: 14, R:0, E:0.010; Cash:2591.00; Stock:308; Gain:0.348320; Experienced:50000
-model: current, Adg. Gain -  Test: -0.03079872, Train: 0.017124375
-
-
-
-
-
-Run: 15, R:0, E:0.010; Cash:4139.25; Stock:289; Gain:0.266852; Experienced:50000
-model: current, Adg. Gain -  Test: 0.091656, Train: 0.22718475000000002
-
-
-
-
-
-Run: 16, R:0, E:0.010; Cash:1630.62; Stock:243; Gain:0.063358; Experienced:50000
-model: current, Adg. Gain -  Test: 0.0713376, Train: 0.213538875
-
-
-
-
-
-Run: 17, R:0, E:0.010; Cash:2564.12; Stock:210; Gain:-0.079893; Experienced:50000
-model: current, Adg. Gain -  Test: 0.0390744, Train: 0.211749125
-
-
-
-
-
-Run: 18, R:0, E:0.010; Cash:4186.12; Stock:276; Gain:0.210099; Experienced:50000
-model: current, Adg. Gain -  Test: 0.0867888, Train: -0.24450912500000002
-
-
-
-
-
-Run: 19, R:0, E:0.010; Cash:1635.88; Stock:300; Gain:0.312411; Experienced:50000
-model: current, Adg. Gain -  Test: 0.31240944000000004, Train: -0.29852575
-
-
-
-
-
-Run: 20, R:0, E:0.010; Cash:502.38; Stock:275; Gain:0.202046; Experienced:50000
-model: current, Adg. Gain -  Test: 0.11120112000000001, Train: 0.251702875
-
-
-
-
-
-Run: 21, R:0, E:0.010; Cash:1024.25; Stock:267; Gain:0.167614; Experienced:50000
-model: current, Adg. Gain -  Test: -0.06953759999999999, Train: 0.144322625
-
-
-
-
-
-Run: 22, R:0, E:0.010; Cash:1659.12; Stock:294; Gain:0.286219; Experienced:50000
-model: current, Adg. Gain -  Test: -0.036823680000000004, Train: 0.18900975
-
-
-
-
-
-Run: 23, R:0, E:0.010; Cash:1210.25; Stock:284; Gain:0.242077; Experienced:50000
-model: current, Adg. Gain -  Test: -0.1917072, Train: 0.184283
-
-
-
-
-
-Run: 24, R:0, E:0.010; Cash:1072.75; Stock:286; Gain:0.250678; Experienced:50000
-model: current, Adg. Gain -  Test: 0.04465296, Train: 0.026923
-
-
-
-
-
-Run: 25, R:0, E:0.010; Cash:569.50; Stock:250; Gain:0.092882; Experienced:50000
-model: current, Adg. Gain -  Test: -0.07729344, Train: 0.156672375
-
-
-
-
-
-Run: 26, R:0, E:0.010; Cash:2661.00; Stock:256; Gain:0.121189; Experienced:50000
-model: current, Adg. Gain -  Test: -0.06287328, Train: -0.311686125
-
-
-
-
-
-Run: 27, R:0, E:0.010; Cash:4000.00; Stock:244; Gain:0.070097; Experienced:50000
-model: current, Adg. Gain -  Test: -0.0575568, Train: 0.06262875
-
-
-
-
-
-Run: 28, R:0, E:0.010; Cash:3080.12; Stock:254; Gain:0.112870; Experienced:50000
-model: current, Adg. Gain -  Test: -0.08751600000000001, Train: 0.204499375
-
-
-
-
-
-Run: 29, R:0, E:0.010; Cash:1248.25; Stock:255; Gain:0.115407; Experienced:50000
-model: current, Adg. Gain -  Test: -0.014919840000000002, Train: 0.137117375
-
-
-
-
-
-Run: 30, R:0, E:0.010; Cash:3920.12; Stock:245; Gain:0.074386; Experienced:50000
-model: current, Adg. Gain -  Test: 0.010523520000000001, Train: 0.10796375
-
-
-
-
-
-Run: 31, R:0, E:0.010; Cash:3511.38; Stock:286; Gain:0.253117; Experienced:50000
-model: current, Adg. Gain -  Test: -0.18430848, Train: 0.201309125
-
-
-
-
-
-Run: 32, R:-0, E:0.010; Cash:1110702.50; Stock:0; Gain:0.110702; Experienced:50000
-model: current, Adg. Gain -  Test: -0.04421664, Train: 0.202208625
-
-
-
-
-
-Run: 33, R:0, E:0.010; Cash:3677.25; Stock:240; Gain:0.052297; Experienced:50000
-model: current, Adg. Gain -  Test: 0.006661439999999999, Train: 0.11742912500000001
-
-
-
-
-
-Run: 34, R:0, E:0.010; Cash:4298.75; Stock:278; Gain:0.218950; Experienced:50000
-model: current, Adg. Gain -  Test: -0.029835360000000002, Train: 0.14463975
-
-
-
-
-
-Run: 35, R:0, E:0.010; Cash:939.75; Stock:265; Gain:0.158791; Experienced:50000
-model: current, Adg. Gain -  Test: -0.02039184, Train: -0.034084
-
-
-
-
-
-Run: 36, R:0, E:0.010; Cash:158.12; Stock:255; Gain:0.114317; Experienced:50000
-model: current, Adg. Gain -  Test: 0.06702336, Train: 0.043766125
-
-
-
-
-
-Run: 37, R:0, E:0.010; Cash:1311.50; Stock:272; Gain:0.189748; Experienced:50000
-model: current, Adg. Gain -  Test: -0.01427904, Train: 0.055378875
-
-
-
-
-
-Run: 38, R:0, E:0.010; Cash:510.00; Stock:276; Gain:0.206423; Experienced:50000
-model: current, Adg. Gain -  Test: -0.10432944000000001, Train: 0.18346175
-
-
-
-
-
-Run: 39, R:0, E:0.010; Cash:534.12; Stock:227; Gain:-0.007646; Experienced:50000
-model: current, Adg. Gain -  Test: 0.21345696000000003, Train: 0.24636375
-
-
-
-
-
-Run: 40, R:0, E:0.010; Cash:1989.88; Stock:257; Gain:0.124887; Experienced:50000
-model: current, Adg. Gain -  Test: 0.12109248000000002, Train: 0.238206875
-
-
-
-
-
-Run: 41, R:0, E:0.010; Cash:1616.25; Stock:238; Gain:0.041498; Experienced:50000
-model: current, Adg. Gain -  Test: -0.08001648, Train: 0.036041
-
-
-
-
-
-Run: 42, R:0, E:0.010; Cash:938.62; Stock:275; Gain:0.202482; Experienced:50000
-model: current, Adg. Gain -  Test: 0.07813584, Train: -0.163904
-
-
-
-
-
-Run: 43, R:0, E:0.010; Cash:142.00; Stock:262; Gain:0.144886; Experienced:50000
-model: current, Adg. Gain -  Test: 0.06868224, Train: 0.159000125
-
-
-
-
-
-Run: 44, R:0, E:0.010; Cash:2725.38; Stock:263; Gain:0.151838; Experienced:50000
-model: current, Adg. Gain -  Test: 0.057748320000000006, Train: -0.17518
-
-
-
-
-
-Run: 45, R:0, E:0.010; Cash:3571.25; Stock:220; Gain:-0.035194; Experienced:50000
-model: current, Adg. Gain -  Test: 0.21069504, Train: -0.202968625
-
-
-
-
-
-Run: 46, R:0, E:0.010; Cash:2091.00; Stock:268; Gain:0.173050; Experienced:50000
-model: current, Adg. Gain -  Test: -0.045292320000000004, Train: 0.099737625
-
-
-
-
-
-Run: 47, R:0, E:0.010; Cash:222.62; Stock:268; Gain:0.171182; Experienced:50000
-model: current, Adg. Gain -  Test: -0.13021487999999998, Train: 0.1807565
-
-
-
-
-
-Run: 48, R:0, E:0.010; Cash:3313.75; Stock:262; Gain:0.148057; Experienced:50000
-model: current, Adg. Gain -  Test: -0.023247359999999998, Train: -0.219155375
-
-
-
-
-
-Run: 49, R:0, E:0.010; Cash:1172.38; Stock:281; Gain:0.228932; Experienced:50000
-model: current, Adg. Gain -  Test: -0.11597903999999999, Train: 0.3262845
-
-
-
-
-
-Run: 50, R:0, E:0.010; Cash:4338.00; Stock:280; Gain:0.227728; Experienced:50000
-model: current, Adg. Gain -  Test: 0.02196864, Train: 0.216631
-
-
-
-
-
-Run: 51, R:0, E:0.010; Cash:2903.75; Stock:248; Gain:0.086478; Experienced:50000
-model: current, Adg. Gain -  Test: -0.11105424, Train: 0.24990512500000003
-
-
-
-
-
-Run: 52, R:0, E:0.010; Cash:3667.50; Stock:265; Gain:0.161519; Experienced:50000
-model: current, Adg. Gain -  Test: -0.24183503999999997, Train: -0.213591375
-
-
-
-
-
-Run: 53, R:0, E:0.010; Cash:2508.38; Stock:235; Gain:0.029282; Experienced:50000
-model: current, Adg. Gain -  Test: -0.07900416, Train: 0.12977075
-
-
-
-
-
-Run: 54, R:0, E:0.010; Cash:3110.62; Stock:256; Gain:0.121639; Experienced:50000
-model: current, Adg. Gain -  Test: -0.00916704, Train: 0.280641
-
-
-
-
-
-Run: 55, R:0, E:0.010; Cash:2696.88; Stock:240; Gain:0.051317; Experienced:50000
-model: current, Adg. Gain -  Test: 0.034532639999999996, Train: -0.072907125
-
-
-
-
-
-Run: 56, R:0, E:0.010; Cash:186.50; Stock:272; Gain:0.188622; Experienced:50000
-model: current, Adg. Gain -  Test: 0.17101584000000003, Train: 0.30419775
-
-
-
-
-
-Run: 57, R:0, E:0.010; Cash:3757.88; Stock:265; Gain:0.161609; Experienced:50000
-model: current, Adg. Gain -  Test: 0.12956256, Train: 0.32410725
-
-
-
-
-
-Run: 58, R:0, E:0.010; Cash:1862.25; Stock:257; Gain:0.124759; Experienced:50000
-model: current, Adg. Gain -  Test: 0.20984255999999998, Train: -0.05544425000000001
-
-
-
-
-
-Run: 59, R:0, E:0.010; Cash:2454.88; Stock:275; Gain:0.203999; Experienced:50000
-model: current, Adg. Gain -  Test: -0.16915824000000002, Train: 0.317272
-
-
-
-
-
-Run: 60, R:-0, E:0.010; Cash:959822.88; Stock:0; Gain:-0.040177; Experienced:50000
-model: current, Adg. Gain -  Test: 0.014708160000000001, Train: 0.368350125
-
-
-
-
-
-Run: 61, R:0, E:0.010; Cash:1669.75; Stock:240; Gain:0.050290; Experienced:50000
-model: current, Adg. Gain -  Test: 0.03972672, Train: 0.28062525
-
-
-
-
-
-Run: 62, R:0, E:0.010; Cash:2579.50; Stock:280; Gain:0.225969; Experienced:50000
-model: current, Adg. Gain -  Test: 0.08877456, Train: 0.22557325
-
-
-
-
-
-Run: 63, R:0, E:0.010; Cash:3087.25; Stock:259; Gain:0.134723; Experienced:50000
-model: current, Adg. Gain -  Test: -0.06939216000000001, Train: 0.3030435
-
-
-
-
-
-Run: 64, R:0, E:0.010; Cash:2777.00; Stock:217; Gain:-0.049096; Experienced:50000
-model: current, Adg. Gain -  Test: 0.08665488, Train: -0.11338250000000001
-
-
-
-
-
-Run: 65, R:0, E:0.010; Cash:982.25; Stock:273; Gain:0.193788; Experienced:50000
-model: current, Adg. Gain -  Test: -0.07700831999999999, Train: 0.37880125
-
-
-
-
-
-Run: 66, R:-0, E:0.010; Cash:1133065.38; Stock:0; Gain:0.133065; Experienced:50000
-model: current, Adg. Gain -  Test: 0.08279568, Train: 0.29428075
-
-
-
-
-
-Run: 67, R:0, E:0.010; Cash:496.50; Stock:261; Gain:0.140871; Experienced:50000
-model: current, Adg. Gain -  Test: -0.20133648, Train: 0.175521625
-
-
-
-
-
-Run: 68, R:0, E:0.010; Cash:1889.75; Stock:288; Gain:0.260234; Experienced:50000
-model: current, Adg. Gain -  Test: 0.06147792, Train: -0.039823625
-
-
-
-
-
-Run: 69, R:0, E:0.010; Cash:3570.25; Stock:263; Gain:0.152683; Experienced:50000
-model: current, Adg. Gain -  Test: 0.08211024, Train: -0.003649625
-
-
-
-
-
-Run: 70, R:0, E:0.010; Cash:2234.62; Stock:282; Gain:0.234363; Experienced:50000
-model: current, Adg. Gain -  Test: 0.144108, Train: 0.324106
-
-
-
-
-
-Run: 71, R:0, E:0.010; Cash:1125.88; Stock:263; Gain:0.150239; Experienced:50000
-model: current, Adg. Gain -  Test: -0.021775680000000002, Train: 0.328650375
-
-
-
-
-
-Run: 72, R:0, E:0.010; Cash:193.12; Stock:232; Gain:0.013859; Experienced:50000
-model: current, Adg. Gain -  Test: -0.04665744, Train: 0.3895045
-
-
-
-
-
-Run: 73, R:0, E:0.010; Cash:806.38; Stock:273; Gain:0.193612; Experienced:50000
-model: current, Adg. Gain -  Test: -0.26187984, Train: 0.237251875
-
-
-
-
-
-Run: 74, R:0, E:0.010; Cash:2430.50; Stock:251; Gain:0.099112; Experienced:50000
-model: current, Adg. Gain -  Test: -0.20140703999999998, Train: 0.171048875
-
-
-
-
-
-Run: 75, R:0, E:0.010; Cash:1046.88; Stock:277; Gain:0.211329; Experienced:50000
-model: current, Adg. Gain -  Test: 0.07141824, Train: 0.323117125
-
-
-
-
-
-Run: 76, R:0, E:0.010; Cash:2052.50; Stock:265; Gain:0.159904; Experienced:50000
-model: current, Adg. Gain -  Test: 0.17892576, Train: -0.087027875
-
-
-
-
-
-Run: 77, R:0, E:0.010; Cash:1614.62; Stock:287; Gain:0.255589; Experienced:50000
-model: current, Adg. Gain -  Test: -0.23815440000000002, Train: 0.366760125
-
-
-
-
-
-Run: 78, R:0, E:0.010; Cash:3508.50; Stock:283; Gain:0.240006; Experienced:50000
-model: current, Adg. Gain -  Test: -0.04364784, Train: 0.021372
-
-
-
-
-
-Run: 79, R:0, E:0.010; Cash:1499.25; Stock:279; Gain:0.220520; Experienced:50000
-model: current, Adg. Gain -  Test: -0.01214928, Train: 0.295575875
-
-
-
-
-
-Run: 80, R:0, E:0.010; Cash:979.38; Stock:276; Gain:0.206892; Experienced:50000
-model: current, Adg. Gain -  Test: 0.01063296, Train: 0.034997875
-
-
-
-
-
-Run: 81, R:0, E:0.010; Cash:1080.50; Stock:266; Gain:0.163301; Experienced:50000
-model: current, Adg. Gain -  Test: 0.08693856, Train: 0.332932375
-
-
-
-
-
-Run: 82, R:0, E:0.010; Cash:661.75; Stock:271; Gain:0.184728; Experienced:50000
-model: current, Adg. Gain -  Test: -0.00310032, Train: 0.34649875
-
-
-
-
-
-Run: 83, R:0, E:0.010; Cash:863.62; Stock:273; Gain:0.193669; Experienced:50000
-model: current, Adg. Gain -  Test: -0.0228888, Train: 0.3148615
-
-
-
-
-
-Run: 84, R:0, E:0.010; Cash:3479.50; Stock:229; Gain:0.004038; Experienced:50000
-model: current, Adg. Gain -  Test: 0.24133680000000002, Train: 0.112648
-
-
-
-
-
-Run: 85, R:0, E:0.010; Cash:4000.00; Stock:275; Gain:0.205544; Experienced:50000
-model: current, Adg. Gain -  Test: 0.22408704000000002, Train: -0.1390415
-
-
-
-
-
-Run: 86, R:0, E:0.010; Cash:1212.88; Stock:268; Gain:0.172172; Experienced:50000
-model: current, Adg. Gain -  Test: -0.16802064000000003, Train: 0.353862875
-
-
-
-
-
-Run: 87, R:0, E:0.010; Cash:3603.50; Stock:254; Gain:0.113393; Experienced:50000
-model: current, Adg. Gain -  Test: 0.0024220799999999996, Train: 0.18044175
-
-
-
-
-
-Run: 88, R:-0, E:0.010; Cash:1163766.50; Stock:0; Gain:0.163767; Experienced:50000
-model: current, Adg. Gain -  Test: -0.1034712, Train: 0.411897
-
-
-
-
-
-Run: 89, R:0, E:0.010; Cash:1704.62; Stock:229; Gain:0.002263; Experienced:50000
-model: current, Adg. Gain -  Test: -0.05712048000000001, Train: -0.025683
-
-
-
-
-
-Run: 90, R:0, E:0.010; Cash:3903.50; Stock:266; Gain:0.166124; Experienced:50000
-model: current, Adg. Gain -  Test: 0.15403824, Train: -0.015139125000000002
-
-
-
-
-
-Run: 91, R:0, E:0.010; Cash:4072.38; Stock:235; Gain:0.030846; Experienced:50000
-model: current, Adg. Gain -  Test: -0.13981968, Train: 0.292059125
-
-
-
-
-
-Run: 92, R:0, E:0.010; Cash:1750.38; Stock:261; Gain:0.142125; Experienced:50000
-model: current, Adg. Gain -  Test: 0.046886399999999995, Train: -0.059743500000000005
-
-
-
-
-
-Run: 93, R:0, E:0.010; Cash:3972.12; Stock:270; Gain:0.183670; Experienced:50000
-model: current, Adg. Gain -  Test: -0.12847967999999999, Train: 0.322730375
-
-
-
-
-
-Run: 94, R:-0, E:0.010; Cash:1114308.75; Stock:0; Gain:0.114309; Experienced:50000
-model: current, Adg. Gain -  Test: -0.21212496, Train: -0.00451825
-
-
-
-
-
-Run: 95, R:0, E:0.010; Cash:621.25; Stock:235; Gain:0.027395; Experienced:50000
-model: current, Adg. Gain -  Test: -0.14241888, Train: 0.422582
-
-
-
-
-
-Run: 96, R:-0, E:0.010; Cash:1195378.00; Stock:0; Gain:0.195378; Experienced:50000
-model: current, Adg. Gain -  Test: 0.03491136, Train: 0.183100375
-
-
-
-
-
-Run: 97, R:0, E:0.010; Cash:3751.38; Stock:281; Gain:0.231511; Experienced:50000
-model: current, Adg. Gain -  Test: 0.043986239999999996, Train: -0.11324687500000001
-
-
-
-
-
-Run: 98, R:0, E:0.010; Cash:1727.50; Stock:252; Gain:0.102778; Experienced:50000
-model: current, Adg. Gain -  Test: 0.06934752, Train: -0.01796675
-
-
-
-
-
-Run: 99, R:0, E:0.010; Cash:2770.12; Stock:265; Gain:0.160621; Experienced:50000
-model: current, Adg. Gain -  Test: 0.00194976, Train: 0.06188712500000001
-
-
-
-
-
-Run: 100, R:0, E:0.010; Cash:527.50; Stock:236; Gain:0.031670; Experienced:50000
-model: current, Adg. Gain -  Test: -0.045943200000000003, Train: -0.11477699999999999
-
-
-
-
-
-Run: 101, R:0, E:0.010; Cash:1542.62; Stock:254; Gain:0.111332; Experienced:50000
-model: current, Adg. Gain -  Test: 0.02244384, Train: 0.2735615
-
-
-
-
-
-Run: 102, R:0, E:0.010; Cash:2884.88; Stock:291; Gain:0.274337; Experienced:50000
-model: current, Adg. Gain -  Test: -0.00538704, Train: 0.216986
-
-
-
-
-
-Run: 103, R:0, E:0.010; Cash:738.12; Stock:268; Gain:0.171697; Experienced:50000
-model: current, Adg. Gain -  Test: 0.34501104, Train: 0.31390275
-
-
-
-
-
-Run: 104, R:0, E:0.010; Cash:3463.50; Stock:259; Gain:0.135099; Experienced:50000
-model: current, Adg. Gain -  Test: 0.15666048000000002, Train: 0.279529125
-
-
-
-
-
-Run: 105, R:0, E:0.010; Cash:1667.12; Stock:269; Gain:0.176995; Experienced:50000
-model: current, Adg. Gain -  Test: -0.028087200000000003, Train: -0.043124625
-
-
-
-
-
-Run: 106, R:0, E:0.010; Cash:4154.75; Stock:272; Gain:0.192591; Experienced:50000
-model: current, Adg. Gain -  Test: -0.08943264000000001, Train: -0.09246125
-
-
-
-
-
-Run: 107, R:0, E:0.010; Cash:2734.25; Stock:271; Gain:0.186801; Experienced:50000
-model: current, Adg. Gain -  Test: 0.02824416, Train: -0.104784375
-
-
-
-
-
-Run: 108, R:0, E:0.010; Cash:2131.38; Stock:244; Gain:0.068228; Experienced:50000
-model: current, Adg. Gain -  Test: -0.03954528, Train: -0.108872125
-
-
-
-
-
-Run: 109, R:0, E:0.010; Cash:1017.25; Stock:275; Gain:0.202561; Experienced:50000
-model: current, Adg. Gain -  Test: -0.11405231999999998, Train: 0.322720375
-
-
-
-
-
-Run: 110, R:0, E:0.010; Cash:757.12; Stock:283; Gain:0.237255; Experienced:50000
-model: current, Adg. Gain -  Test: -0.24997535999999998, Train: 0.304039875
-
-
-
-
-
-Run: 111, R:0, E:0.010; Cash:533.25; Stock:282; Gain:0.232662; Experienced:50000
-model: current, Adg. Gain -  Test: 0.23054543999999996, Train: -0.08443925
-
-
-
-
-
-Run: 112, R:0, E:0.010; Cash:697.50; Stock:268; Gain:0.171656; Experienced:50000
-model: current, Adg. Gain -  Test: -0.01993392, Train: 0.381543375
-
-
-
-
-
-Run: 113, R:0, E:0.010; Cash:1210.62; Stock:283; Gain:0.237708; Experienced:50000
-model: current, Adg. Gain -  Test: 0.06294816, Train: 0.337275375
-
-
-
-
-
-Run: 114, R:0, E:0.010; Cash:2464.12; Stock:256; Gain:0.120992; Experienced:50000
-model: current, Adg. Gain -  Test: -0.23351471999999998, Train: 0.397845875
-
-
-
-
-
-Run: 115, R:0, E:0.010; Cash:3163.38; Stock:269; Gain:0.178492; Experienced:50000
-model: current, Adg. Gain -  Test: 0.03514464, Train: -0.11690625
-
-
-
-
-
-Run: 116, R:0, E:0.010; Cash:746.75; Stock:283; Gain:0.237244; Experienced:50000
-model: current, Adg. Gain -  Test: -0.13939200000000002, Train: 0.409381375
-
-
-
-
-
-Run: 117, R:0, E:0.010; Cash:1072.12; Stock:277; Gain:0.211354; Experienced:50000
-model: current, Adg. Gain -  Test: -0.11635343999999999, Train: 0.4684447500000001
-
-
-
-
-
-Run: 118, R:0, E:0.010; Cash:2874.00; Stock:263; Gain:0.151987; Experienced:50000
-model: current, Adg. Gain -  Test: -0.19418256, Train: 0.321227
-
-
-
-
-
-Run: 119, R:0, E:0.010; Cash:285.88; Stock:263; Gain:0.149399; Experienced:50000
-model: current, Adg. Gain -  Test: 0.16335792000000002, Train: -0.08239325
-
-
-
-
-
-Run: 120, R:0, E:0.010; Cash:925.88; Stock:289; Gain:0.263639; Experienced:50000
-model: current, Adg. Gain -  Test: -0.3098304, Train: 0.320471125
-
-
-
-
-
-Run: 121, R:0, E:0.010; Cash:1316.12; Stock:241; Gain:0.054305; Experienced:50000
-model: current, Adg. Gain -  Test: 0.18979632, Train: -0.12358900000000002
-
-
 Welcome to F# Interactive for .NET Core in Visual Studio. To execute code, either
   1. Use 'Send to Interactive' (Alt-Enter or right-click) from an F# script. The F# Interactive process will
      use any global.json settings associated with that script.
@@ -862,7 +10,7 @@ Copyright (c) Microsoft Corporation. All Rights Reserved.
 
 For help type #help;;
 
-> [Loading C:\Users\Faisa\.packagemanagement\nuget\Projects\5228--72c229b9-771d-4f37-9994-c264edfbdf86\Project.fsproj.fsx
+> [Loading C:\Users\Faisa\.packagemanagement\nuget\Projects\19868--edcc242e-557a-4a1d-bdbc-88a3ad179cb4\Project.fsproj.fsx
  Loading C:\Users\Faisa\source\repos\FsMsgPackRpc\FsMsgPackRpc\scripts\../FsMsgPackRpc.fs
  Loading C:\Users\Faisa\source\repos\FsMsgPackRpc\FsMsgPackRpc\scripts\../AirSimCar.fs
  Loading C:\Users\Faisa\source\repos\FsMsgPackRpc\FsMsgPackRpc\scripts\../CarEnvironment.fs
@@ -1123,13 +271,13 @@ type ExperienceBuffer =
   }
 type Exploration =
   {
-    Rate: float
     Decay: float
     Min: float
   }
+  static member Default: Exploration
 type Step =
   {
-    Step: int
+    Num: int
     ExplorationRate: float
   }
 type DDQN =
@@ -1137,7 +285,6 @@ type DDQN =
     Model: DDQNModel
     Gamma: float32
     Exploration: Exploration
-    Step: Step
     Actions: int
     Device: TorchSharp.torch.Device
   }
@@ -1163,13 +310,14 @@ module Experience =
 module DDQN =
   val rand: unit -> float
   val randint: n: int -> int
-  val private updateStep: ddqn: DDQN -> DDQN
+  val updateStep: exp: Exploration -> step: Step -> Step
   val create:
     model: DDQNModel ->
       gamma: float32 ->
       exploration: Exploration ->
       actions: int -> device: TorchSharp.torch.Device -> DDQN
-  val selectAction: state: TorchSharp.torch.Tensor -> ddqn: DDQN -> int * DDQN
+  val selectAction:
+    state: TorchSharp.torch.Tensor -> ddqn: DDQN -> step: Step -> int
   val actionIdx:
     actions: TorchSharp.torch.Tensor -> TorchSharp.torch.TensorIndex[]
   val td_estimate:
@@ -1187,8 +335,7 @@ val openCvLibPath: string
 val path: string
 val path': string
 
-
-[Loading C:\Users\Faisa\.packagemanagement\nuget\Projects\5228--72c229b9-771d-4f37-9994-c264edfbdf86\Project.fsproj.fsx]
+[Loading C:\Users\Faisa\.packagemanagement\nuget\Projects\19868--edcc242e-557a-4a1d-bdbc-88a3ad179cb4\Project.fsproj.fsx]
 module FSI_0004.Project.fsproj
 
 [Loading C:\Users\Faisa\source\repos\FsMsgPackRpc\FsMsgPackRpc\TsData.fs]
@@ -1206,21 +353,24 @@ val loadBars: file: string -> Bar[]
 
 [Loading C:\Users\Faisa\source\repos\FsMsgPackRpc\FsMsgPackRpc\RL.fs]
 module FSI_0006.RL
-type Agent<'env,'state> =
+type Agent<'parms,'env,'state> =
   {
-    doAction: ('env -> 'state -> int -> 'state)
-    getObservations: ('env -> 'state -> 'state)
-    computeRewards: ('env -> 'state -> int -> 'state * bool * float)
+    doAction: ('parms -> 'env -> 'state -> int -> 'state)
+    getObservations: ('parms -> 'env -> 'state -> 'state)
+    computeRewards: ('parms -> 'env -> 'state -> int -> 'state * bool * float)
   }
-type Policy<'state> =
+type Policy<'parms,'state> =
   {
-    selectAction: ('state -> Policy<'state> * int)
-    update: ('state -> bool -> float -> Policy<'state> * 'state)
-    sync: ('state -> unit)
+    selectAction: ('parms -> 'state -> Policy<'parms,'state> * int)
+    update:
+      ('parms -> 'state -> bool -> float -> Policy<'parms,'state> * 'state)
+    sync: ('parms -> 'state -> unit)
   }
 val step:
-  env: 'a ->
-    agent: Agent<'a,'b> -> policy: Policy<'b> * s0: 'b -> Policy<'b> * 'b
+  parms: 'a ->
+    env: 'b ->
+    agent: Agent<'a,'b,'c> ->
+    policy: Policy<'a,'c> * s0: 'c -> Policy<'a,'c> * 'c
 
 Binding session to 'C:/Users/Faisa/.nuget/packages/torchsharp.fun/0.60.0/lib/net6.0/TorchSharp.Fun.dll'...
 Binding session to 'C:/Users/Faisa/.nuget/packages/fspickler/5.3.2/lib/netstandard2.0/FsPickler.dll'...
@@ -2180,73 +1330,64 @@ val d1Test: TsData.Bar = { Open = 4117.5
                            Volume = 638.0
                            Time = 7/31/2022 7:55:00 PM }
 val mutable verbose: bool = false
+type Parms =
+  {
+    CreateModel: (unit -> TorchSharp.Fun.IModel)
+    DDQN: DDQN.DDQN
+    LossFn: TorchSharp.Loss
+    Opt: TorchSharp.torch.optim.Optimizer
+    LearnEverySteps: int
+    SyncEverySteps: int
+    BatchSize: int
+  }
+  static member
+    Default: modelFn: (unit -> TorchSharp.Fun.IModel) ->
+               ddqn: DDQN.DDQN -> lr: float -> Parms
 type RLState =
   {
     State: TorchSharp.torch.Tensor
     PrevState: TorchSharp.torch.Tensor
-    TimeStep: int
+    Step: DDQN.Step
+    InitialCash: float
     Stock: int
     CashOnHand: float
-    InitialCash: float
     LookBack: int64
     ExpBuff: DDQN.ExperienceBuffer
-    LearnEverySteps: int
-    SyncEverySteps: int
     S_reward: float
-    S_expRate: float
     S_gain: float
     Episode: int
   }
-  static member Default: initialCash: float -> RLState
+  static member Default: initExpRate: float -> initialCash: float -> RLState
   static member Reset: x: RLState -> RLState
 type Market =
   { prices: TsData.Bar array }
   member IsDone: t: int -> bool
-  member reset: unit -> unit
 module Agent =
   val bar: env: Market -> t: int -> TsData.Bar option
   val avgPrice: bar: TsData.Bar -> float
   val buy: env: Market -> s: RLState -> RLState
   val sell: env: Market -> s: RLState -> RLState
-  val doAction: env: Market -> s: RLState -> act: int -> RLState
+  val doAction: 'a -> env: Market -> s: RLState -> act: int -> RLState
   val skipHead: TorchSharp.torch.TensorIndex = TorchSharp.torch+TensorIndex
-  val getObservations: env: Market -> s: RLState -> RLState
+  val getObservations: 'a -> env: Market -> s: RLState -> RLState
   val computeRewards:
-    env: Market -> s: RLState -> action: int -> RLState * bool * float
-  val agent: RL.Agent<Market,RLState> = { doAction = <fun:agent@141>
-                                          getObservations = <fun:agent@142-1>
-                                          computeRewards = <fun:agent@143-2> }
+    parms: Parms ->
+      env: Market -> s: RLState -> action: int -> RLState * bool * float
+  val agent: RL.Agent<Parms,Market,RLState> =
+    { doAction = <fun:agent@161>
+      getObservations = <fun:agent@162-1>
+      computeRewards = <fun:agent@163-2> }
 module Policy =
-  val createModel: unit -> TorchSharp.Fun.IModel
-  val model: DDQN.DDQNModel = { Target = FSI_0007+Policy+createModel@150-44
-                                Online = FSI_0007+Policy+createModel@150-44 }
-  val lossFn: TorchSharp.Loss
-  val exp: DDQN.Exploration = { Rate = 1.0
-                                Decay = 0.9995
-                                Min = 0.01 }
-  val ddqn: DDQN.DDQN =
-    { Model = { Target = FSI_0007+Policy+createModel@150-44
-                Online = FSI_0007+Policy+createModel@150-44 }
-      Gamma = 0.9998999834f
-      Exploration = { Rate = 1.0
-                      Decay = 0.9995
-                      Min = 0.01 }
-      Step = { Step = 0
-               ExplorationRate = 1.0 }
-      Actions = 2
-      Device = cuda }
-  val batchSize: int = 100
-  val opt: TorchSharp.Modules.Adam
   val updateQ:
-    td_estimate: TorchSharp.torch.Tensor ->
+    parms: Parms ->
+      td_estimate: TorchSharp.torch.Tensor ->
       td_target: TorchSharp.torch.Tensor -> float
-  val learn: ddqn: DDQN.DDQN -> s: RLState -> RLState
-  val syncModel: s: RLState -> unit
-  val policy: ddqn: DDQN.DDQN -> RL.Policy<RLState>
-  val initPolicy: unit -> RL.Policy<RLState>
+  val learn: parms: Parms -> s: RLState -> RLState
+  val syncModel: parms: Parms -> s: RLState -> unit
+  val policy: parms: Parms -> RL.Policy<Parms,RLState>
 module Test =
   val interimModel: string = "E:\s\tradestation\test_ddqn.bin"
-  val saveInterim: unit -> unit
+  val saveInterim: parms: Parms -> unit
   val testMarket: unit -> Market
   val trainMarket: unit -> Market
   val evalModelTT:
@@ -2254,10 +1395,12 @@ module Test =
       market: Market -> data: TsData.Bar[] -> refLen: int -> float
   val evalModel:
     name: string -> model: TorchSharp.Fun.IModel -> string * float * float
-  val evalModelFile: modelFile: string -> string * float * float
+  val evalModelFile:
+    parms: Parms -> modelFile: string -> string * float * float
   val copyModels: unit -> unit
-  val evalModels: unit -> unit
-  val runTest: unit -> (TorchSharp.Fun.IModel -> string * float * float)
+  val evalModels: parms: Parms -> unit
+  val runTest:
+    parms: Parms -> (TorchSharp.Fun.IModel -> string * float * float)
   val clearModels: unit -> unit
 val market: Market =
   { prices =
@@ -2724,871 +1867,184 @@ val market: Market =
                                            Volume = ...
                                            Time = ... }; ...|] }
 val runEpisode:
-  p: RL.Policy<RLState> * s: RLState -> RL.Policy<RLState> * RLState
-val run: p: RL.Policy<RLState> * s: RLState -> RL.Policy<RLState> * RLState
-val resetRun: unit -> RL.Policy<RLState> * RLState
-val mutable _ps: RL.Policy<RLState> * RLState = <null>
-val startResetRun: unit -> unit
-val startReRun: unit -> unit
-
-> val it: unit = ()
-
->
-Binding session to 'C:/Users/Faisa/.nuget/packages/fsharpx.collections/3.0.1/lib/netstandard2.0/FSharpx.Collections.dll'...
-
-
-
-
-
-Run: 0, R:0, E:0.010; Cash:3386.12; Stock:270; Gain:0.183084; Experienced:50000
-model: current, Adg. Gain -  Test: 0.14539536, Train: -0.197589875
-
-
-
-
-
-Run: 1, R:-0, E:0.010; Cash:1175627.38; Stock:0; Gain:0.175627; Experienced:50000
-model: current, Adg. Gain -  Test: 0.11045088, Train: 0.267460125
-
-
-
-
-
-Run: 2, R:0, E:0.010; Cash:3829.50; Stock:289; Gain:0.266543; Experienced:50000
-model: current, Adg. Gain -  Test: 0.09333359999999999, Train: -0.011640375
-
-
-
-
-
-Run: 3, R:-0, E:0.010; Cash:937068.50; Stock:0; Gain:-0.062932; Experienced:50000
-model: current, Adg. Gain -  Test: 0.058184639999999996, Train: 0.21462075
-
-
-
-
-
-Run: 4, R:0, E:0.010; Cash:4215.75; Stock:232; Gain:0.017882; Experienced:50000
-model: current, Adg. Gain -  Test: -0.01118736, Train: 0.27270675
-
-
-
-
-
-Run: 5, R:0, E:0.010; Cash:449.88; Stock:271; Gain:0.184517; Experienced:50000
-model: current, Adg. Gain -  Test: 0.03559104, Train: 0.26885475
-
-
-
-
-
-Run: 6, R:0, E:0.010; Cash:2782.50; Stock:311; Gain:0.361619; Experienced:50000
-model: current, Adg. Gain -  Test: 0.25690464, Train: 0.171897125
-
-
-
-
-
-Run: 7, R:0, E:0.010; Cash:723.38; Stock:298; Gain:0.302760; Experienced:50000
-model: current, Adg. Gain -  Test: 0.19824624, Train: 0.12378499999999999
-
-
-
-
-
-Run: 8, R:0, E:0.010; Cash:3172.62; Stock:266; Gain:0.165393; Experienced:50000
-model: current, Adg. Gain -  Test: 0.270756, Train: -0.1495165
-
-
-
-
-
-Run: 9, R:0, E:0.010; Cash:2216.25; Stock:243; Gain:0.063944; Experienced:50000
-model: current, Adg. Gain -  Test: 0.1323792, Train: -0.12430100000000001
-
-
-
-
-
-Run: 10, R:-0, E:0.010; Cash:1162679.88; Stock:0; Gain:0.162680; Experienced:50000
-model: current, Adg. Gain -  Test: 0.18438623999999998, Train: -0.178147375
-
-
-
-
-
-Run: 11, R:0, E:0.010; Cash:952.00; Stock:265; Gain:0.158803; Experienced:50000
-model: current, Adg. Gain -  Test: 0.024894720000000002, Train: 0.203931375
-
-
-
-
-
-Run: 12, R:0, E:0.010; Cash:2868.25; Stock:272; Gain:0.191304; Experienced:50000
-model: current, Adg. Gain -  Test: 0.32818032, Train: -0.144296
-
-
-
-
-
-Run: 13, R:0, E:0.010; Cash:2500.12; Stock:273; Gain:0.195305; Experienced:50000
-model: current, Adg. Gain -  Test: -0.08890992, Train: 0.096185875
-
-
-
-
-
-Run: 14, R:0, E:0.010; Cash:2591.00; Stock:308; Gain:0.348320; Experienced:50000
-model: current, Adg. Gain -  Test: -0.03079872, Train: 0.017124375
-
-
-
-
-
-Run: 15, R:0, E:0.010; Cash:4139.25; Stock:289; Gain:0.266852; Experienced:50000
-model: current, Adg. Gain -  Test: 0.091656, Train: 0.22718475000000002
-
-
-
-
-
-Run: 16, R:0, E:0.010; Cash:1630.62; Stock:243; Gain:0.063358; Experienced:50000
-model: current, Adg. Gain -  Test: 0.0713376, Train: 0.213538875
-
-
-
-
-
-Run: 17, R:0, E:0.010; Cash:2564.12; Stock:210; Gain:-0.079893; Experienced:50000
-model: current, Adg. Gain -  Test: 0.0390744, Train: 0.211749125
-
-
-
-
-
-Run: 18, R:0, E:0.010; Cash:4186.12; Stock:276; Gain:0.210099; Experienced:50000
-model: current, Adg. Gain -  Test: 0.0867888, Train: -0.24450912500000002
-
-
-
-
-
-Run: 19, R:0, E:0.010; Cash:1635.88; Stock:300; Gain:0.312411; Experienced:50000
-model: current, Adg. Gain -  Test: 0.31240944000000004, Train: -0.29852575
-
-
-
-
-
-Run: 20, R:0, E:0.010; Cash:502.38; Stock:275; Gain:0.202046; Experienced:50000
-model: current, Adg. Gain -  Test: 0.11120112000000001, Train: 0.251702875
-
-
-
-
-
-Run: 21, R:0, E:0.010; Cash:1024.25; Stock:267; Gain:0.167614; Experienced:50000
-model: current, Adg. Gain -  Test: -0.06953759999999999, Train: 0.144322625
-
-
-
-
-
-Run: 22, R:0, E:0.010; Cash:1659.12; Stock:294; Gain:0.286219; Experienced:50000
-model: current, Adg. Gain -  Test: -0.036823680000000004, Train: 0.18900975
-
-
-
-
-
-Run: 23, R:0, E:0.010; Cash:1210.25; Stock:284; Gain:0.242077; Experienced:50000
-model: current, Adg. Gain -  Test: -0.1917072, Train: 0.184283
-
-
-
-
-
-Run: 24, R:0, E:0.010; Cash:1072.75; Stock:286; Gain:0.250678; Experienced:50000
-model: current, Adg. Gain -  Test: 0.04465296, Train: 0.026923
-
-
-
-
-
-Run: 25, R:0, E:0.010; Cash:569.50; Stock:250; Gain:0.092882; Experienced:50000
-model: current, Adg. Gain -  Test: -0.07729344, Train: 0.156672375
-
-
-
-
-
-Run: 26, R:0, E:0.010; Cash:2661.00; Stock:256; Gain:0.121189; Experienced:50000
-model: current, Adg. Gain -  Test: -0.06287328, Train: -0.311686125
-
-
-
-
-
-Run: 27, R:0, E:0.010; Cash:4000.00; Stock:244; Gain:0.070097; Experienced:50000
-model: current, Adg. Gain -  Test: -0.0575568, Train: 0.06262875
-
-
-
-
-
-Run: 28, R:0, E:0.010; Cash:3080.12; Stock:254; Gain:0.112870; Experienced:50000
-model: current, Adg. Gain -  Test: -0.08751600000000001, Train: 0.204499375
-
-
-
-
-
-Run: 29, R:0, E:0.010; Cash:1248.25; Stock:255; Gain:0.115407; Experienced:50000
-model: current, Adg. Gain -  Test: -0.014919840000000002, Train: 0.137117375
-
-
-
-
-
-Run: 30, R:0, E:0.010; Cash:3920.12; Stock:245; Gain:0.074386; Experienced:50000
-model: current, Adg. Gain -  Test: 0.010523520000000001, Train: 0.10796375
-
-
-
-
-
-Run: 31, R:0, E:0.010; Cash:3511.38; Stock:286; Gain:0.253117; Experienced:50000
-model: current, Adg. Gain -  Test: -0.18430848, Train: 0.201309125
-
-
-
-
-
-Run: 32, R:-0, E:0.010; Cash:1110702.50; Stock:0; Gain:0.110702; Experienced:50000
-model: current, Adg. Gain -  Test: -0.04421664, Train: 0.202208625
-
-
-
-
-
-Run: 33, R:0, E:0.010; Cash:3677.25; Stock:240; Gain:0.052297; Experienced:50000
-model: current, Adg. Gain -  Test: 0.006661439999999999, Train: 0.11742912500000001
-
-
-
-
-
-Run: 34, R:0, E:0.010; Cash:4298.75; Stock:278; Gain:0.218950; Experienced:50000
-model: current, Adg. Gain -  Test: -0.029835360000000002, Train: 0.14463975
-
-
-
-
-
-Run: 35, R:0, E:0.010; Cash:939.75; Stock:265; Gain:0.158791; Experienced:50000
-model: current, Adg. Gain -  Test: -0.02039184, Train: -0.034084
-
-
-
-
-
-Run: 36, R:0, E:0.010; Cash:158.12; Stock:255; Gain:0.114317; Experienced:50000
-model: current, Adg. Gain -  Test: 0.06702336, Train: 0.043766125
-
-
-
-
-
-Run: 37, R:0, E:0.010; Cash:1311.50; Stock:272; Gain:0.189748; Experienced:50000
-model: current, Adg. Gain -  Test: -0.01427904, Train: 0.055378875
-
-
-
-
-
-Run: 38, R:0, E:0.010; Cash:510.00; Stock:276; Gain:0.206423; Experienced:50000
-model: current, Adg. Gain -  Test: -0.10432944000000001, Train: 0.18346175
-
-
-
-
-
-Run: 39, R:0, E:0.010; Cash:534.12; Stock:227; Gain:-0.007646; Experienced:50000
-model: current, Adg. Gain -  Test: 0.21345696000000003, Train: 0.24636375
-
-
-
-
-
-Run: 40, R:0, E:0.010; Cash:1989.88; Stock:257; Gain:0.124887; Experienced:50000
-model: current, Adg. Gain -  Test: 0.12109248000000002, Train: 0.238206875
-
-
-
-
-
-Run: 41, R:0, E:0.010; Cash:1616.25; Stock:238; Gain:0.041498; Experienced:50000
-model: current, Adg. Gain -  Test: -0.08001648, Train: 0.036041
-
-
-
-
-
-Run: 42, R:0, E:0.010; Cash:938.62; Stock:275; Gain:0.202482; Experienced:50000
-model: current, Adg. Gain -  Test: 0.07813584, Train: -0.163904
-
-
-
-
-
-Run: 43, R:0, E:0.010; Cash:142.00; Stock:262; Gain:0.144886; Experienced:50000
-model: current, Adg. Gain -  Test: 0.06868224, Train: 0.159000125
-
-
-
-
-
-Run: 44, R:0, E:0.010; Cash:2725.38; Stock:263; Gain:0.151838; Experienced:50000
-model: current, Adg. Gain -  Test: 0.057748320000000006, Train: -0.17518
-
-
-
-
-
-Run: 45, R:0, E:0.010; Cash:3571.25; Stock:220; Gain:-0.035194; Experienced:50000
-model: current, Adg. Gain -  Test: 0.21069504, Train: -0.202968625
-
-
-
-
-
-Run: 46, R:0, E:0.010; Cash:2091.00; Stock:268; Gain:0.173050; Experienced:50000
-model: current, Adg. Gain -  Test: -0.045292320000000004, Train: 0.099737625
-
-
-
-
-
-Run: 47, R:0, E:0.010; Cash:222.62; Stock:268; Gain:0.171182; Experienced:50000
-model: current, Adg. Gain -  Test: -0.13021487999999998, Train: 0.1807565
-
-
-
-
-
-Run: 48, R:0, E:0.010; Cash:3313.75; Stock:262; Gain:0.148057; Experienced:50000
-model: current, Adg. Gain -  Test: -0.023247359999999998, Train: -0.219155375
-
-
-
-
-
-Run: 49, R:0, E:0.010; Cash:1172.38; Stock:281; Gain:0.228932; Experienced:50000
-model: current, Adg. Gain -  Test: -0.11597903999999999, Train: 0.3262845
-
-
-
-
-
-Run: 50, R:0, E:0.010; Cash:4338.00; Stock:280; Gain:0.227728; Experienced:50000
-model: current, Adg. Gain -  Test: 0.02196864, Train: 0.216631
-
-
-
-
-
-Run: 51, R:0, E:0.010; Cash:2903.75; Stock:248; Gain:0.086478; Experienced:50000
-model: current, Adg. Gain -  Test: -0.11105424, Train: 0.24990512500000003
-
-
-
-
-
-Run: 52, R:0, E:0.010; Cash:3667.50; Stock:265; Gain:0.161519; Experienced:50000
-model: current, Adg. Gain -  Test: -0.24183503999999997, Train: -0.213591375
-
-
-
-
-
-Run: 53, R:0, E:0.010; Cash:2508.38; Stock:235; Gain:0.029282; Experienced:50000
-model: current, Adg. Gain -  Test: -0.07900416, Train: 0.12977075
-
-
-
-
-
-Run: 54, R:0, E:0.010; Cash:3110.62; Stock:256; Gain:0.121639; Experienced:50000
-model: current, Adg. Gain -  Test: -0.00916704, Train: 0.280641
-
-
-
-
-
-Run: 55, R:0, E:0.010; Cash:2696.88; Stock:240; Gain:0.051317; Experienced:50000
-model: current, Adg. Gain -  Test: 0.034532639999999996, Train: -0.072907125
-
-
-
-
-
-Run: 56, R:0, E:0.010; Cash:186.50; Stock:272; Gain:0.188622; Experienced:50000
-model: current, Adg. Gain -  Test: 0.17101584000000003, Train: 0.30419775
-
-
-
-
-
-Run: 57, R:0, E:0.010; Cash:3757.88; Stock:265; Gain:0.161609; Experienced:50000
-model: current, Adg. Gain -  Test: 0.12956256, Train: 0.32410725
-
-
-
-
-
-Run: 58, R:0, E:0.010; Cash:1862.25; Stock:257; Gain:0.124759; Experienced:50000
-model: current, Adg. Gain -  Test: 0.20984255999999998, Train: -0.05544425000000001
-
-
-
-
-
-Run: 59, R:0, E:0.010; Cash:2454.88; Stock:275; Gain:0.203999; Experienced:50000
-model: current, Adg. Gain -  Test: -0.16915824000000002, Train: 0.317272
-
-
-
-
-
-Run: 60, R:-0, E:0.010; Cash:959822.88; Stock:0; Gain:-0.040177; Experienced:50000
-model: current, Adg. Gain -  Test: 0.014708160000000001, Train: 0.368350125
-
-
-
-
-
-Run: 61, R:0, E:0.010; Cash:1669.75; Stock:240; Gain:0.050290; Experienced:50000
-model: current, Adg. Gain -  Test: 0.03972672, Train: 0.28062525
-
-
-
-
-
-Run: 62, R:0, E:0.010; Cash:2579.50; Stock:280; Gain:0.225969; Experienced:50000
-model: current, Adg. Gain -  Test: 0.08877456, Train: 0.22557325
-
-
-
-
-
-Run: 63, R:0, E:0.010; Cash:3087.25; Stock:259; Gain:0.134723; Experienced:50000
-model: current, Adg. Gain -  Test: -0.06939216000000001, Train: 0.3030435
-
-
-
-
-
-Run: 64, R:0, E:0.010; Cash:2777.00; Stock:217; Gain:-0.049096; Experienced:50000
-model: current, Adg. Gain -  Test: 0.08665488, Train: -0.11338250000000001
-
-
-
-
-
-Run: 65, R:0, E:0.010; Cash:982.25; Stock:273; Gain:0.193788; Experienced:50000
-model: current, Adg. Gain -  Test: -0.07700831999999999, Train: 0.37880125
-
-
-
-
-
-Run: 66, R:-0, E:0.010; Cash:1133065.38; Stock:0; Gain:0.133065; Experienced:50000
-model: current, Adg. Gain -  Test: 0.08279568, Train: 0.29428075
-
-
-
-
-
-Run: 67, R:0, E:0.010; Cash:496.50; Stock:261; Gain:0.140871; Experienced:50000
-model: current, Adg. Gain -  Test: -0.20133648, Train: 0.175521625
-
-
-
-
-
-Run: 68, R:0, E:0.010; Cash:1889.75; Stock:288; Gain:0.260234; Experienced:50000
-model: current, Adg. Gain -  Test: 0.06147792, Train: -0.039823625
-
-
-
-
-
-Run: 69, R:0, E:0.010; Cash:3570.25; Stock:263; Gain:0.152683; Experienced:50000
-model: current, Adg. Gain -  Test: 0.08211024, Train: -0.003649625
-
-
-
-
-
-Run: 70, R:0, E:0.010; Cash:2234.62; Stock:282; Gain:0.234363; Experienced:50000
-model: current, Adg. Gain -  Test: 0.144108, Train: 0.324106
-
-
-
-
-
-Run: 71, R:0, E:0.010; Cash:1125.88; Stock:263; Gain:0.150239; Experienced:50000
-model: current, Adg. Gain -  Test: -0.021775680000000002, Train: 0.328650375
-
-
-
-
-
-Run: 72, R:0, E:0.010; Cash:193.12; Stock:232; Gain:0.013859; Experienced:50000
-model: current, Adg. Gain -  Test: -0.04665744, Train: 0.3895045
-
-
-
-
-
-Run: 73, R:0, E:0.010; Cash:806.38; Stock:273; Gain:0.193612; Experienced:50000
-model: current, Adg. Gain -  Test: -0.26187984, Train: 0.237251875
-
-
-
-
-
-Run: 74, R:0, E:0.010; Cash:2430.50; Stock:251; Gain:0.099112; Experienced:50000
-model: current, Adg. Gain -  Test: -0.20140703999999998, Train: 0.171048875
-
-
-
-
-
-Run: 75, R:0, E:0.010; Cash:1046.88; Stock:277; Gain:0.211329; Experienced:50000
-model: current, Adg. Gain -  Test: 0.07141824, Train: 0.323117125
-
-
-
-
-
-Run: 76, R:0, E:0.010; Cash:2052.50; Stock:265; Gain:0.159904; Experienced:50000
-model: current, Adg. Gain -  Test: 0.17892576, Train: -0.087027875
-
-
-
-
-
-Run: 77, R:0, E:0.010; Cash:1614.62; Stock:287; Gain:0.255589; Experienced:50000
-model: current, Adg. Gain -  Test: -0.23815440000000002, Train: 0.366760125
-
-
-
-
-
-Run: 78, R:0, E:0.010; Cash:3508.50; Stock:283; Gain:0.240006; Experienced:50000
-model: current, Adg. Gain -  Test: -0.04364784, Train: 0.021372
-
-
-
-
-
-Run: 79, R:0, E:0.010; Cash:1499.25; Stock:279; Gain:0.220520; Experienced:50000
-model: current, Adg. Gain -  Test: -0.01214928, Train: 0.295575875
-
-
-
-
-
-Run: 80, R:0, E:0.010; Cash:979.38; Stock:276; Gain:0.206892; Experienced:50000
-model: current, Adg. Gain -  Test: 0.01063296, Train: 0.034997875
-
-
-
-
-
-Run: 81, R:0, E:0.010; Cash:1080.50; Stock:266; Gain:0.163301; Experienced:50000
-model: current, Adg. Gain -  Test: 0.08693856, Train: 0.332932375
-
-
-
-
-
-Run: 82, R:0, E:0.010; Cash:661.75; Stock:271; Gain:0.184728; Experienced:50000
-model: current, Adg. Gain -  Test: -0.00310032, Train: 0.34649875
-
-
-
-
-
-Run: 83, R:0, E:0.010; Cash:863.62; Stock:273; Gain:0.193669; Experienced:50000
-model: current, Adg. Gain -  Test: -0.0228888, Train: 0.3148615
-
-
-
-
-
-Run: 84, R:0, E:0.010; Cash:3479.50; Stock:229; Gain:0.004038; Experienced:50000
-model: current, Adg. Gain -  Test: 0.24133680000000002, Train: 0.112648
-
-
-
-
-
-Run: 85, R:0, E:0.010; Cash:4000.00; Stock:275; Gain:0.205544; Experienced:50000
-model: current, Adg. Gain -  Test: 0.22408704000000002, Train: -0.1390415
-
-
-
-
-
-Run: 86, R:0, E:0.010; Cash:1212.88; Stock:268; Gain:0.172172; Experienced:50000
-model: current, Adg. Gain -  Test: -0.16802064000000003, Train: 0.353862875
-
-
-
-
-
-Run: 87, R:0, E:0.010; Cash:3603.50; Stock:254; Gain:0.113393; Experienced:50000
-model: current, Adg. Gain -  Test: 0.0024220799999999996, Train: 0.18044175
-
-
-
-
-
-Run: 88, R:-0, E:0.010; Cash:1163766.50; Stock:0; Gain:0.163767; Experienced:50000
-model: current, Adg. Gain -  Test: -0.1034712, Train: 0.411897
-
-
-
-
-
-Run: 89, R:0, E:0.010; Cash:1704.62; Stock:229; Gain:0.002263; Experienced:50000
-model: current, Adg. Gain -  Test: -0.05712048000000001, Train: -0.025683
-
-
-
-
-
-Run: 90, R:0, E:0.010; Cash:3903.50; Stock:266; Gain:0.166124; Experienced:50000
-model: current, Adg. Gain -  Test: 0.15403824, Train: -0.015139125000000002
-
-
-
-
-
-Run: 91, R:0, E:0.010; Cash:4072.38; Stock:235; Gain:0.030846; Experienced:50000
-model: current, Adg. Gain -  Test: -0.13981968, Train: 0.292059125
-
-
-
-
-
-Run: 92, R:0, E:0.010; Cash:1750.38; Stock:261; Gain:0.142125; Experienced:50000
-model: current, Adg. Gain -  Test: 0.046886399999999995, Train: -0.059743500000000005
-
-
-
-
-
-Run: 93, R:0, E:0.010; Cash:3972.12; Stock:270; Gain:0.183670; Experienced:50000
-model: current, Adg. Gain -  Test: -0.12847967999999999, Train: 0.322730375
-
-
-
-
-
-Run: 94, R:-0, E:0.010; Cash:1114308.75; Stock:0; Gain:0.114309; Experienced:50000
-model: current, Adg. Gain -  Test: -0.21212496, Train: -0.00451825
-
-
-
-
-
-Run: 95, R:0, E:0.010; Cash:621.25; Stock:235; Gain:0.027395; Experienced:50000
-model: current, Adg. Gain -  Test: -0.14241888, Train: 0.422582
-
-
-
-
-
-Run: 96, R:-0, E:0.010; Cash:1195378.00; Stock:0; Gain:0.195378; Experienced:50000
-model: current, Adg. Gain -  Test: 0.03491136, Train: 0.183100375
-
-
-
-
-
-Run: 97, R:0, E:0.010; Cash:3751.38; Stock:281; Gain:0.231511; Experienced:50000
-model: current, Adg. Gain -  Test: 0.043986239999999996, Train: -0.11324687500000001
-
-
-
-
-
-Run: 98, R:0, E:0.010; Cash:1727.50; Stock:252; Gain:0.102778; Experienced:50000
-model: current, Adg. Gain -  Test: 0.06934752, Train: -0.01796675
-
-
-
-
-
-Run: 99, R:0, E:0.010; Cash:2770.12; Stock:265; Gain:0.160621; Experienced:50000
-model: current, Adg. Gain -  Test: 0.00194976, Train: 0.06188712500000001
-
-
-
-
-
-Run: 100, R:0, E:0.010; Cash:527.50; Stock:236; Gain:0.031670; Experienced:50000
-model: current, Adg. Gain -  Test: -0.045943200000000003, Train: -0.11477699999999999
-
-
-
-
-
-Run: 101, R:0, E:0.010; Cash:1542.62; Stock:254; Gain:0.111332; Experienced:50000
-model: current, Adg. Gain -  Test: 0.02244384, Train: 0.2735615
-
-
-
-
-
-Run: 102, R:0, E:0.010; Cash:2884.88; Stock:291; Gain:0.274337; Experienced:50000
-model: current, Adg. Gain -  Test: -0.00538704, Train: 0.216986
-
-
-
-
-
-Run: 103, R:0, E:0.010; Cash:738.12; Stock:268; Gain:0.171697; Experienced:50000
-model: current, Adg. Gain -  Test: 0.34501104, Train: 0.31390275
-
-
-
-
-
-Run: 104, R:0, E:0.010; Cash:3463.50; Stock:259; Gain:0.135099; Experienced:50000
-model: current, Adg. Gain -  Test: 0.15666048000000002, Train: 0.279529125
-
-
-
-
-
-Run: 105, R:0, E:0.010; Cash:1667.12; Stock:269; Gain:0.176995; Experienced:50000
-model: current, Adg. Gain -  Test: -0.028087200000000003, Train: -0.043124625
-
-
-
-
-
-Run: 106, R:0, E:0.010; Cash:4154.75; Stock:272; Gain:0.192591; Experienced:50000
-model: current, Adg. Gain -  Test: -0.08943264000000001, Train: -0.09246125
-
-
-
-
-
-Run: 107, R:0, E:0.010; Cash:2734.25; Stock:271; Gain:0.186801; Experienced:50000
-model: current, Adg. Gain -  Test: 0.02824416, Train: -0.104784375
-
-
-
-
-
-Run: 108, R:0, E:0.010; Cash:2131.38; Stock:244; Gain:0.068228; Experienced:50000
-model: current, Adg. Gain -  Test: -0.03954528, Train: -0.108872125
-
-
-
-
-
-Run: 109, R:0, E:0.010; Cash:1017.25; Stock:275; Gain:0.202561; Experienced:50000
-model: current, Adg. Gain -  Test: -0.11405231999999998, Train: 0.322720375
-
-
-
-
-
-Run: 110, R:0, E:0.010; Cash:757.12; Stock:283; Gain:0.237255; Experienced:50000
-model: current, Adg. Gain -  Test: -0.24997535999999998, Train: 0.304039875
-
-
-
-
-
-Run: 111, R:0, E:0.010; Cash:533.25; Stock:282; Gain:0.232662; Experienced:50000
-model: current, Adg. Gain -  Test: 0.23054543999999996, Train: -0.08443925
-
-
-
-
-
-Run: 112, R:0, E:0.010; Cash:697.50; Stock:268; Gain:0.171656; Experienced:50000
-model: current, Adg. Gain -  Test: -0.01993392, Train: 0.381543375
-
-
-
-
-
-Run: 113, R:0, E:0.010; Cash:1210.62; Stock:283; Gain:0.237708; Experienced:50000
-model: current, Adg. Gain -  Test: 0.06294816, Train: 0.337275375
-
-
-
-
-
-Run: 114, R:0, E:0.010; Cash:2464.12; Stock:256; Gain:0.120992; Experienced:50000
-model: current, Adg. Gain -  Test: -0.23351471999999998, Train: 0.397845875
-
-
-
-
-
-Run: 115, R:0, E:0.010; Cash:3163.38; Stock:269; Gain:0.178492; Experienced:50000
-model: current, Adg. Gain -  Test: 0.03514464, Train: -0.11690625
-
-
-
-
-
-Run: 116, R:0, E:0.010; Cash:746.75; Stock:283; Gain:0.237244; Experienced:50000
-model: current, Adg. Gain -  Test: -0.13939200000000002, Train: 0.409381375
-
-
-
-
-
-Run: 117, R:0, E:0.010; Cash:1072.12; Stock:277; Gain:0.211354; Experienced:50000
-model: current, Adg. Gain -  Test: -0.11635343999999999, Train: 0.4684447500000001
-
-
-
-
-
-Run: 118, R:0, E:0.010; Cash:2874.00; Stock:263; Gain:0.151987; Experienced:50000
-model: current, Adg. Gain -  Test: -0.19418256, Train: 0.321227
-
-
-
-
-
-Run: 119, R:0, E:0.010; Cash:285.88; Stock:263; Gain:0.149399; Experienced:50000
-model: current, Adg. Gain -  Test: 0.16335792000000002, Train: -0.08239325
-
-
-
-
-
-Run: 120, R:0, E:0.010; Cash:925.88; Stock:289; Gain:0.263639; Experienced:50000
-model: current, Adg. Gain -  Test: -0.3098304, Train: 0.320471125
-
-
-
-
-
-Run: 121, R:0, E:0.010; Cash:1316.12; Stock:241; Gain:0.054305; Experienced:50000
-model: current, Adg. Gain -  Test: 0.18979632, Train: -0.12358900000000002
+  parms: Parms ->
+    p: RL.Policy<Parms,RLState> * s: RLState ->
+      RL.Policy<Parms,RLState> * RLState
+val run:
+  parms: Parms ->
+    p: RL.Policy<Parms,RLState> * s: RLState ->
+      RL.Policy<Parms,RLState> * RLState
+val resetRun: parms: Parms -> RL.Policy<Parms,RLState> * RLState
+val mutable _ps: RL.Policy<Parms,RLState> * RLState = <null>
+val startResetRun: parms: Parms -> unit
+val startReRun: parms: Parms -> unit
+val parms1: unit -> Parms
+
+> 
+val p1: Parms =Binding session to 'C:/Users/Faisa/.nuget/packages/fsharpx.collections/3.0.1/lib/netstandard2.0/FSharpx.Collections.dll'...
+ { CreateModel = <fun:createModel@373>
+                  DDQN = { Model = { Target = FSI_0007+createModel@373-55
+                                     Online = FSI_0007+createModel@373-55 }
+                           Gamma = 0.9998999834f
+                           Exploration = { Decay = 0.9995
+                                           Min = 0.01 }
+                           Actions = 2
+                           Device = cuda }
+                  LossFn = TorchSharp.Loss
+                  Opt = TorchSharp.Modules.Adam
+                  LearnEverySteps = 3
+                  SyncEverySteps = 15000
+                  BatchSize = 300 }
+val it: unit = ()
+
+> Run: 0, R:0, E:0.010; Cash:2436.50; Stock:225; Gain:-0.014482; Experienced:50000
+model: current, Adg. Gain -  Test: 0.32081472, Train: -0.10765225
+Run: 1, R:-0, E:0.010; Cash:1053005.25; Stock:0; Gain:0.053005; Experienced:50000
+model: current, Adg. Gain -  Test: 0.30765168, Train: 0.013942624999999998
+Run: 2, R:0, E:0.010; Cash:1002.62; Stock:216; Gain:-0.055239; Experienced:50000
+model: current, Adg. Gain -  Test: 0.19185839999999998, Train: -0.007993625
+Run: 3, R:0, E:0.010; Cash:3536.62; Stock:314; Gain:0.375481; Experienced:50000
+model: current, Adg. Gain -  Test: -0.10790208, Train: 0.24232362499999996
+Run: 4, R:0, E:0.010; Cash:2439.25; Stock:300; Gain:0.313214; Experienced:50000
+model: current, Adg. Gain -  Test: -0.07748496, Train: 0.17728275
+Run: 5, R:0, E:0.010; Cash:2990.38; Stock:309; Gain:0.353089; Experienced:50000
+model: current, Adg. Gain -  Test: 0.19987056, Train: -0.001505125
+Run: 6, R:-0, E:0.010; Cash:1285803.75; Stock:0; Gain:0.285804; Experienced:50000
+model: current, Adg. Gain -  Test: 0.043894079999999995, Train: 0.110911125
+Run: 7, R:0, E:0.010; Cash:899.50; Stock:262; Gain:0.145643; Experienced:50000
+model: current, Adg. Gain -  Test: -0.094536, Train: 0.166035875
+Run: 8, R:0, E:0.010; Cash:271.25; Stock:270; Gain:0.179969; Experienced:50000
+model: current, Adg. Gain -  Test: 0.12730608, Train: 0.238950875
+Run: 9, R:0, E:0.010; Cash:3348.38; Stock:300; Gain:0.314123; Experienced:50000
+model: current, Adg. Gain -  Test: 0.23740848000000003, Train: 0.297948375
+Run: 10, R:0, E:0.010; Cash:1229.88; Stock:262; Gain:0.145973; Experienced:50000
+model: current, Adg. Gain -  Test: -0.06306192, Train: 0.10938725
+Run: 11, R:0, E:0.010; Cash:52.75; Stock:298; Gain:0.302089; Experienced:50000
+model: current, Adg. Gain -  Test: 0.04427712, Train: 0.212688875
+Run: 12, R:0, E:0.010; Cash:3934.62; Stock:249; Gain:0.091878; Experienced:50000
+model: current, Adg. Gain -  Test: -0.05147568, Train: 0.094197875
+Run: 13, R:0, E:0.010; Cash:2783.88; Stock:303; Gain:0.326667; Experienced:50000
+model: current, Adg. Gain -  Test: -0.0036172799999999996, Train: 0.25576125
+Run: 14, R:0, E:0.010; Cash:331.25; Stock:297; Gain:0.297998; Experienced:50000
+model: current, Adg. Gain -  Test: -0.06450768, Train: 0.14140925
+Run: 15, R:0, E:0.010; Cash:1628.50; Stock:251; Gain:0.098310; Experienced:50000
+model: current, Adg. Gain -  Test: -0.13275792, Train: 0.07040375
+Run: 16, R:-0, E:0.010; Cash:1120355.00; Stock:0; Gain:0.120355; Experienced:50000
+model: current, Adg. Gain -  Test: -0.12071376, Train: 0.150888875
+Run: 17, R:0, E:0.010; Cash:433.25; Stock:247; Gain:0.079638; Experienced:50000
+model: current, Adg. Gain -  Test: 0.23951952000000004, Train: 0.2840675
+Run: 18, R:0, E:0.010; Cash:774.00; Stock:251; Gain:0.097456; Experienced:50000
+model: current, Adg. Gain -  Test: -0.021045599999999998, Train: 0.213496875
+Run: 19, R:0, E:0.010; Cash:1651.75; Stock:278; Gain:0.216303; Experienced:50000
+model: current, Adg. Gain -  Test: 0.07835328000000001, Train: 0.175462125
+Run: 20, R:-0, E:0.010; Cash:1212291.12; Stock:0; Gain:0.212291; Experienced:50000
+model: current, Adg. Gain -  Test: -0.06022944000000001, Train: 0.088838625
+Run: 21, R:-0, E:0.010; Cash:1133973.25; Stock:0; Gain:0.133973; Experienced:50000
+model: current, Adg. Gain -  Test: -0.13176144, Train: 0.199819125
+Run: 22, R:-0, E:0.010; Cash:1194910.38; Stock:0; Gain:0.194910; Experienced:50000
+model: current, Adg. Gain -  Test: 0.12999455999999998, Train: 0.253589875
+Run: 23, R:0, E:0.010; Cash:2500.50; Stock:236; Gain:0.033643; Experienced:50000
+model: current, Adg. Gain -  Test: -0.00253728, Train: 0.1314595
+Run: 24, R:0, E:0.010; Cash:456.25; Stock:258; Gain:0.127723; Experienced:50000
+model: current, Adg. Gain -  Test: -0.08926992, Train: 0.138952625
+Run: 25, R:-0, E:0.010; Cash:1278734.38; Stock:0; Gain:0.278734; Experienced:50000
+model: current, Adg. Gain -  Test: 0.05083920000000001, Train: 0.1731305
+Run: 26, R:0, E:0.010; Cash:843.12; Stock:297; Gain:0.298510; Experienced:50000
+model: current, Adg. Gain -  Test: 0.01612512, Train: 0.160763625
+Run: 27, R:0, E:0.010; Cash:1608.12; Stock:261; Gain:0.141982; Experienced:50000
+model: current, Adg. Gain -  Test: 0.084096, Train: 0.1621735
+Run: 28, R:0, E:0.010; Cash:3319.00; Stock:276; Gain:0.209232; Experienced:50000
+model: current, Adg. Gain -  Test: -0.01943424, Train: 0.23800199999999996
+Run: 29, R:0, E:0.010; Cash:3973.12; Stock:257; Gain:0.126870; Experienced:50000
+model: current, Adg. Gain -  Test: 0.057434400000000004, Train: 0.161912125
+Run: 30, R:0, E:0.010; Cash:1631.88; Stock:266; Gain:0.163852; Experienced:50000
+model: current, Adg. Gain -  Test: -0.01449504, Train: 0.1675245
+Run: 31, R:0, E:0.010; Cash:1825.25; Stock:297; Gain:0.299492; Experienced:50000
+model: current, Adg. Gain -  Test: -0.012132, Train: 0.12426212499999999
+Run: 32, R:0, E:0.010; Cash:2172.12; Stock:261; Gain:0.142546; Experienced:50000
+model: current, Adg. Gain -  Test: 0.055673280000000006, Train: 0.15301075
+Run: 33, R:0, E:0.010; Cash:2047.12; Stock:267; Gain:0.168637; Experienced:50000
+model: current, Adg. Gain -  Test: -0.053781119999999995, Train: 0.111283
+Run: 34, R:0, E:0.010; Cash:1667.88; Stock:275; Gain:0.203212; Experienced:50000
+model: current, Adg. Gain -  Test: -0.09389664, Train: 0.09551575
+Run: 35, R:0, E:0.010; Cash:943.00; Stock:284; Gain:0.241810; Experienced:50000
+model: current, Adg. Gain -  Test: 0.069516, Train: 0.12502925
+Run: 36, R:0, E:0.010; Cash:886.50; Stock:280; Gain:0.224276; Experienced:50000
+model: current, Adg. Gain -  Test: -0.09093168, Train: 0.132858125
+Run: 37, R:0, E:0.010; Cash:463.62; Stock:233; Gain:0.018499; Experienced:50000
+model: current, Adg. Gain -  Test: 0.027204479999999996, Train: 0.125320875
+Run: 38, R:0, E:0.010; Cash:1163.00; Stock:293; Gain:0.281353; Experienced:50000
+model: current, Adg. Gain -  Test: 0.16515648, Train: 0.099821375
+Run: 39, R:0, E:0.010; Cash:24.25; Stock:270; Gain:0.179722; Experienced:50000
+model: current, Adg. Gain -  Test: 0.02872368, Train: 0.118461875
+Run: 40, R:0, E:0.010; Cash:631.38; Stock:276; Gain:0.206544; Experienced:50000
+model: current, Adg. Gain -  Test: 0.061616159999999996, Train: 0.11441274999999998
+Run: 41, R:0, E:0.010; Cash:1754.00; Stock:243; Gain:0.063482; Experienced:50000
+model: current, Adg. Gain -  Test: 0.06642864, Train: 0.093904375
+Run: 42, R:0, E:0.010; Cash:411.00; Stock:272; Gain:0.188847; Experienced:50000
+model: current, Adg. Gain -  Test: 0.11905776000000001, Train: 0.126852
+Run: 43, R:0, E:0.010; Cash:1063.88; Stock:284; Gain:0.241931; Experienced:50000
+model: current, Adg. Gain -  Test: -0.043515359999999996, Train: 0.10480125
+Run: 44, R:0, E:0.010; Cash:2128.88; Stock:235; Gain:0.028903; Experienced:50000
+model: current, Adg. Gain -  Test: -0.05351328, Train: 0.12340225
+Run: 45, R:0, E:0.010; Cash:2518.50; Stock:295; Gain:0.291447; Experienced:50000
+model: current, Adg. Gain -  Test: 0.10028448, Train: 0.07155425
+Run: 46, R:0, E:0.010; Cash:81.12; Stock:291; Gain:0.271533; Experienced:50000
+model: current, Adg. Gain -  Test: 0.16367328, Train: 0.133850125
+Run: 47, R:0, E:0.010; Cash:462.38; Stock:270; Gain:0.180160; Experienced:50000
+model: current, Adg. Gain -  Test: 0.16562304, Train: 0.07956125
+Run: 48, R:0, E:0.010; Cash:394.88; Stock:238; Gain:0.040276; Experienced:50000
+model: current, Adg. Gain -  Test: 0.19841472, Train: 0.10231175
+Run: 49, R:-0, E:0.010; Cash:1209422.25; Stock:0; Gain:0.209422; Experienced:50000
+model: current, Adg. Gain -  Test: 0.18325727999999997, Train: 0.133697625
+Run: 50, R:0, E:0.010; Cash:2678.38; Stock:274; Gain:0.199853; Experienced:50000
+model: current, Adg. Gain -  Test: 0.04153824, Train: 0.092386125
+Run: 51, R:0, E:0.010; Cash:1344.00; Stock:295; Gain:0.290273; Experienced:50000
+model: current, Adg. Gain -  Test: 0.10207728, Train: 0.1070985
+Run: 52, R:0, E:0.010; Cash:1434.12; Stock:245; Gain:0.071900; Experienced:50000
+model: current, Adg. Gain -  Test: 0.08348976, Train: 0.184061375
+Run: 53, R:0, E:0.010; Cash:307.00; Stock:251; Gain:0.096989; Experienced:50000
+model: current, Adg. Gain -  Test: 0.16259472, Train: 0.066092625
+Run: 54, R:0, E:0.010; Cash:1853.75; Stock:289; Gain:0.264567; Experienced:50000
+model: current, Adg. Gain -  Test: 0.18736560000000002, Train: 0.0753165
+Run: 55, R:0, E:0.010; Cash:1658.75; Stock:253; Gain:0.107079; Experienced:50000
+model: current, Adg. Gain -  Test: -0.0172368, Train: 0.076051625
+Run: 56, R:0, E:0.010; Cash:3164.25; Stock:298; Gain:0.305201; Experienced:50000
+model: current, Adg. Gain -  Test: 0.017472960000000003, Train: 0.06775825
+Run: 57, R:0, E:0.010; Cash:2476.62; Stock:259; Gain:0.134112; Experienced:50000
+model: current, Adg. Gain -  Test: 0.27269424000000003, Train: 0.06022949999999999
+Run: 58, R:0, E:0.010; Cash:503.25; Stock:275; Gain:0.202047; Experienced:50000
+model: current, Adg. Gain -  Test: 0.18308736000000003, Train: 0.045378125
+Run: 59, R:-0, E:0.010; Cash:1111972.75; Stock:0; Gain:0.111973; Experienced:50000
+model: current, Adg. Gain -  Test: 0.06375744000000001, Train: 0.05106525
+Run: 60, R:0, E:0.010; Cash:1988.88; Stock:235; Gain:0.028763; Experienced:50000
+model: current, Adg. Gain -  Test: 0.053408159999999996, Train: 0.091257625
+Run: 61, R:-0, E:0.010; Cash:1224052.62; Stock:0; Gain:0.224053; Experienced:50000
+model: current, Adg. Gain -  Test: 0.066168, Train: 0.082595375
+Run: 62, R:0, E:0.010; Cash:1909.62; Stock:254; Gain:0.111699; Experienced:50000
+model: current, Adg. Gain -  Test: -0.06239088, Train: 0.12764475
+Run: 63, R:0, E:0.010; Cash:801.38; Stock:259; Gain:0.132437; Experienced:50000
+model: current, Adg. Gain -  Test: 0.11702736, Train: 0.105620125
+Run: 64, R:0, E:0.010; Cash:4354.88; Stock:269; Gain:0.179683; Experienced:50000
+model: current, Adg. Gain -  Test: 0.0324072, Train: 0.081951875
+Run: 65, R:0, E:0.010; Cash:353.12; Stock:255; Gain:0.114512; Experienced:50000
+model: current, Adg. Gain -  Test: 0.11976336, Train: 0.1075915
+Run: 66, R:0, E:0.010; Cash:3818.38; Stock:234; Gain:0.026223; Experienced:50000
+model: current, Adg. Gain -  Test: 0.14931648, Train: 0.103307875
+Run: 67, R:0, E:0.010; Cash:456.00; Stock:273; Gain:0.193261; Experienced:50000
+model: current, Adg. Gain -  Test: 0.11383344, Train: -0.005825625
+Run: 68, R:-0, E:0.010; Cash:1052737.25; Stock:0; Gain:0.052737; Experienced:50000
+model: current, Adg. Gain -  Test: 0.09904032, Train: 0.11012875000000001
+Run: 69, R:0, E:0.010; Cash:1344.38; Stock:224; Gain:-0.019944; Experienced:50000
+model: current, Adg. Gain -  Test: 0.18552960000000002, Train: 0.15449825
+Run: 70, R:0, E:0.010; Cash:743.12; Stock:294; Gain:0.285303; Experienced:50000
+model: current, Adg. Gain -  Test: 0.16405776, Train: 0.15414925
+Run: 71, R:0, E:0.010; Cash:2420.75; Stock:295; Gain:0.291349; Experienced:50000
+model: current, Adg. Gain -  Test: -0.02142576, Train: 0.151132
+Run: 72, R:0, E:0.010; Cash:1123.75; Stock:266; Gain:0.163344; Experienced:50000
+model: current, Adg. Gain -  Test: 0.34571519999999994, Train: 0.115856375
+Run: 73, R:0, E:0.010; Cash:2909.75; Stock:264; Gain:0.156392; Experienced:50000
+model: current, Adg. Gain -  Test: 0.06883631999999999, Train: 0.05789212500000001
 
 """
 
