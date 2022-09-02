@@ -13,10 +13,10 @@ open DDQN
 
 let device = torch.CUDA
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
-
-let root = @"E:\s\tradestation"
 let ( @@ ) a b = Path.Combine(a,b)
+let data_dir = System.Environment.GetEnvironmentVariable("DATA_DRIVE")
 
+let root = data_dir @@ @"s\tradestation"
 let fn = root @@ "mes_5_min.bin"
 let fnTest = root @@ "mes_5_min_test.bin"
 
