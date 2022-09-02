@@ -12,6 +12,7 @@ open Plotly.NET
 open DDQN
 
 let device = torch.CUDA
+let ACTIONS = 3 //0,1,2 - buy, sell, hold
 
 let root = @"E:\s\tradestation"
 let ( @@ ) a b = Path.Combine(a,b)
@@ -122,8 +123,11 @@ module Agent =
             {s with CashOnHand=newCash; Stock=0})
         |> Option.defaultValue s
 
-    let doAction _ env s act = 
-        if act = 0 then buy env s else sell env s      
+    let doAction _ env s act =
+        match act with
+        | 0 -> buy env s
+        | 1 -> sell env s
+        | _ -> s                //hold
 
     let skipHead = torch.TensorIndex.Slice(1)
 
@@ -370,23 +374,23 @@ let startReRun parms =
 //
 let parms1() = 
     let createModel() = 
-        torch.nn.Conv1d(40L, 128L, 4L, stride=2L, padding=3L)     //b x 64L x 4L   
-        ->> torch.nn.BatchNorm1d(128L)
+        torch.nn.Conv1d(40L, 512L, 4L, stride=2L, padding=3L)     //b x 64L x 4L   
+        ->> torch.nn.BatchNorm1d(512L)
         ->> torch.nn.Dropout(0.5)
         ->> torch.nn.ReLU()
-        ->> torch.nn.Conv1d(128L,64L,3L)
+        ->> torch.nn.Conv1d(512L,64L,3L)
         ->> torch.nn.BatchNorm1d(64L)
         ->> torch.nn.Dropout(0.5)
         ->> torch.nn.ReLU()
         ->> torch.nn.Flatten()
         ->> torch.nn.Linear(128L,20L)
         ->> torch.nn.SELU()
-        ->> torch.nn.Linear(20L,2L)
+        ->> torch.nn.Linear(20L,int64 ACTIONS)
 
     let model = DDQNModel.create createModel
     let exp = {Decay=0.9995; Min=0.01}
-    let ddqn = DDQN.create model 0.9999f exp 2 device
-    {Parms.Default createModel ddqn 0.00025 with 
+    let ddqn = DDQN.create model 0.9999f exp ACTIONS device
+    {Parms.Default createModel ddqn 0.00001 with 
         SyncEverySteps = 15000
         BatchSize = 300}
 
