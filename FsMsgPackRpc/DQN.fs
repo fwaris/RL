@@ -1,6 +1,6 @@
-﻿///abstractions for training a model under the DDQN regime
+﻿///abstractions for training a model under the DQN regime
 ///based on https://pytorch.org/tutorials/intermediate/mario_rl_tutorial.html
-module DDQN
+module DQN
 open TorchSharp
 open TorchSharp.Fun
 open System.IO
@@ -12,9 +12,9 @@ type Experience = {State:torch.Tensor; NextState:torch.Tensor; Action:int; Rewar
 type ExperienceBuffer = {Buffer : RandomAccessList<Experience>; Max:int}
 type Exploration = {Decay:float; Min:float} with static member Default = {Decay = 0.999; Min=0.01}
 type Step = {Num:int; ExplorationRate:float}
-type DDQN = {Model:DDQNModel; Gamma:float32; Exploration:Exploration; Actions:int; Device:torch.Device }
+type DQN = {Model:DDQNModel; Gamma:float32; Exploration:Exploration; Actions:int; Device:torch.Device }
 
-module DDQNModel =
+module DQNModel =
     let create (fmodel: unit -> IModel) = 
         let tgt = fmodel()
         let onln = fmodel()
@@ -109,7 +109,7 @@ module Experience =
                 append exp acc)
         buff
 
-module DDQN =
+module DQN =
     //use randomization from single source - pytorch
     let rand() : float = torch.rand([|1L|],dtype=torch.double).item()
     let randint n : int = torch.randint(n,[|1|],dtype=torch.int32).item()

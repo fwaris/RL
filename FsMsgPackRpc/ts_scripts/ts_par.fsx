@@ -11,6 +11,7 @@ open System.IO
 open Plotly.NET
 open DQN
 open System
+open FSharp.Collections.ParallelSeq
 
 let device = torch.CUDA
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
@@ -43,12 +44,15 @@ let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray
 dataTest.Length
 let mutable verbose = false
 
+let trainSets = data |> Array.chunkBySize (data.Length / 10)
+trainSets.[0].Length
+
 //Properties not expected to change over the course of the run (e.g. model, hyperparameters, ...)
 //can support multiple concurrent runs
 type Parms =
     {
         CreateModel      : unit -> IModel                   //need model creation function so that we can load weights from file
-        DQN              : DQN
+        DQN             : DQN
         LossFn           : Loss
         Opt              : torch.optim.Optimizer
         LearnEverySteps  : int
@@ -116,9 +120,10 @@ type Market = {prices : Bar array}
     with 
         member this.IsDone t = t >= this.prices.Length 
 
-let TX_COST_CNTRCT = 1.0
+let TX_COST_CNTRCT = 0.1
 
 module Agent = 
+    open DQN
     let bar (env:Market) t = if t < env.prices.Length && t >= 0 then env.prices.[t] |> Some else None
     let avgPrice bar = 0.5 * (bar.High + bar.Low)        
 
@@ -188,25 +193,21 @@ module Agent =
 
 module Policy =
 
-    let updateQ parms td_estimate td_target =
-        use loss = parms.LossFn.Invoke(td_estimate,td_target)
+    let updateQ parms (losses:torch.Tensor []) =        
         parms.Opt.zero_grad()
-        loss.backward()
-        //torch.nn.utils.clip_grad_value_(model.Online.Module.parameters(),1.0)
+        let losseD = losses |> Array.map (fun l -> l.backward(); l.ToDouble())
         torch.nn.utils.clip_grad_norm_(parms.DQN.Model.Online.Module.parameters(),10.0) |> ignore
         use t = parms.Opt.step() 
-        loss.ToDouble()
+        losseD |> Array.average
 
-    let learn parms s = 
+    let loss parms s = 
         let states,nextStates,rewards,actions,dones = Experience.recall parms.BatchSize s.ExpBuff  //sample from experience
         use states = states.``to``(parms.DQN.Device)
         use nextStates = nextStates.``to``(parms.DQN.Device)
         let td_est = DQN.td_estimate states actions parms.DQN           //estimate the Q-value of state-action pairs from online model
         let td_tgt = DQN.td_target rewards nextStates dones parms.DQN   //
-        let loss = updateQ parms td_est td_tgt //update online model         
-        if verbose then 
-            printfn $"Loss  %0.4f{loss}"
-        s        
+        let loss = parms.LossFn.Invoke(td_est,td_tgt)
+        loss
 
     let syncModel parms s = 
         System.GC.Collect()
@@ -221,22 +222,21 @@ module Policy =
                 let act =  DQN.selectAction s.State parms.DQN s.Step
                 act
 
-            update = fun parms sadrs ->    
-                let s = fst sadrs.[0]  //we only have one agent here
-                let s = 
-                    if s.Step.Num > 0 && s.Step.Num % parms.LearnEverySteps = 0 then    
-                        learn parms s
-                    else
-                        s
-                if s.Step.Num > 0 && s.Step.Num % parms.SyncEverySteps = 0 then
-                    syncModel parms s
-                policy parms, [s]
+            update = fun parms sdrs  ->      
+                let losses = sdrs |> PSeq.map (fun (s,_) -> loss parms s) |> PSeq.toArray
+                let avgLoss = updateQ parms losses
+                if verbose then printfn "avg loss {avgLoss}"
+                let s0,_ = sdrs.[0]
+                if s0.Step.Num % parms.SyncEverySteps = 0 then
+                    syncModel parms s0
+                let rs = sdrs |> List.map fst
+                policy parms, rs
 
             sync = syncModel
         }
         
 module Test = 
-    let interimModel = root @@ "test_ddqn.bin"
+    let interimModel = root @@ "test_DQN.bin"
 
     let saveInterim parms =    
         DQN.DQNModel.save interimModel parms.DQN.Model
@@ -249,14 +249,6 @@ module Test =
         let exp = Exploration.Default
         let lookback = 40
         let dataChunks = data |> Array.windowed lookback
-        (*
-        let bars = dataChunks.[100]
-        let tx = torch.tensor ([|for i in 0 .. 10 -> i|],dtype=torch.float32)
-        let tx_d = Tensor.getData<float32> tx
-        let tx2 = tx.index Agent.skipHead
-        let tx2_d = Tensor.getData<float32> tx2
-        let model = (DDQN.DDQNModel.load Policy.createModel @"E:\s\tradestation\models_eval\model_42_57599.bin").Online
-        *)
         let modelDevice = model.Module.parameters() |> Seq.head |> fun t -> t.device
         let s' = 
             (s,dataChunks) 
@@ -264,19 +256,13 @@ module Test =
                 let inp = bars |> Array.collect (fun b -> [|b.Open;b.High;b.Low;b.Close;b.Volume|])
                 use t_inp = torch.tensor(inp,dtype=torch.float32,dimensions=[|1L;40L;5L|])                
                 use t_inp = t_inp.``to``(modelDevice)
-                //let t_inp_d = Tensor.getDataNested<float32> t_inp
-                //let t_inp_1 = t_inp.index Agent.skipHead
-                //let t_inp_1_d = Tensor.getDataNested<float32> t_inp_1
-                //let t_inp_2 = t_inp.index [|torch.TensorIndex.Colon; torch.TensorIndex.Slice(1,41)|]
-                //let t_inp_2_d = Tensor.getDataNested<float32> t_inp_2
                 use q = model.forward t_inp
                 let act = q.argmax(-1L).flatten().ToInt32()               
                 let s = 
-                    //printfn $"act = {act}"
-                    if act = 0 then 
-                        Agent.buy market s
-                    else
-                        Agent.sell market s
+                    match act with
+                    | 0 -> Agent.buy market s
+                    | 1 -> Agent.sell market s
+                    | _ -> s
                 //printfn $" {s.TimeStep} act: {act}, cash:{s.CashOnHand}, stock:{s.Stock}"
                 {s with Step = DQN.updateStep exp s.Step})
 
@@ -340,36 +326,44 @@ module Test =
         root @@ "models" |> Directory.GetFiles |> Seq.iter File.Delete
         root @@ "models_eval" |> Directory.GetFiles |> Seq.iter File.Delete
 
-let market = {prices = data}
-
-let runEpisode parms (p,s) =
-    let rec loop (p,s) =
-        if market.IsDone (s.Step.Num + 1) |> not then
-            let s_isDone_reward = RL.step parms market Agent.agent p s
-            let p,s = p.update parms [s_isDone_reward]
-            loop (p,s.[0])
+let markets = trainSets |> Array.map (fun brs -> {prices=brs})
+    
+let runEpisodes  parms plcy (ms:(Market*RLState) list) =
+    let rec loop ms =
+        //markets where we can still take some action (i.e. not done)
+        let availMarkets = ms |> List.filter (fun (m:Market,s) -> m.IsDone (s.Step.Num + 1) |> not) 
+        if List.isEmpty availMarkets |> not then
+            let ms' =  
+                availMarkets 
+                |> PSeq.map (fun (m,s) -> 
+                    let s',adr = step parms m Agent.agent plcy s  //operate agents in parallel
+                    m,(s',adr))
+                |> PSeq.toList
+            let envs = ms' |> List.map fst
+            let sdrs = ms' |> List.map snd
+            let ss' =
+                let s0 = ms'.[0] |> snd |> fst
+                if s0.Step.Num % parms.LearnEverySteps = 0 then
+                    plcy.update parms sdrs |> snd
+                else
+                    sdrs |> List.map fst
+            let ms'' = List.zip envs ss'
+            loop ms''
         else
-           p,s
-    loop (p,s)
+            ms //done as no action can be taken in any market
+    loop ms
 
-let run parms (p,s) =
-    let rec loop (p,s:RLState) = 
-        if s.Episode < 150 then
-            let s = RLState.Reset s
-            let p,s = runEpisode parms (p,s)
-            printfn $"Run: {s.Episode}, R:{s.S_reward}, E:%0.3f{s.Step.ExplorationRate}; Cash:%0.2f{s.CashOnHand}; Stock:{s.Stock}; Gain:%03f{s.S_gain}; Experienced:{s.ExpBuff.Buffer.Length}"
-            Test.evalModel "current" parms.DQN.Model.Online |> ignore
-            let s = {s with Episode = s.Episode + 1}
-            loop (p,s) 
-        else
-            printfn "done"
-            p,s
-    loop (p,s)
 
 let resetRun parms = 
-    let p,s = Policy.policy parms, RLState.Default 1.0 1000000.
-    run parms (p,s)
-
+    let p = Policy.policy parms
+    let ms = markets |> Seq.map(fun m -> m,RLState.Default 1.0 1000000) |> Seq.toList
+    (ms,[0..20])
+    ||> List.fold(fun ms i ->
+        let ms' = runEpisodes  parms p ms
+        printfn $"run {i} done"
+        Test.evalModel "current" parms.DQN.Model.Online |> ignore
+        let ms'' = ms |> List.map (fun (m,s) -> m, RLState.Reset s)
+        ms'')
 
 let mutable _ps = Unchecked.defaultof<_>
 
@@ -382,15 +376,15 @@ let startResetRun parms =
     }
     |> Async.Start
 
-let startReRun parms = 
-    async {
-        try 
-            let p,s = _ps
-            let s = {RLState.Reset s with Episode = 0}
-            let ps = run parms (p,s)
-            _ps <- ps
-        with ex -> printfn "%A" (ex.Message,ex.StackTrace)
-    } |> Async.Start
+//let startReRun parms = 
+//    async {
+//        try 
+//            let p,s = _ps
+//            let s = {RLState.Reset s with Episode = 0}
+//            let ps = run parms (p,s)
+//            _ps <- ps
+//        with ex -> printfn "%A" (ex.Message,ex.StackTrace)
+//    } |> Async.Start
 
 //
 let parms1() = 
@@ -410,8 +404,8 @@ let parms1() =
 
     let model = DQNModel.create createModel
     let exp = {Decay=0.9995; Min=0.01}
-    let ddqn = DQN.create model 0.9999f exp ACTIONS device
-    {Parms.Default createModel ddqn 0.00001 with 
+    let DQN = DQN.create model 0.9999f exp ACTIONS device
+    {Parms.Default createModel DQN 0.00001 with 
         SyncEverySteps = 15000
         BatchSize = 300}
 
@@ -425,7 +419,7 @@ startReRun p1
 (*
 verbose <- true
 verbose <- false
-
+[]
 Test.runTest()
 
 async {Test.evalModels p1} |> Async.Start
@@ -433,7 +427,7 @@ async {Test.evalModels p1} |> Async.Start
 
 Policy.model.Online.Module.save @"e:/s/tradestation/temp.bin" 
 
-let m2 = DDQN.DDQNModel.load Policy.createModel  @"e:/s/tradestation/temp.bin" 
+let m2 = DQN.DQNModel.load Policy.createModel  @"e:/s/tradestation/temp.bin" 
 
 Policy.model.Online.Module.parameters() |> Seq.iter (printfn "%A")
 
@@ -443,3 +437,4 @@ let p1 = m2.Online.Module.parameters() |> Seq.head |> Tensor.getDataNested<float
 let p2 = Policy.model.Online.Module.parameters() |> Seq.head |> Tensor.getDataNested<float32>
 p1 = p2
 *)
+

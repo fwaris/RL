@@ -6,10 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="RL.fs" />
     <None Include="ts_scripts\sandbox.fsx" />
     <None Include="ts_scripts\loganalsyis.fsx" />
     <None Include="ts_scripts\ts.fsx" />
+    <None Include="ts_scripts\ts_par.fsx" />
     <None Include="scripts\EventLoop.fsx" />
     <None Include="scripts\packages.fsx" />
     <None Include="scripts\hello_car.fsx" />
@@ -20,7 +20,8 @@
     <Compile Include="FsMsgPackRpc.fs" />
     <Compile Include="AirSimCar.fs" />
     <Compile Include="CarEnvironment.fs" />
-    <Compile Include="DDQN.fs" />
+    <Compile Include="RL.fs" />
+    <Compile Include="DQN.fs" />
     <Compile Include="TsData.fs" />
   </ItemGroup>
 

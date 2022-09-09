@@ -3,12 +3,12 @@ open AirSimCar
 open TorchSharp
 open TorchSharp.Fun
 open System.IO
-open DDQN
+open DQN
 
-let root = System.Environment.GetEnvironmentVariable("AIRSIM_DDQN")
+let root = System.Environment.GetEnvironmentVariable("AIRSIM_DQN")
 let (@@) a b = Path.Combine(a,b)
 
-//ddqn pytorch model
+//DQN pytorch model
 let createModel () = 
     torch.nn.Conv2d(1L,32L,8L,stride=4L)
     ->> torch.nn.ReLU()
@@ -21,11 +21,11 @@ let createModel () =
     ->> torch.nn.ReLU()
     ->> torch.nn.Linear(512L,CarEnvironment.discreteActions)
 
-let modelFile = root @@ "ddqn_airsim_test1.bin"
+let modelFile = root @@ "DQN_airsim_test1.bin"
 
-let mm  = DDQNModel.create createModel
-DDQNModel.save  modelFile mm
-let mm2 = DDQNModel.load createModel modelFile
+let mm  = DQNModel.create createModel
+DQNModel.save  modelFile mm
+let mm2 = DQNModel.load createModel modelFile
 
 mm.Online.Module.save(modelFile)
 

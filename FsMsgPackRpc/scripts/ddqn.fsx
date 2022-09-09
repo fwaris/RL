@@ -3,12 +3,12 @@ open AirSimCar
 open TorchSharp
 open TorchSharp.Fun
 open System.IO
-open DDQN
+open DQN
 
-let root = System.Environment.GetEnvironmentVariable("AIRSIM_DDQN")
+let root = System.Environment.GetEnvironmentVariable("AIRSIM_DQN")
 let (@@) a b = Path.Combine(a,b)
 
-//ddqn pytorch model
+//DQN pytorch model
 let createModel () = 
     torch.nn.Conv2d(1L,32L,8L,stride=4L)
     ->> torch.nn.ReLU()
@@ -21,13 +21,13 @@ let createModel () =
     ->> torch.nn.ReLU()
     ->> torch.nn.Linear(512L,CarEnvironment.discreteActions)
 
-let modelFile = root @@ "ddqn_airsim.bin"
+let modelFile = root @@ "DQN_airsim.bin"
 let exprFile = root @@ "expr_buff_airsim.bin"
 let model = 
     if File.Exists modelFile then         //restart session
-        DDQNModel.load createModel modelFile
+        DQNModel.load createModel modelFile
     else
-        DDQNModel.create createModel
+        DQNModel.create createModel
 let BUFF_MAX = 500_000
 let initExperience =
     if File.Exists exprFile then          //reuse saved buffer
@@ -39,7 +39,7 @@ let lossFn = torch.nn.functional.smooth_l1_loss()
 let device = torch.CUDA
 let gamma = 0.9f
 let exploration = {Decay=0.9999; Min=0.1}
-let initDDQN = DDQN.create model gamma exploration CarEnvironment.discreteActions device
+let initDQN = DQN.create model gamma exploration CarEnvironment.discreteActions device
 let batchSize = 32
 let opt = torch.optim.Adam(model.Online.Module.parameters(), lr=0.00025)
 
@@ -78,12 +78,12 @@ let learnEvery = 3
 let syncEvery = 10000
 let saveBuffEvery = 5000
 
-let trainDDQN (clnt:CarClient) (go:bool ref) =
+let trainDQN (clnt:CarClient) (go:bool ref) =
     initCar clnt |> Async.AwaitTask |> Async.RunSynchronously
     let initState = CarEnvironment.RLState.Default
     let initCtrls = {CarControls.Default with throttle = 1.0}
     let rng = System.Random()
-    let rec loop (step:Step) (state:CarEnvironment.RLState) ctrls ddqn experienceBuff =
+    let rec loop (step:Step) (state:CarEnvironment.RLState) ctrls (dqn:DQN) experienceBuff =
         async {
             try
                 //select action to take
@@ -91,7 +91,7 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                     if step.Num <= burnIn then
                         rng.Next(CarEnvironment.discreteActions)           //select random actions in the beginning to build the experience buffer
                     else
-                        DDQN.selectAction state.DepthImage ddqn step                //select policy action
+                        DQN.selectAction state.DepthImage dqn step                //select policy action
 
                 //perform action in environment, observe new state, compute reward
                 let! (state,ctrls,reward,isDone) = CarEnvironment.step clnt (state,ctrls) action 1000 |> Async.AwaitTask
@@ -108,11 +108,11 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                     //periodically train online model from a sample of the experience buffer
                     if step.Num > burnIn && step.Num % learnEvery = 0 then                      
                         let states,nextStates,rewards,actions,dones = Experience.recall batchSize experienceBuff  //sample from experience
-                        use states = states.``to``(ddqn.Device)
-                        use nextStates = nextStates.``to``(ddqn.Device)
-                        let td_est = DDQN.td_estimate states actions ddqn        
-                        //let td_est_d = td_est.data<float32>().ToArray() //ddqn invocations
-                        let td_tgt = DDQN.td_target rewards nextStates dones ddqn
+                        use states = states.``to``(dqn.Device)
+                        use nextStates = nextStates.``to``(dqn.Device)
+                        let td_est = DQN.td_estimate states actions dqn
+                        //let td_est_d = td_est.data<float32>().ToArray() //DQN invocations
+                        let td_tgt = DQN.td_target rewards nextStates dones dqn
                         let loss = updateQ td_est td_tgt                                                          //update online model 
                         printfn $"{step.Num}, loss: {loss}"
                         System.GC.Collect()
@@ -122,8 +122,8 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
 
                     //periodically sync target model with online model
                     if step.Num > 0 && step.Num % syncEvery = 0 then 
-                        DDQNModel.save modelFile ddqn.Model                        
-                        DDQNModel.sync ddqn.Model ddqn.Device
+                        DQNModel.save modelFile dqn.Model                        
+                        DQNModel.sync dqn.Model dqn.Device
                         printfn $"Exploration rate: {step.ExplorationRate}"
                     let state = 
                         match isDone with 
@@ -131,25 +131,25 @@ let trainDDQN (clnt:CarClient) (go:bool ref) =
                         | _ ->  resetCar clnt |> Async.AwaitTask |> Async.RunSynchronously
                                 {state with WasReset=true}
                     
-                    return! loop (DDQN.updateStep ddqn.Exploration step) state ctrls ddqn experienceBuff
+                    return! loop (DQN.updateStep dqn.Exploration step) state ctrls dqn experienceBuff
                     
-            with ex -> printfn "trainDDQN: %A" (ex.Message,ex.StackTrace)
+            with ex -> printfn "trainDQN: %A" (ex.Message,ex.StackTrace)
         }
-    loop ({Num=0; ExplorationRate=0.1}) initState initCtrls initDDQN initExperience
+    loop ({Num=0; ExplorationRate=0.1}) initState initCtrls initDQN initExperience
 
 
 let runTraining go =
     async {
         let c = new CarClient(AirSimCar.Defaults.options)
         c.Connect(AirSimCar.Defaults.address,AirSimCar.Defaults.port)      
-        do! trainDDQN c go 
+        do! trainDQN c go 
     }
 
 (*
 let go = ref true
 runTraining go |> Async.Start
 
-DDQNModel.save modelFile model
+DQNModel.save modelFile model
 go.Value <- false
 System.Runtime.GCSettings.IsServerGC
 

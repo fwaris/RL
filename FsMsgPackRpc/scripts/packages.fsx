@@ -3,6 +3,7 @@
 #r "nuget: TorchSharp-cuda-windows"
 #r "nuget: MathNet.Numerics.FSharp"
 #r "nuget: FSharpX.Collections"
+#r "nuget: FSharp.Collections.ParallelSeq"
 #r "nuget: TorchSharp.Fun"
 #r "nuget: FsPickler"
 #r "nuget: Plotly.NET"
@@ -10,7 +11,7 @@
 #load "../FsMsgPackRpc.fs"
 #load "../AirSimCar.fs"
 #load "../CarEnvironment.fs"
-#load "../DDQN.fs"
+#load "../DQN.fs"
 
 open System
 let userProfile = Environment.GetEnvironmentVariable("UserProfile")

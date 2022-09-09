@@ -32,7 +32,7 @@ type RLState =
         CashOnHand       : float
         InitialCash      : float
         LookBack         : int64
-        ExpBuff          : DDQN.ExperienceBuffer
+        ExpBuff          : DQN.ExperienceBuffer
         LearnEverySteps  : int
         SyncEveryEpisode : int
         S_reward         : float
@@ -52,7 +52,7 @@ type RLState =
             }
 
         static member Default initialCash = 
-            let expBuff = {DDQN.Buffer=RandomAccessList.empty; DDQN.Max=50000}
+            let expBuff = {DQN.Buffer=RandomAccessList.empty; DQN.Max=50000}
             let lookback = 40L
             {
                 State            = torch.zeros([|lookback;5L|],dtype=torch.float32)
@@ -78,7 +78,7 @@ type Market = {prices : Bar array}
         member this.reset() = ()
 
 module Agent = 
-    open DDQN
+    open DQN
     let bar (env:Market) t = if t < env.prices.Length then env.prices.[t] |> Some else None
     let avgPrice bar = 0.5 * (bar.High + bar.Low)        
 
@@ -143,7 +143,7 @@ module Agent =
         }
 
 module Policy =
-    open DDQN
+    open DQN
 
     let createModel() = 
         torch.nn.Conv1d(40L, 64L, 4L, stride=2L, padding=3L)     //b x 64L x 4L   
@@ -239,7 +239,7 @@ module Test =
     let interimModel = root @@ "test_ddqn.bin"
 
     let saveInterim() =    
-        DDQN.DDQNModel.save interimModel Policy.ddqn.Model
+        DQN.DDQNModel.save interimModel Policy.ddqn.Model
 
     let testMarket() = {prices = dataTest}
 
@@ -284,7 +284,7 @@ module Test =
         //modelFile,adjGain
     
     let evalModel modelFile  =
-        let model = (DDQN.DDQNModel.load Policy.createModel modelFile).Online
+        let model = (DQN.DDQNModel.load Policy.createModel modelFile).Online
         model.Module.eval()
         let testMarket,testData = testMarket(), dataTest
         let trainMarket,trainData = market, data
