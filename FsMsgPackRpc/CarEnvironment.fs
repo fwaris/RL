@@ -93,9 +93,9 @@ let roadPts =
         (0, -1); (130, -1); (130, -128); (0, -128);
         (0, -1);        
     ]
-    |> List.map (fun (x,y) -> torch.tensor([|float x;float y; 0.0|],dtype=torch.float))
+    |> List.map (fun (x,y) -> (x,y),torch.tensor([|float x;float y; 0.0|],dtype=torch.float))
 
-let computeReward (state:RLState) (ctrls:CarControls) =
+let computeReward (doLog:bool ref) (state:RLState) (ctrls:CarControls) =
     let MAX_SPEED = 300.
     let MIN_SPEED = 10.
     let THRESH_DIST = 3.5
@@ -104,15 +104,17 @@ let computeReward (state:RLState) (ctrls:CarControls) =
     let car_pt = state.Pose
 
     //find distance to center line of the nearest road
-    let dist =         
-        (10_000_000., List.pairwise roadPts)
-        ||> List.fold (fun st (a,b) -> 
-            use nrm_t = torch.linalg.cross(car_pt - a, car_pt - b)
+    let ab,dist =         
+        (([],10_000_000.), List.pairwise roadPts)
+        ||> List.fold (fun (ab,st) ((a,aT),(b,bT)) ->             
+            use nrm_t = torch.linalg.cross(car_pt - aT, car_pt - bT)
             let nrm = nrm_t.norm().ToDouble()
-            use denom_t  = a - b
+            use denom_t  = aT - bT
             let denom = denom_t.norm().ToDouble()
             let dist' = nrm/denom
-            min st dist')
+            let ab,st = if dist' < st then [a;b],dist' else ab,st
+            ab,st)           
+    if doLog.Value then printfn $"{ab}, dist: {dist}"
     let reward =
         if dist > THRESH_DIST then
             -3.0
@@ -129,19 +131,19 @@ let computeReward (state:RLState) (ctrls:CarControls) =
         | _                                                           -> NotDone
     reward,isDone, {state with WasReset=false}
 
-let step c (state,ctrls) action waitMs =
+let step doLog c (state,ctrls) action waitMs =
     task{  
         let! ctrls' = doAction c action ctrls waitMs
         let! state' = getObservations c state
-        let reward,isDone,state' = computeReward state' ctrls'
+        let reward,isDone,state' = computeReward doLog state' ctrls'
         return (state',ctrls',reward,isDone)
     }
 
 let rng = Random()
 let randRoadPoint() = 
     let i = rng.Next(roadPts.Length-1)
-    let t1 = roadPts.[i] 
-    let t2 = roadPts.[i+1]
+    let _,t1 = roadPts.[i] 
+    let _,t2 = roadPts.[i+1]
     use n = torch.linalg.norm(t2 - t1)
     let d2 = rng.NextDouble().ToScalar() * n
     let x1 = t1.[0]
@@ -216,7 +218,7 @@ let initCar (c:CarClient) =
 
 ///an agent that uses random actions in the car environment.
 ///meant for testing the connectivity to AirSim
-let startRandomAgent (go:bool ref) =
+let startRandomAgent doLog (go:bool ref) =
     let c = new CarClient(AirSimCar.Defaults.options)
     c.Connect(AirSimCar.Defaults.address,AirSimCar.Defaults.port)
     initCar c |> Async.AwaitTask |> Async.RunSynchronously
@@ -227,7 +229,7 @@ let startRandomAgent (go:bool ref) =
     let rec loop state ctrls nextAction =
         async {
             try
-                let! (state',ctrls',reward,isDone) = step c (state,ctrls) nextAction 1000 |> Async.AwaitTask
+                let! (state',ctrls',reward,isDone) = step doLog c (state,ctrls) nextAction 1000 |> Async.AwaitTask
                 printfn $"reward: {reward}, isDone: {isDone}"
                 if not go.Value then
                     //do! initCar c |> Async.AwaitTask
@@ -241,6 +243,50 @@ let startRandomAgent (go:bool ref) =
                         | doneRsn ->
                             printfn $"Done: {doneRsn}"                        
                             do! c.reset() |> Async.AwaitTask
+                            let! _ = c.simSetObjectPose(carId,randPose(),true) |> Async.AwaitTask
+                            do! Async.Sleep 1000 // need to wait for the car to settle down after reset
+                            return! loop initState initCtrls initAction
+            with ex -> printfn "%A" ex.Message
+        }
+    loop initState initCtrls initAction
+
+let noActionStep doLog c (state,ctrls) action waitMs =
+    task{  
+        let! ctrls' = doAction c action ctrls waitMs
+        let! state' = getObservations c state
+        let reward,isDone,state' = computeReward doLog state' ctrls'
+        return (state',ctrls',reward,isDone)
+    }
+
+
+///an agent that computes rewards base on actions taken by human
+///meant for testing the connectivity to AirSim
+let freeAgent doLog (go:bool ref) =
+    let c = new CarClient(AirSimCar.Defaults.options)
+    c.Connect(AirSimCar.Defaults.address,AirSimCar.Defaults.port)
+    initCar c |> Async.AwaitTask |> Async.RunSynchronously
+    let initState = RLState.Default
+    let initCtrls = {CarControls.Default with throttle = 1.0}
+    let initAction = 1
+    let rng = Random()
+    let rec loop state ctrls nextAction =
+        async {
+            try
+                let! (state',ctrls',reward,isDone) = step doLog c (state,ctrls) nextAction 1000 |> Async.AwaitTask
+                printfn $"reward: {reward}, isDone: {isDone}"
+                if not go.Value then
+                    //do! initCar c |> Async.AwaitTask
+                    c.Disconnect()
+                    printfn "stopped"
+                else
+                    match isDone with
+                        | NotDone -> 
+                            let action = rng.Next(discreteActions)
+                            return! loop state' ctrls' action
+                        | doneRsn ->
+                            printfn $"Done: {doneRsn}"                        
+                            do! c.reset() |> Async.AwaitTask
+                            let! _ = c.simSetObjectPose(carId,randPose(),true) |> Async.AwaitTask
                             do! Async.Sleep 1000 // need to wait for the car to settle down after reset
                             return! loop initState initCtrls initAction
             with ex -> printfn "%A" ex.Message

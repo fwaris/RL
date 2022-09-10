@@ -353,10 +353,9 @@ let runEpisodes  parms plcy (ms:(Market*RLState) list) =
             ms //done as no action can be taken in any market
     loop ms
 
+let mutable _ps = Unchecked.defaultof<_>
 
-let resetRun parms = 
-    let p = Policy.policy parms
-    let ms = markets |> Seq.map(fun m -> m,RLState.Default 1.0 1000000) |> Seq.toList
+let resetRun parms p ms = 
     (ms,[0..20])
     ||> List.fold(fun ms i ->
         let ms' = runEpisodes  parms p ms
@@ -365,26 +364,27 @@ let resetRun parms =
         let ms'' = ms |> List.map (fun (m,s) -> m, RLState.Reset s)
         ms'')
 
-let mutable _ps = Unchecked.defaultof<_>
 
 let startResetRun parms =
     async {
         try 
-            let ps = resetRun parms
+            let p = Policy.policy parms
+            let ms = markets |> Seq.map(fun m -> m,RLState.Default 1.0 1000000) |> Seq.toList
+            let ps = resetRun parms p ms
             _ps <- ps
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)    
     }
     |> Async.Start
 
-//let startReRun parms = 
-//    async {
-//        try 
-//            let p,s = _ps
-//            let s = {RLState.Reset s with Episode = 0}
-//            let ps = run parms (p,s)
-//            _ps <- ps
-//        with ex -> printfn "%A" (ex.Message,ex.StackTrace)
-//    } |> Async.Start
+let startReRun parms = 
+    async {
+        try 
+            let p = Policy.policy parms
+            let ms = _ps |> List.map (fun (m,s) ->m, {RLState.Reset s with Episode = 0})
+            let ps = resetRun parms p ms
+            _ps <- ps
+        with ex -> printfn "%A" (ex.Message,ex.StackTrace)
+    } |> Async.Start
 
 //
 let parms1() = 

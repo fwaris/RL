@@ -16,7 +16,7 @@
     <None Include="scripts\image_transform_test.fsx" />
     <None Include="scripts\model_tests.fsx" />
     <None Include="scripts\random_agent.fsx" />
-    <None Include="scripts\ddqn.fsx" />
+    <None Include="scripts\airsimRL.fsx" />
     <Compile Include="FsMsgPackRpc.fs" />
     <Compile Include="AirSimCar.fs" />
     <Compile Include="CarEnvironment.fs" />

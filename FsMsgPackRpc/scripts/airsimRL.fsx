@@ -5,8 +5,8 @@ open TorchSharp.Fun
 open System.IO
 open DQN
 
-let root = System.Environment.GetEnvironmentVariable("AIRSIM_DQN")
 let (@@) a b = Path.Combine(a,b)
+let root = System.Environment.GetEnvironmentVariable("DATA_DRIVE") @@ "s/ddqn"
 
 //DQN pytorch model
 let createModel () = 
