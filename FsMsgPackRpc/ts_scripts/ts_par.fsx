@@ -81,6 +81,7 @@ type Parms =
 //keep track of the information we need to run RL in here
 type RLState =
     {
+        AgentId          : int
         State            : torch.Tensor
         PrevState        : torch.Tensor
         Step             : Step
@@ -96,18 +97,22 @@ type RLState =
     with 
         ///reset for new episode
         static member Reset x = 
-            {x with 
-                Step            = {x.Step with Num=0} //keep current exploration rate; just update step number
-                CashOnHand      = x.InitialCash
-                Stock           = 0
-                State           = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
-                PrevState       = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
-            }
+            let a = 
+                {x with 
+                    Step            = {x.Step with Num=0} //keep current exploration rate; just update step number
+                    CashOnHand      = x.InitialCash
+                    Stock           = 0
+                    State           = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
+                    PrevState       = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
+                }
+            printfn  $"Reset called {x.AgentId} x={x.Step.ExplorationRate} a={a.Step.ExplorationRate}"
+            a
 
-        static member Default initExpRate initialCash = 
+        static member Default agentId initExpRate initialCash = 
             let expBuff = {DQN.Buffer=RandomAccessList.empty; DQN.Max=50000}
             let lookback = 40L
             {
+                AgentId          = agentId
                 State            = torch.zeros([|lookback;5L|],dtype=torch.float32)
                 PrevState        = torch.zeros([|lookback;5L|],dtype=torch.float32)
                 Step             = {ExplorationRate = initExpRate; Num=0}
@@ -182,7 +187,7 @@ module Agent =
             let isDone   = env.IsDone (tPlus1 + 1)
             let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
             if verbosity.isHigh then
-                printfn $"{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
+                printfn $"{s.AgentId}-{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
             let experienceBuff = Experience.append experience s.ExpBuff  
             {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain},isDone,reward
@@ -250,7 +255,7 @@ module Test =
     let trainMarket() = {prices = data}
 
     let evalModelTT (model:IModel) market data refLen = 
-        let s = RLState.Default 0.0 1_000_000 
+        let s = RLState.Default -1 0.0 1_000_000 
         let exp = Exploration.Default
         let lookback = 40
         let dataChunks = data |> Array.windowed lookback
@@ -369,14 +374,14 @@ let runAgents parms p ms =
         let ms' = runEpisodes  parms p ms
         printfn $"run {i} done"
         Test.evalModel "current" parms.DQN.Model.Online |> ignore
-        let ms'' = ms |> List.map (fun (m,s) -> m, RLState.Reset s)
+        let ms'' = ms' |> List.map (fun (m,s) -> m, RLState.Reset s)
         ms'')
 
 let startResetRun parms =
     async {
         try 
             let p = Policy.policy parms
-            let ms = markets |> Seq.map(fun m -> m,RLState.Default 1.0 1000000) |> Seq.toList
+            let ms = markets |> Seq.mapi(fun i m -> m,RLState.Default i 1.0 1000000) |> Seq.toList
             let ps = runAgents parms p ms
             _ps <- ps
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)    
@@ -427,7 +432,7 @@ startReRun p1
 
 (*
 verbosity <- LoggingLevel.H
-pverbosity <- LoggingLevel.L
+verbosity <- LoggingLevel.L
 verbosity <- LoggingLevel.Q
 []
 Test.runTest()
