@@ -7,6 +7,8 @@ open TorchSharp
 
 let discreteActions = 6
 
+type LogLevel = Verbose | Quite with member this.isVerbose() = match this with Verbose -> true | _ -> false
+
 ///state we need for reinforcement learning
 type RLState =
     {
@@ -95,7 +97,7 @@ let roadPts =
     ]
     |> List.map (fun (x,y) -> (x,y),torch.tensor([|float x;float y; 0.0|],dtype=torch.float))
 
-let computeReward (doLog:bool ref) (state:RLState) (ctrls:CarControls) =
+let computeReward (logLevel:LogLevel ref) (state:RLState) (ctrls:CarControls) =
     let MAX_SPEED = 300.
     let MIN_SPEED = 10.
     let THRESH_DIST = 3.5
@@ -114,7 +116,7 @@ let computeReward (doLog:bool ref) (state:RLState) (ctrls:CarControls) =
             let dist' = nrm/denom
             let ab,st = if dist' < st then [a;b],dist' else ab,st
             ab,st)           
-    if doLog.Value then printfn $"{ab}, dist: {dist}"
+    if logLevel.Value.isVerbose() then printfn $"{ab}, dist: {dist}"
     let reward =
         if dist > THRESH_DIST then
             -3.0
@@ -131,11 +133,11 @@ let computeReward (doLog:bool ref) (state:RLState) (ctrls:CarControls) =
         | _                                                           -> NotDone
     reward,isDone, {state with WasReset=false}
 
-let step doLog c (state,ctrls) action waitMs =
+let step logLevel c (state,ctrls) action waitMs =
     task{  
         let! ctrls' = doAction c action ctrls waitMs
         let! state' = getObservations c state
-        let reward,isDone,state' = computeReward doLog state' ctrls'
+        let reward,isDone,state' = computeReward logLevel state' ctrls'
         return (state',ctrls',reward,isDone)
     }
 

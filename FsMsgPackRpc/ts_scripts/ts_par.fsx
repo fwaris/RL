@@ -13,6 +13,13 @@ open DQN
 open System
 open FSharp.Collections.ParallelSeq
 
+type LoggingLevel = Q | L | H 
+    with  
+        member this.IsLow = match this with L | H -> true | _ -> false
+        member this.isHigh = match this with H -> true | _ -> false
+
+let mutable verbosity = LoggingLevel.H
+
 let device = torch.CUDA
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
 let ( @@ ) a b = Path.Combine(a,b)
@@ -42,7 +49,6 @@ let dataRaw = loadData()
 let data = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
 let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray
 dataTest.Length
-let mutable verbose = false
 
 let trainSets = data |> Array.chunkBySize (data.Length / 10)
 trainSets.[0].Length
@@ -91,7 +97,7 @@ type RLState =
         ///reset for new episode
         static member Reset x = 
             {x with 
-                Step            = {x.Step with Num=0}
+                Step            = {x.Step with Num=0} //keep current exploration rate; just update step number
                 CashOnHand      = x.InitialCash
                 Stock           = 0
                 State           = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
@@ -120,7 +126,7 @@ type Market = {prices : Bar array}
     with 
         member this.IsDone t = t >= this.prices.Length 
 
-let TX_COST_CNTRCT = 0.1
+let TX_COST_CNTRCT = 1.0
 
 module Agent = 
     open DQN
@@ -175,14 +181,13 @@ module Agent =
             let tPlus1   = s.Step.Num
             let isDone   = env.IsDone (tPlus1 + 1)
             let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
-            if verbose then
+            if verbosity.isHigh then
                 printfn $"{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
             let experienceBuff = Experience.append experience s.ExpBuff  
-            let step = DQN.updateStep parms.DQN.Exploration s.Step 
-            {s with ExpBuff = experienceBuff; Step=step; S_reward=reward; S_gain = sGain},isDone,reward
+            {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain},isDone,reward
         )
-        |> Option.defaultValue ({s with Step = DQN.updateStep parms.DQN.Exploration s.Step},false,0.0)
+        |> Option.defaultValue (s,false,0.0)
 
     let agent  = 
         {
@@ -214,7 +219,7 @@ module Policy =
         DQNModel.sync parms.DQN.Model parms.DQN.Device
         let fn = root @@ "models" @@ $"model_{s.Episode}_{s.Step.Num}.bin"
         DQNModel.save fn parms.DQN.Model 
-        if verbose then printfn "Synced"
+        if verbosity.IsLow then printfn "Synced"
 
     let rec policy parms = 
         {
@@ -225,7 +230,7 @@ module Policy =
             update = fun parms sdrs  ->      
                 let losses = sdrs |> PSeq.map (fun (s,_) -> loss parms s) |> PSeq.toArray
                 let avgLoss = updateQ parms losses
-                if verbose then printfn "avg loss {avgLoss}"
+                if verbosity.IsLow then printfn $"avg loss {avgLoss}"
                 let s0,_ = sdrs.[0]
                 if s0.Step.Num % parms.SyncEverySteps = 0 then
                     syncModel parms s0
@@ -327,17 +332,20 @@ module Test =
         root @@ "models_eval" |> Directory.GetFiles |> Seq.iter File.Delete
 
 let markets = trainSets |> Array.map (fun brs -> {prices=brs})
+
+let acctNotBlown (s:RLState) = s.CashOnHand > 10000.0 || s.Stock > 0
     
 let runEpisodes  parms plcy (ms:(Market*RLState) list) =
     let rec loop ms =
         //markets where we can still take some action (i.e. not done)
-        let availMarkets = ms |> List.filter (fun (m:Market,s) -> m.IsDone (s.Step.Num + 1) |> not) 
-        if List.isEmpty availMarkets |> not then
+        let available = ms |> List.filter (fun (m:Market,s) -> m.IsDone (s.Step.Num + 1) |> not && acctNotBlown s) 
+        if List.isEmpty available |> not then
             let ms' =  
-                availMarkets 
+                available 
                 |> PSeq.map (fun (m,s) -> 
-                    let s',adr = step parms m Agent.agent plcy s  //operate agents in parallel
-                    m,(s',adr))
+                    let s',adr = step parms m Agent.agent plcy s                            // operate agents in parallel
+                    let s'' = {s' with Step = DQN.updateStep parms.DQN.Exploration s'.Step} // update step number and exploration rate for each agent
+                    m,(s'',adr))
                 |> PSeq.toList
             let envs = ms' |> List.map fst
             let sdrs = ms' |> List.map snd
@@ -355,8 +363,8 @@ let runEpisodes  parms plcy (ms:(Market*RLState) list) =
 
 let mutable _ps = Unchecked.defaultof<_>
 
-let resetRun parms p ms = 
-    (ms,[0..20])
+let runAgents parms p ms = 
+    (ms,[0..50])
     ||> List.fold(fun ms i ->
         let ms' = runEpisodes  parms p ms
         printfn $"run {i} done"
@@ -364,13 +372,12 @@ let resetRun parms p ms =
         let ms'' = ms |> List.map (fun (m,s) -> m, RLState.Reset s)
         ms'')
 
-
 let startResetRun parms =
     async {
         try 
             let p = Policy.policy parms
             let ms = markets |> Seq.map(fun m -> m,RLState.Default 1.0 1000000) |> Seq.toList
-            let ps = resetRun parms p ms
+            let ps = runAgents parms p ms
             _ps <- ps
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)    
     }
@@ -381,7 +388,7 @@ let startReRun parms =
         try 
             let p = Policy.policy parms
             let ms = _ps |> List.map (fun (m,s) ->m, {RLState.Reset s with Episode = 0})
-            let ps = resetRun parms p ms
+            let ps = runAgents parms p ms
             _ps <- ps
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)
     } |> Async.Start
@@ -407,7 +414,9 @@ let parms1() =
     let DQN = DQN.create model 0.9999f exp ACTIONS device
     {Parms.Default createModel DQN 0.00001 with 
         SyncEverySteps = 15000
-        BatchSize = 300}
+        BatchSize = 32}
+
+
 
 (*
 Test.clearModels()
@@ -417,8 +426,9 @@ startReRun p1
 *)
 
 (*
-verbose <- true
-verbose <- false
+verbosity <- LoggingLevel.H
+pverbosity <- LoggingLevel.L
+verbosity <- LoggingLevel.Q
 []
 Test.runTest()
 

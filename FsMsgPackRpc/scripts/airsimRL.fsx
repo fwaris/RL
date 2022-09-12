@@ -78,7 +78,7 @@ let learnEvery = 3
 let syncEvery = 10000
 let saveBuffEvery = 5000
 
-let trainDQN (clnt:CarClient) (go:bool ref) =
+let trainDQN (clnt:CarClient) (logLevel:CarEnvironment.LogLevel ref) (go:bool ref) =
     initCar clnt |> Async.AwaitTask |> Async.RunSynchronously
     let initState = CarEnvironment.RLState.Default
     let initCtrls = {CarControls.Default with throttle = 1.0}
@@ -94,7 +94,7 @@ let trainDQN (clnt:CarClient) (go:bool ref) =
                         DQN.selectAction state.DepthImage dqn step                //select policy action
 
                 //perform action in environment, observe new state, compute reward
-                let! (state,ctrls,reward,isDone) = CarEnvironment.step clnt (state,ctrls) action 1000 |> Async.AwaitTask
+                let! (state,ctrls,reward,isDone) = CarEnvironment.step logLevel clnt (state,ctrls) action 1000 |> Async.AwaitTask
                 printfn $"{step.Num},exp: %.03f{step.ExplorationRate}, reward: {reward}, isDone: {isDone}, {action}, s,b,t=({ctrls.steering},{ctrls.brake},{ctrls.throttle}), spd=%0.02f{state.Speed}, buff={experienceBuff.Buffer.Length}"
 
                 //add to experience buffer
@@ -138,16 +138,21 @@ let trainDQN (clnt:CarClient) (go:bool ref) =
     loop ({Num=0; ExplorationRate=0.1}) initState initCtrls initDQN initExperience
 
 
-let runTraining go =
+let runTraining doLog go =
     async {
         let c = new CarClient(AirSimCar.Defaults.options)
         c.Connect(AirSimCar.Defaults.address,AirSimCar.Defaults.port)      
-        do! trainDQN c go 
+        do! trainDQN c doLog go 
     }
 
 (*
+
 let go = ref true
-runTraining go |> Async.Start
+let logLevel = ref CarEnvironment.Quite
+runTraining logLevel go |> Async.Start
+
+logLevel.Value <- CarEnvironment.Verbose
+logLevel.Value <- CarEnvironment.Quite
 
 DQNModel.save modelFile model
 go.Value <- false
