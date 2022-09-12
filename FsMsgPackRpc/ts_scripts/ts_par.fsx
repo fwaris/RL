@@ -338,32 +338,32 @@ module Test =
 
 let markets = trainSets |> Array.map (fun brs -> {prices=brs})
 
-let acctNotBlown (s:RLState) = s.CashOnHand > 10000.0 || s.Stock > 0
+let acctBlown (s:RLState) = s.CashOnHand < 10000.0 || s.Stock <= 0
+let isDone (m:Market,s) = m.IsDone (s.Step.Num+1) || acctBlown s
+
+let processAgent parms plcy (m,s) = 
+    if isDone (m,s) then 
+        (m,s),((0,true,0.),false) //skip
+    else
+        let s',adr = step parms m Agent.agent plcy s                           
+        let s'' = {s' with Step = DQN.updateStep parms.DQN.Exploration s'.Step} // update step number and exploration rate for each agent
+        (m,s),(adr,true)
     
 let runEpisodes  parms plcy (ms:(Market*RLState) list) =
     let rec loop ms =
-        //markets where we can still take some action (i.e. not done)
-        let available = ms |> List.filter (fun (m:Market,s) -> m.IsDone (s.Step.Num + 1) |> not && acctNotBlown s) 
-        if List.isEmpty available |> not then
-            let ms' =  
-                available 
-                |> PSeq.map (fun (m,s) -> 
-                    let s',adr = step parms m Agent.agent plcy s                            // operate agents in parallel
-                    let s'' = {s' with Step = DQN.updateStep parms.DQN.Exploration s'.Step} // update step number and exploration rate for each agent
-                    m,(s'',adr))
-                |> PSeq.toList
-            let envs = ms' |> List.map fst
-            let sdrs = ms' |> List.map snd
-            let ss' =
-                let s0 = ms'.[0] |> snd |> fst
-                if s0.Step.Num % parms.LearnEverySteps = 0 then
-                    plcy.update parms sdrs |> snd
-                else
-                    sdrs |> List.map fst
-            let ms'' = List.zip envs ss'
-            loop ms''
+        let ms' = ms |> PSeq.map (processAgent parms plcy) |> PSeq.toList // operate agents in parallel
+        let processed =
+            ms'
+            |> List.filter (fun (_,(_,t)) -> t)
+            |> List.map (fun ((m,s),(adr,_)) -> (m,s),adr)
+        if List.isEmpty processed |> not then                       //if at least 1 agent is not done 
+            let s0 = processed.[0] |> fst |> snd
+            if s0.Step.Num % parms.LearnEverySteps = 0 then
+                let sdrs = processed |> List.map (fun ((m,s),adr) -> s,adr)
+                plcy.update parms sdrs |> ignore
+            loop (ms' |> List.map fst)
         else
-            ms //done as no action can be taken in any market
+            ms' |> List.map fst
     loop ms
 
 let mutable _ps = Unchecked.defaultof<_>
