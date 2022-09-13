@@ -13,12 +13,13 @@ open DQN
 open System
 open FSharp.Collections.ParallelSeq
 
-type LoggingLevel = Q | L | H 
+type LoggingLevel = Q | L | M | H 
     with  
-        member this.IsLow = match this with L | H -> true | _ -> false
+        member this.IsLow = match this with L | M | H -> true | _ -> false
         member this.isHigh = match this with H -> true | _ -> false
+        member this.IsMed = match this with M | H -> true | _ -> false
 
-let mutable verbosity = LoggingLevel.H
+let mutable verbosity = LoggingLevel.L
 
 let device = torch.CUDA
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
@@ -110,7 +111,8 @@ type RLState =
                     State           = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
                     PrevState       = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
                 }
-            printfn  $"Reset called {x.AgentId} x={x.Step.ExplorationRate} a={a.Step.ExplorationRate}"
+            if verbosity.IsLow then 
+                printfn  $"Reset called {x.AgentId} x={x.Step.ExplorationRate} a={a.Step.ExplorationRate}"
             a
 
         static member Default agentId initExpRate initialCash = 
@@ -240,7 +242,7 @@ module Policy =
             update = fun parms sdrs  ->      
                 let losses = sdrs |> PSeq.map (fun (s,_) -> loss parms s) |> PSeq.toArray
                 let avgLoss = updateQ parms losses
-                if verbosity.IsLow then printfn $"avg loss {avgLoss}"
+                if verbosity.IsMed then printfn $"avg loss {avgLoss}"
                 let s0,_ = sdrs.[0]
                 if s0.Step.Num % parms.SyncEverySteps = 0 then
                     syncModel parms s0
@@ -438,6 +440,7 @@ startReRun p1
 (*
 verbosity <- LoggingLevel.H
 verbosity <- LoggingLevel.L
+verbosity <- LoggingLevel.M
 verbosity <- LoggingLevel.Q
 
 Test.runTest()
