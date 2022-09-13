@@ -50,8 +50,13 @@ let data = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
 let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray
 dataTest.Length
 
-let trainSets = data |> Array.chunkBySize (data.Length / 10)
-trainSets.[0].Length
+let trainSets = 
+    let chks = data |> Array.chunkBySize (data.Length / 10)
+    let ls = chks.Length    
+    let last = Array.append chks.[ls-2] chks.[ls-1]        //combine last two chunks
+    Array.append chks.[0..ls-3] [|last|]
+
+trainSets |> Array.iteri(fun  i t -> printfn $"t {i} length {t.Length}")
 
 //Properties not expected to change over the course of the run (e.g. model, hyperparameters, ...)
 //can support multiple concurrent runs
@@ -338,7 +343,7 @@ module Test =
 
 let markets = trainSets |> Array.map (fun brs -> {prices=brs})
 
-let acctBlown (s:RLState) = s.CashOnHand < 10000.0 || s.Stock <= 0
+let acctBlown (s:RLState) = s.CashOnHand < 10000.0 && s.Stock <= 0
 let isDone (m:Market,s) = m.IsDone (s.Step.Num+1) || acctBlown s
 
 let processAgent parms plcy (m,s) = 
@@ -347,7 +352,7 @@ let processAgent parms plcy (m,s) =
     else
         let s',adr = step parms m Agent.agent plcy s                           
         let s'' = {s' with Step = DQN.updateStep parms.DQN.Exploration s'.Step} // update step number and exploration rate for each agent
-        (m,s),(adr,true)
+        (m,s''),(adr,true)
     
 let runEpisodes  parms plcy (ms:(Market*RLState) list) =
     let rec loop ms =
@@ -356,9 +361,9 @@ let runEpisodes  parms plcy (ms:(Market*RLState) list) =
             ms'
             |> List.filter (fun (_,(_,t)) -> t)
             |> List.map (fun ((m,s),(adr,_)) -> (m,s),adr)
-        if List.isEmpty processed |> not then                       //if at least 1 agent is not done 
+        if List.isEmpty processed |> not then                       //if at least 1 ageant is not done 
             let s0 = processed.[0] |> fst |> snd
-            if s0.Step.Num % parms.LearnEverySteps = 0 then
+            if s0.Step.Num > 0 &&  s0.Step.Num % parms.LearnEverySteps = 0 then
                 let sdrs = processed |> List.map (fun ((m,s),adr) -> s,adr)
                 plcy.update parms sdrs |> ignore
             loop (ms' |> List.map fst)
@@ -434,7 +439,7 @@ startReRun p1
 verbosity <- LoggingLevel.H
 verbosity <- LoggingLevel.L
 verbosity <- LoggingLevel.Q
-[]
+
 Test.runTest()
 
 async {Test.evalModels p1} |> Async.Start
