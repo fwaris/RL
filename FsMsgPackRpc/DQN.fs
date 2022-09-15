@@ -90,6 +90,11 @@ module Experience =
         let sval:Tser = (buff.Max,shape,data)
         ser.Serialize(str,sval)
 
+    let saveAsync path buff =
+        async {
+            do save path buff
+        }
+
     let load path =
         let ser = MBrace.FsPickler.BinarySerializer()
         use str = System.IO.File.OpenRead(path:string)        

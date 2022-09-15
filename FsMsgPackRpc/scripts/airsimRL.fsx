@@ -76,7 +76,7 @@ let burnInMax = 200000
 let burnIn = burnInMax - initExperience.Buffer.Length |> max 0
 let learnEvery = 3
 let syncEvery = 10000
-let saveBuffEvery = 5000
+let saveBuffEvery = 50000
 
 let trainDQN (clnt:CarClient) (logLevel:CarEnvironment.LogLevel ref) (go:bool ref) =
     initCar clnt |> Async.AwaitTask |> Async.RunSynchronously
@@ -118,7 +118,7 @@ let trainDQN (clnt:CarClient) (logLevel:CarEnvironment.LogLevel ref) (go:bool re
                         System.GC.Collect()
 
                     if step.Num > 0 && step.Num % saveBuffEvery = 0 then
-                        Experience.save exprFile experienceBuff 
+                        Experience.saveAsync exprFile experienceBuff |> Async.Start
 
                     //periodically sync target model with online model
                     if step.Num > 0 && step.Num % syncEvery = 0 then 
