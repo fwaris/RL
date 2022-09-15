@@ -424,7 +424,7 @@ let parms1() =
     let model = DQNModel.create createModel
     let exp = {Decay=0.9995; Min=0.01}
     let DQN = DQN.create model 0.9999f exp ACTIONS device
-    {Parms.Default createModel DQN 0.00001 with 
+    {Parms.Default createModel DQN 0.00025 with 
         SyncEverySteps = 15000
         BatchSize = 32}
 
