@@ -213,7 +213,7 @@ module Policy =
     let updateQ parms (losses:torch.Tensor []) =        
         parms.Opt.zero_grad()
         let losseD = losses |> Array.map (fun l -> l.backward(); l.ToDouble())
-        torch.nn.utils.clip_grad_norm_(parms.DQN.Model.Online.Module.parameters(),10.0) |> ignore
+        torch.nn.utils.clip_grad_norm_(parms.DQN.Model.Online.Module.parameters(),1.0) |> ignore
         use t = parms.Opt.step() 
         losseD |> Array.average
 
