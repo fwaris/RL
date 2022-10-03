@@ -19,7 +19,7 @@ type LoggingLevel = Q | L | M | H
         member this.isHigh = match this with H -> true | _ -> false
         member this.IsMed = match this with M | H -> true | _ -> false
 
-let mutable verbosity = LoggingLevel.L
+let mutable verbosity = LoggingLevel.Q
 
 let device = torch.CUDA
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
@@ -63,6 +63,7 @@ trainSets |> Array.iteri(fun  i t -> printfn $"t {i} length {t.Length}")
 //can support multiple concurrent runs
 type Parms =
     {
+        LearnRate        : float
         CreateModel      : unit -> IModel                   //need model creation function so that we can load weights from file
         DQN             : DQN
         LossFn           : Loss
@@ -70,11 +71,14 @@ type Parms =
         LearnEverySteps  : int
         SyncEverySteps   : int
         BatchSize        : int
+        Epochs           : int
+        RunId            : int
     }
     with 
-        static member Default modelFn ddqn lr = 
+        static member Default modelFn ddqn lr id = 
             let mps = ddqn.Model.Online.Module.parameters()
             {
+                LearnRate       = lr
                 CreateModel     = modelFn
                 DQN             = ddqn
                 LossFn          = torch.nn.functional.smooth_l1_loss()
@@ -82,6 +86,9 @@ type Parms =
                 LearnEverySteps = 3
                 SyncEverySteps  = 1000
                 BatchSize       = 32
+                Epochs          = 6
+                RunId           = id
+                
             }
 
 //keep track of the information we need to run RL in here
@@ -213,7 +220,7 @@ module Policy =
     let updateQ parms (losses:torch.Tensor []) =        
         parms.Opt.zero_grad()
         let losseD = losses |> Array.map (fun l -> l.backward(); l.ToDouble())
-        torch.nn.utils.clip_grad_norm_(parms.DQN.Model.Online.Module.parameters(),1.0) |> ignore
+        torch.nn.utils.clip_grad_norm_(parms.DQN.Model.Online.Module.parameters(),25.) |> ignore
         use t = parms.Opt.step() 
         losseD |> Array.average
 
@@ -229,7 +236,7 @@ module Policy =
     let syncModel parms s = 
         System.GC.Collect()
         DQNModel.sync parms.DQN.Model parms.DQN.Device
-        let fn = root @@ "models" @@ $"model_{s.Episode}_{s.Step.Num}.bin"
+        let fn = root @@ "models" @@ $"model_{parms.RunId}_{s.Episode}_{s.Step.Num}.bin"
         DQNModel.save fn parms.DQN.Model 
         if verbosity.IsLow then printfn "Synced"
 
@@ -290,21 +297,21 @@ module Test =
         //printfn $"model: {modelFile}, gain: {gain}, adjGain: {adjGain}"
         //modelFile,adjGain
 
-    let evalModel (name:string) (model:IModel) =
+    let evalModel parms (name:string) (model:IModel) =
         try
             model.Module.eval()
             let testMarket,testData = testMarket(), dataTest
             let trainMarket,trainData = trainMarket(), data
             let gainTest = evalModelTT model testMarket testData data.Length
             let gainTrain = evalModelTT model trainMarket trainData data.Length
-            printfn $"model: {name}, Adg. Gain -  Test: {gainTest}, Train: {gainTrain}"
+            printfn $"model: {parms.RunId} {name}, Adg. Gain -  Test: {gainTest}, Train: {gainTrain}"
             name,gainTest,gainTrain
         finally
             model.Module.train()
     
     let evalModelFile parms modelFile  =
         let model = (DQN.DQNModel.load parms.CreateModel modelFile).Online
-        evalModel modelFile model
+        evalModel parms modelFile model
 
     let copyModels() =
         let dir = root @@ "models_eval" 
@@ -337,7 +344,7 @@ module Test =
 
     let runTest parms = 
         saveInterim parms
-        evalModel interimModel
+        evalModel parms interimModel
 
     let clearModels() = 
         root @@ "models" |> Directory.GetFiles |> Seq.iter File.Delete
@@ -376,11 +383,11 @@ let runEpisodes  parms plcy (ms:(Market*RLState) list) =
 let mutable _ps = Unchecked.defaultof<_>
 
 let runAgents parms p ms = 
-    (ms,[0..50])
+    (ms,[1..parms.Epochs])
     ||> List.fold(fun ms i ->
         let ms' = runEpisodes  parms p ms
-        printfn $"run {i} done"
-        Test.evalModel "current" parms.DQN.Model.Online |> ignore
+        printfn $"run {parms.RunId} {i} done"
+        Test.evalModel parms "current" parms.DQN.Model.Online |> ignore
         let ms'' = ms' |> List.map (fun (m,s) -> m, RLState.Reset s)
         ms'')
 
@@ -393,7 +400,6 @@ let startResetRun parms =
             _ps <- ps
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)    
     }
-    |> Async.Start
 
 let startReRun parms = 
     async {
@@ -403,38 +409,41 @@ let startReRun parms =
             let ps = runAgents parms p ms
             _ps <- ps
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)
-    } |> Async.Start
+    }
 
 //
-let parms1() = 
+let parms1 id lr  = 
     let createModel() = 
         torch.nn.Conv1d(40L, 512L, 4L, stride=2L, padding=3L)     //b x 64L x 4L   
         ->> torch.nn.BatchNorm1d(512L)
-        ->> torch.nn.Dropout(0.5)
+        ->> torch.nn.Dropout(0.3)
         ->> torch.nn.ReLU()
-        ->> torch.nn.Conv1d(512L,64L,3L)
-        ->> torch.nn.BatchNorm1d(64L)
-        ->> torch.nn.Dropout(0.5)
-        ->> torch.nn.ReLU()
+        // ->> torch.nn.Conv1d(512L,64L,3L)
+        // ->> torch.nn.BatchNorm1d(64L)
+        // ->> torch.nn.Dropout(0.3)
+        // ->> torch.nn.ReLU()
         ->> torch.nn.Flatten()
-        ->> torch.nn.Linear(128L,20L)
+        // ->> torch.nn.Linear(128L,20L)
+        ->> torch.nn.Linear(2048,20L)
         ->> torch.nn.SELU()
         ->> torch.nn.Linear(20L,int64 ACTIONS)
 
     let model = DQNModel.create createModel
     let exp = {Decay=0.9995; Min=0.01}
     let DQN = DQN.create model 0.9999f exp ACTIONS device
-    {Parms.Default createModel DQN 0.00025 with 
+    {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 15000
-        BatchSize = 32}
+        BatchSize = 32
+        Epochs = 78}
 
 
+let lrs = [0.001; 0.0001; 0.0002; 0.00001]
+let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
+let jobs = parms |> List.map (fun x -> startResetRun x) 
 
 (*
 Test.clearModels()
-let p1 = parms1()
-startResetRun p1
-startReRun p1
+jobs |> Async.Parallel |> Async.Ignore |> Async.Start
 *)
 
 (*
