@@ -6,7 +6,7 @@ open System.IO
 open DQN
 
 let burnInMax = 200000
-let learnEvery = 3
+let learnEvery = 4
 let syncEvery = 10000
 let saveBuffEvery = 50000
 
@@ -44,7 +44,9 @@ let burnIn = burnInMax - initExperience.Buffer.Length |> max 0
 let lossFn = torch.nn.functional.smooth_l1_loss()
 let device = torch.CUDA
 let gamma = 0.9f
-let exploration = {Decay=0.9999; Min=0.1}
+let minExpRate = 0.01
+let initExpRate = 0.1 
+let exploration = {Decay=0.9999; Min=minExpRate}
 let initDQN = DQN.create model gamma exploration CarEnvironment.discreteActions device
 let batchSize = 32
 let opt = torch.optim.Adam(model.Online.Module.parameters(), lr=0.00025)
@@ -140,7 +142,7 @@ let trainDQN (clnt:CarClient) (logLevel:CarEnvironment.LogLevel ref) (go:bool re
                     
             with ex -> printfn "trainDQN: %A" (ex.Message,ex.StackTrace)
         }
-    loop ({Num=0; ExplorationRate=0.1}) initState initCtrls initDQN initExperience
+    loop ({Num=0; ExplorationRate=initExpRate}) initState initCtrls initDQN initExperience
 
 
 let runTraining doLog go =

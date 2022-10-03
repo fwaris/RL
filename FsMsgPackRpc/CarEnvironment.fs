@@ -36,17 +36,21 @@ type DoneReason = LowReward | Collision | Stuck | NotDone
 let doAction (c:CarClient) action carCtrl (waitMs:int) = 
     let carCtrl = {carCtrl with throttle = 1.0; brake = 0.0}
     async {
-        let ctl =
-            match action with
-            | 0 -> {carCtrl with throttle = 0.0; brake = 1.0}
-            | 1 -> {carCtrl with steering = 0.0}
-            | 2 -> {carCtrl with steering = 0.5}
-            | 3 -> {carCtrl with steering = -0.5}
-            | 4 -> {carCtrl with steering = 0.25}
-            | _ -> {carCtrl with steering = -0.25}
-        do! c.setCarControls(ctl) |> Async.AwaitTask
-        do! Async.Sleep waitMs
-        return ctl
+        try
+            let ctl =
+                match action with
+                | 0 -> {carCtrl with throttle = 0.0; brake = 1.0}
+                | 1 -> {carCtrl with steering = 0.0}
+                | 2 -> {carCtrl with steering = 0.5}
+                | 3 -> {carCtrl with steering = -0.5}
+                | 4 -> {carCtrl with steering = 0.25}
+                | _ -> {carCtrl with steering = -0.25}
+            do! c.setCarControls(ctl) |> Async.AwaitTask
+            do! Async.Sleep waitMs
+            return ctl
+        with ex ->
+            printfn $"{ex.Message},{ex.StackTrace}"
+            return carCtrl
     }
 
 ///cached image request type
@@ -72,20 +76,24 @@ let transformImage (resp:ImageResponse) =
 ///new observations from the environment
 let getObservations (c:CarClient) prevState =
     task {
-        let! images = c.simGetImages(imageRequest)
-        let img = try transformImage( images.[0]) with _ -> prevState.DepthImage //occaisionally a bad image is received
-        let! carState = c.getCarState()
-        let! collInfo = c.simGetCollisionInfo()
-        let nextState =
-            {
-                Speed           = carState.speed
-                Collision       = collInfo.has_collided
-                Pose            = carState.kinematics_estimated.position.ToArray() |> torch.tensor
-                DepthImage      = img
-                PrevDepthImage  = prevState.DepthImage
-                WasReset        = prevState.WasReset
-            }
-        return nextState
+        try
+            let! images = c.simGetImages(imageRequest)
+            let img = try transformImage( images.[0]) with _ -> prevState.DepthImage //occaisionally a bad image is received
+            let! carState = c.getCarState()
+            let! collInfo = c.simGetCollisionInfo()
+            let nextState =
+                {
+                    Speed           = carState.speed
+                    Collision       = collInfo.has_collided
+                    Pose            = carState.kinematics_estimated.position.ToArray() |> torch.tensor
+                    DepthImage      = img
+                    PrevDepthImage  = prevState.DepthImage
+                    WasReset        = prevState.WasReset
+                }
+            return nextState
+        with ex ->
+            printfn $"{ex.Message},{ex.StackTrace}"
+            return prevState
     }
 
 //points that represent the center points of the road network corners in NED coordinates
@@ -109,11 +117,11 @@ let computeReward (logLevel:LogLevel ref) (state:RLState) (ctrls:CarControls) =
     let ab,dist =         
         (([],10_000_000.), List.pairwise roadPts)
         ||> List.fold (fun (ab,st) ((a,aT),(b,bT)) ->             
-            use nrm_t = torch.linalg.cross(car_pt - aT, car_pt - bT)
-            let nrm = nrm_t.norm().ToDouble()
+            use crs_t = torch.linalg.cross(car_pt - aT, car_pt - bT)
+            let crs_nrm = crs_t.norm().ToDouble()
             use denom_t  = aT - bT
-            let denom = denom_t.norm().ToDouble()
-            let dist' = nrm/denom
+            let denorm_nrm = denom_t.norm().ToDouble()
+            let dist' = crs_nrm/denorm_nrm
             let ab,st = if dist' < st then [a;b],dist' else ab,st
             ab,st)           
     if logLevel.Value.isVerbose() then printfn $"{ab}, dist: {dist}"
