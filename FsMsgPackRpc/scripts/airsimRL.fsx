@@ -5,6 +5,11 @@ open TorchSharp.Fun
 open System.IO
 open DQN
 
+let burnInMax = 200000
+let learnEvery = 3
+let syncEvery = 10000
+let saveBuffEvery = 50000
+
 let (@@) a b = Path.Combine(a,b)
 let root = System.Environment.GetEnvironmentVariable("DATA_DRIVE") @@ "s/ddqn"
 
@@ -35,6 +40,7 @@ let initExperience =
         {Experience.load exprFile with Max = BUFF_MAX}
     else
         Experience.createBuffer BUFF_MAX
+let burnIn = burnInMax - initExperience.Buffer.Length |> max 0
 let lossFn = torch.nn.functional.smooth_l1_loss()
 let device = torch.CUDA
 let gamma = 0.9f
@@ -65,18 +71,17 @@ let initCar (clnt:CarClient) =
 
 let resetCar (clnt:CarClient) = 
     task {
-        do! clnt.reset()
-        do! Async.Sleep 10
-        do! clnt.setCarControls({CarControls.Default with throttle = 0.1})
-        let! _ = clnt.simSetObjectPose(CarEnvironment.carId,CarEnvironment.randPose(),true) 
-        ()
+        try
+            do! clnt.reset()
+            do! Async.Sleep 10
+            do! clnt.setCarControls({CarControls.Default with throttle = 0.1})
+            let! _ = clnt.simSetObjectPose(CarEnvironment.carId,CarEnvironment.randPose(),true) 
+            ()
+        with ex ->
+            printfn $"resetCar error: {ex.Message}, {ex.StackTrace}"
     }
 
-let burnInMax = 200000
-let burnIn = burnInMax - initExperience.Buffer.Length |> max 0
-let learnEvery = 3
-let syncEvery = 10000
-let saveBuffEvery = 50000
+
 
 let trainDQN (clnt:CarClient) (logLevel:CarEnvironment.LogLevel ref) (go:bool ref) =
     initCar clnt |> Async.AwaitTask |> Async.RunSynchronously

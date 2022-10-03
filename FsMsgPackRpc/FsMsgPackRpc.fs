@@ -89,7 +89,7 @@ type Client(options:MessagePack.MessagePackSerializerOptions) =
         let msgId = nextId()
         let reqMsg:obj[] = [|0; msgId; method; req |]        
         task {        
-            let! resp = mbp.Value.PostAndTryAsyncReply((fun rc -> Req (msgId, (typeof<'resp>, rc))),timeout=5000) |> Async.StartChild
+            let! resp = mbp.Value.PostAndTryAsyncReply((fun rc -> Req (msgId, (typeof<'resp>, rc))),timeout=15000) |> Async.StartChild
             let! _ = Async.AwaitWaitHandle sem
             let _ = sem.Reset()
             try
