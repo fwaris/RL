@@ -4,6 +4,7 @@ open TorchSharp
 open TorchSharp.Fun
 open System.IO
 open DQN
+open System.Threading.Tasks
 
 let burnInMax = 200000
 let learnEvery = 4
@@ -41,7 +42,7 @@ let initExperience =
     else
         Experience.createBuffer BUFF_MAX
 let burnIn = burnInMax - initExperience.Buffer.Length |> max 0
-let lossFn = torch.nn.functional.smooth_l1_loss()
+let lossFn = torch.nn.SmoothL1Loss()
 let device = torch.CUDA
 let gamma = 0.9f
 let minExpRate = 0.01
@@ -52,7 +53,7 @@ let batchSize = 32
 let opt = torch.optim.Adam(model.Online.Module.parameters(), lr=0.00025)
 
 let updateQ td_estimate td_target =
-    use loss = lossFn.Invoke(td_estimate,td_target)
+    use loss = lossFn.forward(td_estimate,td_target)
     opt.zero_grad()
     loss.backward()
     torch.nn.utils.clip_grad_norm_(model.Online.Module.parameters(),10.0) |> ignore
@@ -112,23 +113,30 @@ let trainDQN (clnt:CarClient) (logLevel:CarEnvironment.LogLevel ref) (go:bool re
                 if not go.Value then
                     printfn "stopped"
                 else
+                    let updateModelTask =
                     //periodically train online model from a sample of the experience buffer
-                    if step.Num > burnIn && step.Num % learnEvery = 0 then                      
-                        let states,nextStates,rewards,actions,dones = Experience.recall batchSize experienceBuff  //sample from experience
-                        use states = states.``to``(dqn.Device)
-                        use nextStates = nextStates.``to``(dqn.Device)
-                        let td_est = DQN.td_estimate states actions dqn
-                        //let td_est_d = td_est.data<float32>().ToArray() //DQN invocations
-                        let td_tgt = DQN.td_target rewards nextStates dones dqn
-                        let loss = updateQ td_est td_tgt                                                          //update online model 
-                        printfn $"{step.Num}, loss: {loss}"
-                        System.GC.Collect()
+                        if step.Num > burnIn && step.Num % learnEvery = 0 then                      
+                            task {
+                                let states,nextStates,rewards,actions,dones = Experience.recall batchSize experienceBuff  //sample from experience
+                                use states = states.``to``(dqn.Device)
+                                use nextStates = nextStates.``to``(dqn.Device)
+                                let td_est = DQN.td_estimate states actions dqn
+                                //let td_est_d = td_est.data<float32>().ToArray() //DQN invocations
+                                let td_tgt = DQN.td_target rewards nextStates dones dqn
+                                let loss = updateQ td_est td_tgt                                                          //update online model 
+                                printfn $"{step.Num}, loss: {loss}"
+                                System.GC.Collect()                            
+                            } 
+                        else
+                            task{return ()}                        
 
                     if step.Num > 0 && step.Num % saveBuffEvery = 0 then
+                        updateModelTask.Wait()
                         Experience.saveAsync exprFile experienceBuff |> Async.Start
 
                     //periodically sync target model with online model
                     if step.Num > 0 && step.Num % syncEvery = 0 then 
+                        updateModelTask.Wait()
                         DQNModel.save modelFile dqn.Model                        
                         DQNModel.sync dqn.Model dqn.Device
                         printfn $"Exploration rate: {step.ExplorationRate}"
@@ -153,7 +161,7 @@ let runTraining doLog go =
     }
 
 (*
-
+System.Runtime.GCSettings.IsServerGC
 let go = ref true
 let logLevel = ref CarEnvironment.Quite
 runTraining logLevel go |> Async.Start
