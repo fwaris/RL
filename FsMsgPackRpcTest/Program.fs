@@ -59,7 +59,7 @@ type Parms =
     {
         CreateModel      : unit -> IModel                   //need model creation function so that we can load weights from file
         DQN             : DQN
-        LossFn           : Loss
+        LossFn           : Loss<torch.Tensor,torch.Tensor,torch.Tensor>
         Opt              : torch.optim.Optimizer
         LearnEverySteps  : int
         SyncEverySteps   : int
@@ -71,7 +71,7 @@ type Parms =
             {
                 CreateModel     = modelFn
                 DQN             = ddqn
-                LossFn          = torch.nn.functional.smooth_l1_loss()
+                LossFn          = torch.nn.SmoothL1Loss()
                 Opt             = torch.optim.Adam(mps, lr=lr)
                 LearnEverySteps = 3
                 SyncEverySteps  = 1000
@@ -216,7 +216,7 @@ module Policy =
         use nextStates = nextStates.``to``(parms.DQN.Device)
         let td_est = DQN.td_estimate states actions parms.DQN           //estimate the Q-value of state-action pairs from online model
         let td_tgt = DQN.td_target rewards nextStates dones parms.DQN   //
-        let loss = parms.LossFn.Invoke(td_est,td_tgt)
+        let loss = parms.LossFn.forward(td_est,td_tgt)
         loss
 
     let syncModel parms s = 
