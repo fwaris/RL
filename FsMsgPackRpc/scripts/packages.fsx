@@ -1,6 +1,7 @@
 ﻿#r "nuget: MessagePack.FSharpExtensions"
 #r "nuget: OpenCvSharp4.Windows, 4.6.0.20220608"
 #r "nuget: TorchSharp-cuda-windows"
+#r "nuget: TorchVision"
 #r "nuget: MathNet.Numerics.FSharp"
 #r "nuget: FSharpX.Collections"
 #r "nuget: FSharp.Collections.ParallelSeq"

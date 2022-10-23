@@ -3,8 +3,9 @@
 module DQN
 open TorchSharp
 open TorchSharp.Fun
-open System.IO
+open System
 open FSharpx.Collections
+open FSharp.Collections.ParallelSeq
 
 ///DDQNModel maintains target and online versions of a model
 type DDQNModel = {Target : IModel;  Online : IModel}
@@ -98,21 +99,38 @@ module Experience =
     let load path =
         let ser = MBrace.FsPickler.BinarySerializer()
         use str = System.IO.File.OpenRead(path:string)        
+        let t1 = DateTime.Now
+        printfn $"ExpBuff: loading from {path}"
         let ((mx,shape,data):Tser) = ser.Deserialize<Tser>(str)
+        let t2 = DateTime.Now
+        printfn $"ExpBuff: loaded %0.2f{(t2-t1).TotalMinutes} minutes"
+        printfn "ExpBuff: creating tensors"
         let buff = createBuffer mx    
-        let buff = 
-            (buff,data)
-            ||> Seq.fold (fun acc (st,nst,act,rwd,dn) -> 
-                let exp =
+        let tensors =
+            data
+            |> PSeq.map (fun (st,nst,act,rwd,dn) ->
+                    let bst = System.Runtime.InteropServices.MemoryMarshal.Cast<float32,byte>(Span(st))
+                    let bnst = System.Runtime.InteropServices.MemoryMarshal.Cast<float32,byte>(Span(nst))
+                    let tst = torch.zeros(shape,dtype=torch.float32)
+                    tst.bytes <- bst
+                    let tnst = torch.zeros(shape,dtype=torch.float32)
+                    tnst.bytes <- bnst
                     {
-                        State       = torch.tensor(st,dimensions=shape)
-                        NextState   = torch.tensor(nst, dimensions=shape)
+                        State       = tst
+                        NextState   = tnst
                         Action      = act
                         Reward      = rwd
                         Done        = dn
-                    }
-                append exp acc)
-        buff
+                    }            
+                )
+            |> PSeq.toList
+        let t3 = DateTime.Now
+        printfn $"ExpBuff: tensors created %0.2f{(t3-t2).TotalMinutes} minutes"
+        printfn $"ExpBuff: create random access list"
+        let expL = RandomAccessList.ofSeq tensors
+        let t4 = DateTime.Now
+        printfn $"ExpBuff: random access list created %0.2f{(t4-t3).TotalMinutes} minutes"
+        {buff with Buffer=expL}
 
 module DQN =
     //use randomization from single source - pytorch
