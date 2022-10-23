@@ -102,7 +102,7 @@ let trainDQN (clnt:CarClient) (logLevel:CarEnvironment.LogLevel ref) (go:bool re
                         DQN.selectAction state.DepthImage dqn step                //select policy action
 
                 //perform action in environment, observe new state, compute reward
-                let! (state,ctrls,reward,isDone) = CarEnvironment.step logLevel clnt (state,ctrls) action 1000 |> Async.AwaitTask
+                let! (state,ctrls,reward,isDone) = CarEnvironment.step logLevel clnt (state,ctrls) action 500 |> Async.AwaitTask
                 printfn $"{step.Num},exp: %.03f{step.ExplorationRate}, reward: {reward}, isDone: {isDone}, {action}, s,b,t=({ctrls.steering},{ctrls.brake},{ctrls.throttle}), spd=%0.02f{state.Speed}, buff={experienceBuff.Buffer.Length}"
 
                 //add to experience buffer
