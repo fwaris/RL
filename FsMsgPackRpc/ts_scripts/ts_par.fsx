@@ -416,17 +416,17 @@ let parms1 id lr  =
     let createModel() = 
         torch.nn.Conv1d(40L, 512L, 4L, stride=2L, padding=3L)     //b x 64L x 4L   
         ->> torch.nn.BatchNorm1d(512L)
-        ->> torch.nn.Dropout(0.3)
+        ->> torch.nn.Dropout(0.7)
         ->> torch.nn.ReLU()
-        // ->> torch.nn.Conv1d(512L,64L,3L)
-        // ->> torch.nn.BatchNorm1d(64L)
-        // ->> torch.nn.Dropout(0.3)
-        // ->> torch.nn.ReLU()
+        ->> torch.nn.Conv1d(512L,64L,3L)
+        ->> torch.nn.BatchNorm1d(64L)
+        ->> torch.nn.Dropout(0.7)
+        ->> torch.nn.ReLU()
         ->> torch.nn.Flatten()
-        // ->> torch.nn.Linear(128L,20L)
-        ->> torch.nn.Linear(2048,20L)
+        ->> torch.nn.Linear(128L,10L)
+        // ->> torch.nn.Linear(2048,20L)
         ->> torch.nn.SELU()
-        ->> torch.nn.Linear(20L,int64 ACTIONS)
+        ->> torch.nn.Linear(10L,int64 ACTIONS)
 
     let model = DQNModel.create createModel
     let exp = {Decay=0.9995; Min=0.01}
