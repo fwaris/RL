@@ -9,6 +9,7 @@
 #r "nuget: FsPickler"
 #r "nuget: Plotly.NET"
 
+#load "../SeqUtils.fs"
 #load "../FsMsgPackRpc.fs"
 #load "../AirSimCar.fs"
 #load "../CarEnvironment.fs"

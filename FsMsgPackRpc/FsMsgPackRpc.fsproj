@@ -11,6 +11,8 @@
     <None Include="ts_scripts\loganalsyis.fsx" />
     <None Include="ts_scripts\ts.fsx" />
     <None Include="ts_scripts\ts_par.fsx" />
+    <None Include="ts_scripts\ts_lang.fsx" />
+    <None Include="ts_scripts\ts_seq.fsx" />
     <None Include="scripts\EventLoop.fsx" />
     <None Include="scripts\packages.fsx" />
     <None Include="scripts\hello_car.fsx" />
@@ -18,6 +20,7 @@
     <None Include="scripts\model_tests.fsx" />
     <None Include="scripts\random_agent.fsx" />
     <None Include="scripts\airsimRL.fsx" />
+    <Compile Include="SeqUtils.fs" />
     <Compile Include="FsMsgPackRpc.fs" />
     <Compile Include="AirSimCar.fs" />
     <Compile Include="CarEnvironment.fs" />
@@ -28,17 +31,17 @@
 
   <ItemGroup>
     <PackageReference Include="Fsharp.Collections.ParallelSeq" Version="1.2.0" />
-    <PackageReference Include="FSharpx.Collections" Version="3.0.1" />
+    <PackageReference Include="FSharpx.Collections" Version="3.1.0" />
     <PackageReference Include="FsPickler" Version="5.3.2" />
     <PackageReference Include="MessagePack.FSharpExtensions" Version="3.0.0" />
     <PackageReference Include="Plotly.NET" Version="3.0.1" />
-    <PackageReference Include="TorchSharp-cuda-windows" Version="0.98.1" />
-    <PackageReference Include="TorchSharp.Fun" Version="0.61.0" />
-    <PackageReference Include="TorchVision" Version="0.98.1" />
+    <PackageReference Include="TorchSharp-cuda-windows" Version="0.99.0" />
+    <PackageReference Include="TorchSharp.Fun" Version="0.73.0" />
+    <PackageReference Include="TorchVision" Version="0.99.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="6.0.5" />
+    <PackageReference Update="FSharp.Core" Version="7.0.0" />
   </ItemGroup>
 
 </Project>

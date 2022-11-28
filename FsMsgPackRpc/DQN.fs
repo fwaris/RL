@@ -111,9 +111,9 @@ module Experience =
             |> PSeq.map (fun (st,nst,act,rwd,dn) ->
                     let bst = System.Runtime.InteropServices.MemoryMarshal.Cast<float32,byte>(Span(st))
                     let bnst = System.Runtime.InteropServices.MemoryMarshal.Cast<float32,byte>(Span(nst))
-                    let tst = torch.zeros(shape,dtype=torch.float32)
+                    let tst = torch.zeros(shape,dtype=Nullable torch.float32)
                     tst.bytes <- bst
-                    let tnst = torch.zeros(shape,dtype=torch.float32)
+                    let tnst = torch.zeros(shape,dtype=Nullable torch.float32)
                     tnst.bytes <- bnst
                     {
                         State       = tst
@@ -134,7 +134,7 @@ module Experience =
 
 module DQN =
     //use randomization from single source - pytorch
-    let rand() : float = torch.rand([|1L|],dtype=torch.double).item()
+    let rand() : float = torch.rand([|1L|],dtype=Nullable torch.double).item()
     let randint n : int = torch.randint(n,[|1|],dtype=torch.int32).item()
 
     let updateStep exp step =
@@ -144,8 +144,8 @@ module DQN =
         }
 
     let create model gamma exploration actions (device:torch.Device) =
-        model.Target.Module.``to``(device) |> ignore
-        model.Online.Module.``to``(device) |> ignore
+        model.Target.Module.to'(device) |> ignore
+        model.Online.Module.to'(device) |> ignore
         {
             Model = model
             Exploration = exploration

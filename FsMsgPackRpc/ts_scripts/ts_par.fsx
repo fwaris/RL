@@ -28,7 +28,7 @@ let data_dir = System.Environment.GetEnvironmentVariable("DATA_DRIVE")
 
 let root = data_dir @@ @"s\tradestation"
 let fn = root @@ "mes_hist_td.csv"
-let fnL = File.ReadLines fn |> Seq.length
+let fnL = File.ReadLines fn |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not) |> Seq.length
 let TRAIN_SIZE = float fnL * 0.7 |> int
 
 let loadData() = 
@@ -66,7 +66,7 @@ type Parms =
         LearnRate        : float
         CreateModel      : unit -> IModel                   //need model creation function so that we can load weights from file
         DQN             : DQN
-        LossFn           : Loss
+        LossFn           : Loss<torch.Tensor,torch.Tensor,torch.Tensor>
         Opt              : torch.optim.Optimizer
         LearnEverySteps  : int
         SyncEverySteps   : int
@@ -81,7 +81,7 @@ type Parms =
                 LearnRate       = lr
                 CreateModel     = modelFn
                 DQN             = ddqn
-                LossFn          = torch.nn.functional.smooth_l1_loss()
+                LossFn          = torch.nn.SmoothL1Loss()
                 Opt             = torch.optim.Adam(mps, lr=lr)
                 LearnEverySteps = 3
                 SyncEverySteps  = 1000
@@ -115,9 +115,9 @@ type RLState =
                     Step            = {x.Step with Num=0} //keep current exploration rate; just update step number
                     CashOnHand      = x.InitialCash
                     Stock           = 0
-                    State           = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
-                    PrevState       = torch.zeros([|x.LookBack;5L|],dtype=torch.float32)
-                }
+                    State           = torch.zeros([|x.LookBack;5L|],dtype=Nullable torch.float32)
+                    PrevState       = torch.zeros([|x.LookBack;5L|],dtype=Nullable torch.float32)
+                }            
             if verbosity.IsLow then 
                 printfn  $"Reset called {x.AgentId} x={x.Step.ExplorationRate} a={a.Step.ExplorationRate}"
             a
@@ -127,8 +127,8 @@ type RLState =
             let lookback = 40L
             {
                 AgentId          = agentId
-                State            = torch.zeros([|lookback;5L|],dtype=torch.float32)
-                PrevState        = torch.zeros([|lookback;5L|],dtype=torch.float32)
+                State            = torch.zeros([|lookback;5L|],dtype=Nullable torch.float32)
+                PrevState        = torch.zeros([|lookback;5L|],dtype=Nullable torch.float32)
                 Step             = {ExplorationRate = initExpRate; Num=0}
                 Stock            = 0
                 CashOnHand       = initialCash
@@ -230,7 +230,7 @@ module Policy =
         use nextStates = nextStates.``to``(parms.DQN.Device)
         let td_est = DQN.td_estimate states actions parms.DQN           //estimate the Q-value of state-action pairs from online model
         let td_tgt = DQN.td_target rewards nextStates dones parms.DQN   //
-        let loss = parms.LossFn.Invoke(td_est,td_tgt)
+        let loss = parms.LossFn.forward(td_est,td_tgt)
         loss
 
     let syncModel parms s = 
@@ -435,7 +435,6 @@ let parms1 id lr  =
         SyncEverySteps = 15000
         BatchSize = 32
         Epochs = 78}
-
 
 let lrs = [0.001; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)

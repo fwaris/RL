@@ -22,9 +22,9 @@ type RLState =
     with 
         static member Default =
             {
-                Pose                = torch.zeros([|3L|],dtype=torch.float)
-                DepthImage          = torch.zeros(1,84,84,dtype=torch.float)
-                PrevDepthImage      = torch.zeros(1,84,84,dtype=torch.float)
+                Pose                = torch.zeros([|3L|],dtype=Nullable torch.float)
+                DepthImage          = torch.zeros(1,84,84,dtype=Nullable torch.float)
+                PrevDepthImage      = torch.zeros(1,84,84,dtype=Nullable torch.float)
                 Speed               = 3.0
                 Collision           = false
                 WasReset            = false
@@ -103,7 +103,7 @@ let roadPts =
         (0, -1); (130, -1); (130, -128); (0, -128);
         (0, -1);        
     ]
-    |> List.map (fun (x,y) -> (x,y),torch.tensor([|float x;float y; 0.0|],dtype=torch.float))
+    |> List.map (fun (x,y) -> (x,y),torch.tensor([|float x;float y; 0.0|],dtype=Nullable torch.float))
 
 let computeReward (logLevel:LogLevel ref) (state:RLState) (ctrls:CarControls) =
     let MAX_SPEED = 300.

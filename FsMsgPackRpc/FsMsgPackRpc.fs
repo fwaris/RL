@@ -42,7 +42,7 @@ type Client(options:MessagePack.MessagePackSerializerOptions) =
     let mutable id = -1
     let nextId() = Interlocked.Increment(&id)
     let mbp = lazy(MailboxProcessor.Start(Matcher.createAgent options cts,cts.Token))
-    let sem = new ManualResetEvent(true)
+    let sem = new ManualResetEvent(true) //ensures only one message is sent on the socket at one time
 
     //message receive loop 
     //messages may arrive out-of-order (per MessagePack RPC spec)
