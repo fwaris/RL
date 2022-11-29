@@ -20,7 +20,7 @@ type LoggingLevel = Q | L | M | H
         member this.isHigh = match this with H -> true | _ -> false
         member this.IsMed = match this with M | H -> true | _ -> false
 
-let mutable verbosity = LoggingLevel.Q
+let mutable verbosity = LoggingLevel.H
 
 let device = if torch.cuda_is_available() then torch.CUDA else torch.CPU
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
@@ -101,7 +101,7 @@ type RLState =
         PrevState        : torch.Tensor
         Step             : Step
         InitialCash      : float
-        Stock            : int
+        Stock            : float
         CashOnHand       : float
         LookBack         : int64
         ExpBuff          : DQN.ExperienceBuffer
@@ -148,6 +148,7 @@ type Market = {prices : Bar array}
         member this.IsDone t = t >= this.prices.Length 
 
 let TX_COST_CNTRCT = 1.0
+let MAX_TRADE_SIZE = 25.
 
 module Agent = 
     open DQN
@@ -158,20 +159,25 @@ module Agent =
         bar env s.Step.Num
         |> Option.map (fun bar -> 
             let avgP = avgPrice bar
-            let newStock = s.CashOnHand / avgP |> floor
-            let cash = if newStock > 0 then s.CashOnHand - (newStock * avgP) else s.CashOnHand
-            let stock = s.Stock + (int newStock)
-            let cost = newStock * TX_COST_CNTRCT
-            {s with CashOnHand=cash-cost; Stock=stock})
+            let priceWithCost = avgP + TX_COST_CNTRCT
+            let stockToBuy = s.CashOnHand / priceWithCost |> floor |> max 0. |> min MAX_TRADE_SIZE
+            let outlay = stockToBuy * priceWithCost
+            let coh = s.CashOnHand - outlay |> max 0.            
+            let stock = s.Stock + stockToBuy 
+            assert (stock >= 0.)
+            {s with CashOnHand=coh; Stock=stock})
         |> Option.defaultValue s
 
     let sell (env:Market) (s:RLState) =
         bar env s.Step.Num
         |> Option.map (fun bar -> 
             let avgP = avgPrice bar
-            let newCash = float s.Stock * avgP + s.CashOnHand
-            let cost = float s.Stock * TX_COST_CNTRCT
-            {s with CashOnHand=newCash-cost; Stock=0})
+            let priceWithCost = avgP - TX_COST_CNTRCT
+            let stockToSell = s.Stock |> min MAX_TRADE_SIZE
+            let inlay = stockToSell * priceWithCost
+            let coh = s.CashOnHand + inlay
+            let remStock = s.Stock - stockToSell |> max 0.
+            {s with CashOnHand=coh; Stock=remStock})
         |> Option.defaultValue s
 
     let doAction _ env s act =
@@ -423,6 +429,7 @@ let parms1 id lr  =
 
     let createModel() = 
         let proj = torch.nn.Linear(5L,emsize)
+        let ln = torch.nn.LayerNorm(emsize)
         let pos_encoder = PositionalEncoder.create dropout emsize max_seq
         let encoder_layer = torch.nn.TransformerEncoderLayer(emsize,nheads,emsize,dropout)
         let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)
@@ -432,14 +439,15 @@ let parms1 id lr  =
         let initRange = 0.1
 
         let mdl = 
-            F [] [proj; pos_encoder; transformer_encoder; projOut]  (fun t -> //B x S x 5
-                use p = proj.forward(t) // B x S x emsize
-                use pB2 = p.permute(1,0,2) //batch second S x B x emsize
+            F [] [proj; pos_encoder; transformer_encoder; projOut; ln]  (fun t -> //B x S x 5
+                use p1 = proj.forward(t) // B x S x emsize
+                use p = ln.forward(p1)
+                use pB2 = p.permute(1,0,2) //batch second - S x B x emsize
                 use mask = Masks.generateSubsequentMask (t.size().[1]) t.device // S x S
                 use src = pos_encoder.forward(pB2 * sqrtEmbSz) //S x B x emsize
                 use enc = transformer_encoder.forward(src,mask) //S x B x emsize
                 use encB = enc.permute(1,0,2)  //batch first  // B x S x emsize
-                use dec = encB.[``:``,LAST,``:``]    //keep last value as output to compare with target   B x emsize
+                use dec = encB.[``:``,LAST,``:``]    //keep last value as output to compare with target - B x emsize
                 let pout = projOut.forward(dec) //B x ACTIONS
                 pout
             )
@@ -455,19 +463,20 @@ let parms1 id lr  =
         Epochs = 78}
 
 
-let lrs = [0.001]///; 0.0001; 0.0002; 0.00001]
+let lrs = [0.00001]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
 let jobs = parms |> List.map (fun x -> startResetRun x) 
 
 (*
-*)
 Test.clearModels()
+jobs |> Async.Parallel |> Async.Ignore |> Async.Start
+*)
 jobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
 
 (*
 verbosity <- LoggingLevel.H
-verbosity <- LoggingLevel.L
 verbosity <- LoggingLevel.M
+verbosity <- LoggingLevel.L
 verbosity <- LoggingLevel.Q
 
 Test.runTest()

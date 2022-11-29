@@ -12,7 +12,6 @@
     <None Include="ts_scripts\ts.fsx" />
     <None Include="ts_scripts\ts_par.fsx" />
     <None Include="ts_scripts\ts_lang.fsx" />
-    <None Include="ts_scripts\ts_seq.fsx" />
     <None Include="scripts\EventLoop.fsx" />
     <None Include="scripts\packages.fsx" />
     <None Include="scripts\hello_car.fsx" />
