@@ -209,7 +209,7 @@ module Agent =
             let isDone   = env.IsDone (tPlus1 + 1)
             let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
             if verbosity.isHigh then
-                printfn $"{s.AgentId}-{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
+                printfn $"{s.AgentId}-{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:%0.3f{s.Step.ExplorationRate} Gain:%0.2f{sGain}"
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
             let experienceBuff = Experience.append experience s.ExpBuff  
             {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain},isDone,reward
@@ -257,7 +257,10 @@ module Policy =
             update = fun parms sdrs  ->      
                 let losses = sdrs |> PSeq.map (fun (s,_) -> loss parms s) |> PSeq.toArray
                 let avgLoss = updateQ parms losses
-                if verbosity.IsMed then printfn $"avg loss {avgLoss}"
+                let avgGain = sdrs |> PSeq.map (fun (s,_) -> s.S_gain) |> PSeq.average
+                let episode = sdrs |> List.map (fun (s,_) -> s.Episode) |> List.max
+                let step = sdrs |> List.map(fun (s,_) -> s.Step.Num) |> List.max
+                if verbosity.IsMed then printfn $"{episode}/{step} avg gain: %0.3f{avgGain}, avg loss: %0.3f{avgLoss}"
                 let s0,_ = sdrs.[0]
                 if s0.Step.Num % parms.SyncEverySteps = 0 then
                     syncModel parms s0
