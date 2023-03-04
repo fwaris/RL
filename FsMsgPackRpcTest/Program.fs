@@ -20,7 +20,7 @@ type LoggingLevel = Q | L | M | H
         member this.isHigh = match this with H -> true | _ -> false
         member this.IsMed = match this with M | H -> true | _ -> false
 
-let mutable verbosity = LoggingLevel.H
+let mutable verbosity = LoggingLevel.L
 
 let device = if torch.cuda_is_available() then torch.CUDA else torch.CPU
 let ACTIONS = 3 //0,1,2 - buy, sell, hold

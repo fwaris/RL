@@ -487,7 +487,8 @@ verbosity <- LoggingLevel.Q
 Test.runTest()
 
 async {Test.evalModels p1} |> Async.Start
-(fst _ps).sync (snd _ps)
+(fst
+ _ps).sync (snd _ps)
 
 Policy.model.Online.Module.save @"e:/s/tradestation/temp.bin" 
 
