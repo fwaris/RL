@@ -45,9 +45,18 @@ let loadData() =
             Low = float xs.[4]
             Close = float xs.[5]
             Volume = float xs.[6]
+        })
+    |> Seq.pairwise
+    |> Seq.map (fun (a,b) ->
+        {b with 
+            Open = log(b.Open/a.Open)
+            High = log(b.High/a.High)
+            Low = log(b.Low/a.Low)
+            Close = log(b.Close/a.Close)
+            Volume = log(b.Volume/a.Volume)
         }
-        )
-
+    )
+     
 let dataRaw = loadData()
 let data = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
 let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray

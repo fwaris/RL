@@ -14,13 +14,23 @@ open System
 open FSharp.Collections.ParallelSeq
 open SeqUtils
 
+type NBar =
+    {
+        NOpen  : float 
+        NHigh  : float
+        NLow   : float
+        NClose : float
+        NVolume : float
+        Bar  : Bar
+    }
+
 type LoggingLevel = Q | L | M | H 
     with  
         member this.IsLow = match this with L | M | H -> true | _ -> false
         member this.isHigh = match this with H -> true | _ -> false
         member this.IsMed = match this with M | H -> true | _ -> false
 
-let mutable verbosity = LoggingLevel.L
+let mutable verbosity = LoggingLevel.H
 
 let device = if torch.cuda_is_available() then torch.CUDA else torch.CPU
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
@@ -45,8 +55,18 @@ let loadData() =
             Low = float xs.[4]
             Close = float xs.[5]
             Volume = float xs.[6]
+        })
+    |> Seq.pairwise
+    |> Seq.map (fun (a,b) ->
+        {
+            NOpen = log(b.Open/a.Open)
+            NHigh = log(b.High/a.High)
+            NLow = log(b.Low/a.Low)
+            NClose = log(b.Close/a.Close)
+            NVolume = log(b.Volume/a.Volume)
+            Bar  = b
         }
-        )
+    )
 
 let dataRaw = loadData()
 let data = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
@@ -84,7 +104,7 @@ type Parms =
                 CreateModel     = modelFn
                 DQN             = ddqn
                 LossFn          = torch.nn.SmoothL1Loss()
-                Opt             = torch.optim.Adam(mps, lr=lr)
+                Opt             = torch.optim.NAdam(mps, lr=lr)
                 LearnEverySteps = 3
                 SyncEverySteps  = 1000
                 BatchSize       = 32
@@ -143,7 +163,7 @@ type RLState =
             }
 
 //environment
-type Market = {prices : Bar array}
+type Market = {prices : NBar array}
     with 
         member this.IsDone t = t >= this.prices.Length 
 
@@ -153,7 +173,7 @@ let MAX_TRADE_SIZE = 25.
 module Agent = 
     open DQN
     let bar (env:Market) t = if t < env.prices.Length && t >= 0 then env.prices.[t] |> Some else None
-    let avgPrice bar = 0.5 * (bar.High + bar.Low)        
+    let avgPrice bar = 0.5 * (bar.Bar.High + bar.Bar.Low)        
 
     let buy (env:Market) (s:RLState) = 
         bar env s.Step.Num
@@ -164,7 +184,7 @@ module Agent =
             let outlay = stockToBuy * priceWithCost
             let coh = s.CashOnHand - outlay |> max 0.            
             let stock = s.Stock + stockToBuy 
-            assert (stock >= 0.)
+            //assert (stock >= 0.)
             {s with CashOnHand=coh; Stock=stock})
         |> Option.defaultValue s
 
@@ -192,7 +212,7 @@ module Agent =
         if env.IsDone s.Step.Num then s 
         else                                
             let b =  env.prices.[s.Step.Num]
-            let t1 = torch.tensor([|b.Open;b.High;b.Low;b.Close;b.Volume|],dtype=torch.float32)
+            let t1 = torch.tensor([|b.NOpen;b.NHigh;b.NLow;b.NClose;b.NVolume|],dtype=torch.float32)
             let ts = torch.vstack([|s.State;t1|])
             let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // 40 x 5             
             {s with State = ts2; PrevState = s.State}
@@ -228,7 +248,7 @@ module Policy =
     let updateQ parms (losses:torch.Tensor []) =        
         parms.Opt.zero_grad()
         let losseD = losses |> Array.map (fun l -> l.backward(); l.ToDouble())
-        torch.nn.utils.clip_grad_norm_(parms.DQN.Model.Online.Module.parameters(),25.) |> ignore
+        torch.nn.utils.clip_grad_norm_(parms.DQN.Model.Online.Module.parameters(),0.5) |> ignore
         use t = parms.Opt.step() 
         losseD |> Array.average
 
@@ -285,7 +305,7 @@ module Test =
         let s' = 
             (s,dataChunks) 
             ||> Array.fold (fun s bars -> 
-                let inp = bars |> Array.collect (fun b -> [|b.Open;b.High;b.Low;b.Close;b.Volume|])
+                let inp = bars |> Array.collect (fun b -> [|b.NOpen;b.NHigh;b.NLow;b.NClose;b.NVolume|])
                 use t_inp = torch.tensor(inp,dtype=torch.float32,dimensions=[|1L;40L;5L|])                
                 use t_inp = t_inp.``to``(modelDevice)
                 use q = model.forward t_inp
@@ -435,9 +455,7 @@ let parms1 id lr  =
         let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)
         let sqrtEmbSz = (sqrt (float emsize)).ToScalar()
         let projOut = torch.nn.Linear(emsize,ACTIONS)
-
         let initRange = 0.1
-
         let mdl = 
             F [] [proj; pos_encoder; transformer_encoder; projOut; ln]  (fun t -> //B x S x 5
                 use p1 = proj.forward(t) // B x S x emsize
@@ -450,6 +468,42 @@ let parms1 id lr  =
                 use dec = encB.[``:``,LAST,``:``]    //keep last value as output to compare with target - B x emsize
                 let pout = projOut.forward(dec) //B x ACTIONS
                 pout
+            )
+        mdl
+    let model = DQNModel.create createModel
+    let exp = {Decay=0.9995; Min=0.01}
+    let DQN = DQN.create model 0.9999f exp ACTIONS device
+    {Parms.Default createModel DQN lr id with 
+        SyncEverySteps = 15000
+        BatchSize = 32
+        Epochs = 78}
+
+let parms2 id lr  = 
+    let emsize = 64
+    let dropout = 0.1
+    let max_seq = LOOKBACK
+    let nheads = 4
+    let nlayers = 2L
+
+    let createModel() = 
+        let proj = torch.nn.Linear(5L,emsize)        
+        let encoder_layer = torch.nn.TransformerEncoderLayer(emsize,nheads,emsize,dropout)
+        let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)
+        let projOut = torch.nn.Linear(emsize,ACTIONS)
+
+        let initRange = 0.1
+
+        let mdl = 
+            F [] [proj; transformer_encoder; projOut]  (fun t -> //B x S x 5
+                use p = proj.forward(t) // B x S x emsize
+                use pB2 = p.permute(1,0,2) //batch second - S x B x emsize
+                use mask = Masks.generateSubsequentMask (t.size().[1]) t.device // S x S                
+                use enc = transformer_encoder.forward(pB2,mask) //S x B x emsize
+                use encB = enc.permute(1,0,2)  //batch first  // B x S x emsize
+                use dec = encB.[``:``,LAST,``:``]    //keep last value as output to compare with target - B x emsize
+                use pout = projOut.forward(dec) //B x ACTIONS
+                let pact = torch.nn.functional.SiLU(pout)
+                pact
             )
 
         mdl
@@ -465,8 +519,7 @@ let parms1 id lr  =
 
 let lrs = [0.00001]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
-let jobs = parms |> List.map (fun x -> startResetRun x) 
-
+let jobs = parms |> List.map (fun x -> startResetRun x)
 (*
 Test.clearModels()
 jobs |> Async.Parallel |> Async.Ignore |> Async.Start

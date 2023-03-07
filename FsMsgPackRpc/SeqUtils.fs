@@ -19,7 +19,7 @@ module PositionalEncoder =
         let divTerm2 = torch.arange(0L,dmodel,2L)               //100
         let divTerm3 = (divTerm2 * divTerm1.ToScalar())
         let divTerm = divTerm3.exp()   //100
-        let divTermT = Tensor.getDataNested<float32> divTerm
+        //let divTermT = Tensor.getDataNested<float32> divTerm
         posTnsr.[ ``:``, Slice(0L,IDX_NULL,2L) ] <- (position * divTerm).sin()
         posTnsr.[ ``:``, Slice(1L,IDX_NULL,2L) ] <- (position * divTerm).cos()
         let pe = posTnsr.unsqueeze(0L).transpose(0L,1L)
