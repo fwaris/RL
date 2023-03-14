@@ -248,7 +248,9 @@ module Policy =
     let updateQ parms (losses:torch.Tensor []) =        
         parms.Opt.zero_grad()
         let losseD = losses |> Array.map (fun l -> l.backward(); l.ToDouble())
-        torch.nn.utils.clip_grad_norm_(parms.DQN.Model.Online.Module.parameters(),0.5) |> ignore
+        let prms = parms.DQN.Model.Online.Module.parameters()
+        let pns = parms.DQN.Model.Online.Module.named_parameters() |> Seq.map(fun struct(n,x) -> n) |> Seq.toArray
+        torch.nn.utils.clip_grad_norm_(prms,0.5) |> ignore
         use t = parms.Opt.step() 
         losseD |> Array.average
 
@@ -474,7 +476,7 @@ let parms1 id lr  =
     let exp = {Decay=0.9995; Min=0.01}
     let DQN = DQN.create model 0.9999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
-        SyncEverySteps = 15000
+        SyncEverySteps = 3//15000
         BatchSize = 32
         Epochs = 78}
 

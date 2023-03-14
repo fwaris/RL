@@ -23,11 +23,9 @@ module DQNModel =
         {Target=tgt; Online=onln}
 
     let sync models (device:torch.Device) =
-        let onlineMdl = models.Online.Module.cpu()
+        let s1 = models.Online.Module.state_dict() |> Seq.map(fun kv -> kv.Key,kv.Value.cpu()) |> dict |> Collections.Generic.Dictionary
         let tgtMdl = models.Target.Module.cpu()
-        let dict = onlineMdl.state_dict()
-        tgtMdl.load_state_dict(dict) |> ignore
-        onlineMdl.``to``(device) |> ignore
+        tgtMdl.load_state_dict(s1) |> ignore        
         tgtMdl.``to``(device) |> ignore
 
     let save (file:string) (ddqn:DDQNModel)  = ddqn.Online.Module.save(file) |> ignore
