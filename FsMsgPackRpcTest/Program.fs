@@ -38,35 +38,49 @@ let ( @@ ) a b = Path.Combine(a,b)
 let data_dir = System.Environment.GetEnvironmentVariable("DATA_DRIVE")
 
 let root = data_dir @@ @"s\tradestation"
-let fn = root @@ "mes_hist_td.csv"
+let fn = root @@ "mes_hist_td2.csv"
 let fnL = File.ReadLines fn |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not) |> Seq.length
 let TRAIN_SIZE = float fnL * 0.7 |> int
 let LOOKBACK = 40L
 
+let isNaN (c:float) = Double.IsNaN c || Double.IsInfinity c
+
 let loadData() = 
-    File.ReadLines fn
-    |> Seq.truncate fnL
-    |> Seq.map(fun l -> 
-        let xs = l.Split(',')
-        {
-            Time = DateTime.Parse xs.[1]
-            Open = float xs.[2]
-            High = float xs.[3]
-            Low = float xs.[4]
-            Close = float xs.[5]
-            Volume = float xs.[6]
-        })
-    |> Seq.pairwise
-    |> Seq.map (fun (a,b) ->
-        {
-            NOpen = log(b.Open/a.Open)
-            NHigh = log(b.High/a.High)
-            NLow = log(b.Low/a.Low)
-            NClose = log(b.Close/a.Close)
-            NVolume = log(b.Volume/a.Volume)
-            Bar  = b
-        }
-    )
+    let data =
+        File.ReadLines fn
+        |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not)
+        |> Seq.map(fun l -> 
+            let xs = l.Split(',')
+            let d =
+                {
+                    Time = DateTime.Parse xs.[1]
+                    Open = float xs.[2]
+                    High = float xs.[3]
+                    Low = float xs.[4]
+                    Close = float xs.[5]
+                    Volume = float xs.[6]
+                }
+            d)
+        |> Seq.toList
+    let pd = data |> List.pairwise |> List.truncate 100000
+    let pds =
+        pd
+        |> List.mapi (fun i (x,y) ->
+            let d =
+                {
+                    NOpen = (y.Open/x.Open) - 1.0
+                    NHigh = (y.High/x.High) - 1.0
+                    NLow =  (y.Low/x.Low)   - 1.0
+                    NClose = (y.Close/x.Close)  - 1.0
+                    NVolume = (y.Volume/x.Volume) - 1.0
+                    Bar  = y
+                }
+            if isNaN d.NOpen ||isNaN d.NHigh || isNaN d.NLow || isNaN d.NClose || isNaN d.NVolume then
+                failwith "nan in data"
+            (x,y),d
+        )
+    let xl = pds |> List.last
+    pds |> List.map snd
 
 let dataRaw = loadData()
 let data = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
@@ -103,8 +117,8 @@ type Parms =
                 LearnRate       = lr
                 CreateModel     = modelFn
                 DQN             = ddqn
-                LossFn          = torch.nn.SmoothL1Loss()
-                Opt             = torch.optim.NAdam(mps, lr=lr)
+                LossFn          = torch.nn.HuberLoss()
+                Opt             = torch.optim.AdamW(mps, lr=lr)
                 LearnEverySteps = 3
                 SyncEverySteps  = 1000
                 BatchSize       = 32
@@ -184,7 +198,7 @@ module Agent =
             let outlay = stockToBuy * priceWithCost
             let coh = s.CashOnHand - outlay |> max 0.            
             let stock = s.Stock + stockToBuy 
-            //assert (stock >= 0.)
+            assert (stock >= 0.)
             {s with CashOnHand=coh; Stock=stock})
         |> Option.defaultValue s
 
@@ -249,10 +263,14 @@ module Policy =
         parms.Opt.zero_grad()
         let losseD = losses |> Array.map (fun l -> l.backward(); l.ToDouble())
         let prms = parms.DQN.Model.Online.Module.parameters()
-        let pns = parms.DQN.Model.Online.Module.named_parameters() |> Seq.map(fun struct(n,x) -> n) |> Seq.toArray
-        torch.nn.utils.clip_grad_norm_(prms,0.5) |> ignore
+        torch.nn.utils.clip_grad_norm_(prms,0.01) |> ignore
         use t = parms.Opt.step() 
-        losseD |> Array.average
+        let avgLoss = losseD |> Array.average
+        if Double.IsNaN avgLoss then
+            let pns = parms.DQN.Model.Online.Module.named_parameters() |> Seq.map(fun struct(n,x) -> n, Tensor.getDataNested<float32> x) |> Seq.toArray
+            ()
+            failwith "Nan loss"
+        avgLoss
 
     let loss parms s = 
         let states,nextStates,rewards,actions,dones = Experience.recall parms.BatchSize s.ExpBuff  //sample from experience
@@ -261,6 +279,13 @@ module Policy =
         let td_est = DQN.td_estimate states actions parms.DQN           //estimate the Q-value of state-action pairs from online model
         let td_tgt = DQN.td_target rewards nextStates dones parms.DQN   //
         let loss = parms.LossFn.forward(td_est,td_tgt)
+        if loss.ToDouble() |> Double.IsNaN then 
+            let t_states = Tensor.getDataNested<float32> states
+            let t_nextStates = Tensor.getDataNested<float32> nextStates
+            let t_states = Tensor.getDataNested<float32> states
+            let t_td_est = Tensor.getDataNested<float32> td_est
+            let t_td_tgt = Tensor.getDataNested<float32> td_tgt
+            ()
         loss
 
     let syncModel parms s = 
@@ -279,6 +304,9 @@ module Policy =
             update = fun parms sdrs  ->      
                 let losses = sdrs |> PSeq.map (fun (s,_) -> loss parms s) |> PSeq.toArray
                 let avgLoss = updateQ parms losses
+                if Double.IsNaN avgLoss then
+                    let ls1 = losses |> Array.map(Tensor.getData<float32>)
+                    ()
                 if verbosity.IsMed then printfn $"avg loss {avgLoss}"
                 let s0,_ = sdrs.[0]
                 if s0.Step.Num % parms.SyncEverySteps = 0 then
@@ -465,7 +493,7 @@ let parms1 id lr  =
                 use pB2 = p.permute(1,0,2) //batch second - S x B x emsize
                 use mask = Masks.generateSubsequentMask (t.size().[1]) t.device // S x S
                 use src = pos_encoder.forward(pB2 * sqrtEmbSz) //S x B x emsize
-                use enc = transformer_encoder.forward(src,mask) //S x B x emsize
+                use enc = transformer_encoder.forward(src) //S x B x emsize
                 use encB = enc.permute(1,0,2)  //batch first  // B x S x emsize
                 use dec = encB.[``:``,LAST,``:``]    //keep last value as output to compare with target - B x emsize
                 let pout = projOut.forward(dec) //B x ACTIONS
@@ -476,47 +504,9 @@ let parms1 id lr  =
     let exp = {Decay=0.9995; Min=0.01}
     let DQN = DQN.create model 0.9999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
-        SyncEverySteps = 3//15000
-        BatchSize = 32
-        Epochs = 78}
-
-let parms2 id lr  = 
-    let emsize = 64
-    let dropout = 0.1
-    let max_seq = LOOKBACK
-    let nheads = 4
-    let nlayers = 2L
-
-    let createModel() = 
-        let proj = torch.nn.Linear(5L,emsize)        
-        let encoder_layer = torch.nn.TransformerEncoderLayer(emsize,nheads,emsize,dropout)
-        let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)
-        let projOut = torch.nn.Linear(emsize,ACTIONS)
-
-        let initRange = 0.1
-
-        let mdl = 
-            F [] [proj; transformer_encoder; projOut]  (fun t -> //B x S x 5
-                use p = proj.forward(t) // B x S x emsize
-                use pB2 = p.permute(1,0,2) //batch second - S x B x emsize
-                use mask = Masks.generateSubsequentMask (t.size().[1]) t.device // S x S                
-                use enc = transformer_encoder.forward(pB2,mask) //S x B x emsize
-                use encB = enc.permute(1,0,2)  //batch first  // B x S x emsize
-                use dec = encB.[``:``,LAST,``:``]    //keep last value as output to compare with target - B x emsize
-                use pout = projOut.forward(dec) //B x ACTIONS
-                let pact = torch.nn.functional.SiLU(pout)
-                pact
-            )
-
-        mdl
-
-    let model = DQNModel.create createModel
-    let exp = {Decay=0.9995; Min=0.01}
-    let DQN = DQN.create model 0.9999f exp ACTIONS device
-    {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 15000
-        BatchSize = 32
-        Epochs = 78}
+        BatchSize = 128
+        Epochs = 1}
 
 
 let lrs = [0.00001]///; 0.0001; 0.0002; 0.00001]

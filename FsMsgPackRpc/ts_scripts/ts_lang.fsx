@@ -14,6 +14,16 @@ open System
 open FSharp.Collections.ParallelSeq
 open SeqUtils
 
+type NBar =
+    {
+        NOpen  : float 
+        NHigh  : float
+        NLow   : float
+        NClose : float
+        NVolume : float
+        Bar  : Bar
+    }
+
 type LoggingLevel = Q | L | M | H 
     with  
         member this.IsLow = match this with L | M | H -> true | _ -> false
@@ -33,30 +43,44 @@ let fnL = File.ReadLines fn |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l 
 let TRAIN_SIZE = float fnL * 0.7 |> int
 let LOOKBACK = 40L
 
+let isNaN (c:float) = Double.IsNaN c || Double.IsInfinity c
+
 let loadData() = 
-    File.ReadLines fn
-    |> Seq.truncate fnL
-    |> Seq.map(fun l -> 
-        let xs = l.Split(',')
-        {
-            Time = DateTime.Parse xs.[1]
-            Open = float xs.[2]
-            High = float xs.[3]
-            Low = float xs.[4]
-            Close = float xs.[5]
-            Volume = float xs.[6]
-        })
-    |> Seq.pairwise
-    |> Seq.map (fun (a,b) ->
-        {b with 
-            Open = log(b.Open/a.Open)
-            High = log(b.High/a.High)
-            Low = log(b.Low/a.Low)
-            Close = log(b.Close/a.Close)
-            Volume = log(b.Volume/a.Volume)
-        }
+    let data =
+        File.ReadLines fn
+        |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not)
+        |> Seq.map(fun l -> 
+            let xs = l.Split(',')
+            let d =
+                {
+                    Time = DateTime.Parse xs.[1]
+                    Open = float xs.[2]
+                    High = float xs.[3]
+                    Low = float xs.[4]
+                    Close = float xs.[5]
+                    Volume = float xs.[6]
+                }
+            d)
+        |> Seq.toArray
+    let pd = data |> Array.pairwise |> Array.map(fun (a,b) -> {|Prev=a; Curr=b|})
+    pd
+    |> Array.map (fun (bars:{|Prev:Bar; Curr:Bar|}) ->
+        let x = bars.Prev
+        let y = bars.Curr
+        let d =
+            {
+                NOpen = (y.Open/x.Open) - 1.0
+                NHigh = (y.High/x.High) - 1.0
+                NLow =  (y.Low/x.Low)   - 1.0
+                NClose = (y.Close/x.Close)  - 1.0
+                NVolume = (y.Volume/x.Volume) - 1.0
+                Bar  = y
+            }
+        if isNaN d.NOpen ||isNaN d.NHigh || isNaN d.NLow || isNaN d.NClose || isNaN d.NVolume then
+            failwith "nan in data"
+        d
     )
-     
+
 let dataRaw = loadData()
 let data = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
 let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray
@@ -92,8 +116,8 @@ type Parms =
                 LearnRate       = lr
                 CreateModel     = modelFn
                 DQN             = ddqn
-                LossFn          = torch.nn.SmoothL1Loss()
-                Opt             = torch.optim.Adam(mps, lr=lr)
+                LossFn          = torch.nn.HuberLoss()
+                Opt             = torch.optim.AdamW(mps, lr=lr)
                 LearnEverySteps = 3
                 SyncEverySteps  = 1000
                 BatchSize       = 32
@@ -152,17 +176,17 @@ type RLState =
             }
 
 //environment
-type Market = {prices : Bar array}
+type Market = {prices : NBar array}
     with 
         member this.IsDone t = t >= this.prices.Length 
 
 let TX_COST_CNTRCT = 1.0
-let MAX_TRADE_SIZE = 50.
+let MAX_TRADE_SIZE = 25.
 
 module Agent = 
     open DQN
     let bar (env:Market) t = if t < env.prices.Length && t >= 0 then env.prices.[t] |> Some else None
-    let avgPrice bar = 0.5 * (bar.High + bar.Low)        
+    let avgPrice bar = 0.5 * (bar.Bar.High + bar.Bar.Low)        
 
     let buy (env:Market) (s:RLState) = 
         bar env s.Step.Num
@@ -201,7 +225,7 @@ module Agent =
         if env.IsDone s.Step.Num then s 
         else                                
             let b =  env.prices.[s.Step.Num]
-            let t1 = torch.tensor([|b.Open;b.High;b.Low;b.Close;b.Volume|],dtype=torch.float32)
+            let t1 = torch.tensor([|b.NOpen;b.NHigh;b.NLow;b.NClose;b.NVolume|],dtype=torch.float32)
             let ts = torch.vstack([|s.State;t1|])
             let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // 40 x 5             
             {s with State = ts2; PrevState = s.State}
@@ -218,7 +242,7 @@ module Agent =
             let isDone   = env.IsDone (tPlus1 + 1)
             let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
             if verbosity.isHigh then
-                printfn $"{s.AgentId}-{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:%0.3f{s.Step.ExplorationRate} Gain:%0.2f{sGain}"
+                printfn $"{s.AgentId}-{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
             let experienceBuff = Experience.append experience s.ExpBuff  
             {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain},isDone,reward
@@ -237,9 +261,15 @@ module Policy =
     let updateQ parms (losses:torch.Tensor []) =        
         parms.Opt.zero_grad()
         let losseD = losses |> Array.map (fun l -> l.backward(); l.ToDouble())
-        torch.nn.utils.clip_grad_norm_(parms.DQN.Model.Online.Module.parameters(),25.) |> ignore
+        let prms = parms.DQN.Model.Online.Module.parameters()
+        torch.nn.utils.clip_grad_norm_(prms,0.01) |> ignore
         use t = parms.Opt.step() 
-        losseD |> Array.average
+        let avgLoss = losseD |> Array.average
+        if Double.IsNaN avgLoss then
+            let pns = parms.DQN.Model.Online.Module.named_parameters() |> Seq.map(fun struct(n,x) -> n, Tensor.getDataNested<float32> x) |> Seq.toArray
+            ()
+            failwith "Nan loss"
+        avgLoss
 
     let loss parms s = 
         let states,nextStates,rewards,actions,dones = Experience.recall parms.BatchSize s.ExpBuff  //sample from experience
@@ -248,6 +278,13 @@ module Policy =
         let td_est = DQN.td_estimate states actions parms.DQN           //estimate the Q-value of state-action pairs from online model
         let td_tgt = DQN.td_target rewards nextStates dones parms.DQN   //
         let loss = parms.LossFn.forward(td_est,td_tgt)
+        if loss.ToDouble() |> Double.IsNaN then 
+            let t_states = Tensor.getDataNested<float32> states
+            let t_nextStates = Tensor.getDataNested<float32> nextStates
+            let t_states = Tensor.getDataNested<float32> states
+            let t_td_est = Tensor.getDataNested<float32> td_est
+            let t_td_tgt = Tensor.getDataNested<float32> td_tgt
+            ()
         loss
 
     let syncModel parms s = 
@@ -266,10 +303,10 @@ module Policy =
             update = fun parms sdrs  ->      
                 let losses = sdrs |> PSeq.map (fun (s,_) -> loss parms s) |> PSeq.toArray
                 let avgLoss = updateQ parms losses
-                let avgGain = sdrs |> PSeq.map (fun (s,_) -> s.S_gain) |> PSeq.average
-                let episode = sdrs |> List.map (fun (s,_) -> s.Episode) |> List.max
-                let step = sdrs |> List.map(fun (s,_) -> s.Step.Num) |> List.max
-                if verbosity.IsMed then printfn $"{episode}/{step} avg gain: %0.3f{avgGain}, avg loss: %0.3f{avgLoss}"
+                if Double.IsNaN avgLoss then
+                    let ls1 = losses |> Array.map(Tensor.getData<float32>)
+                    ()
+                if verbosity.IsMed then printfn $"avg loss {avgLoss}"
                 let s0,_ = sdrs.[0]
                 if s0.Step.Num % parms.SyncEverySteps = 0 then
                     syncModel parms s0
@@ -297,7 +334,7 @@ module Test =
         let s' = 
             (s,dataChunks) 
             ||> Array.fold (fun s bars -> 
-                let inp = bars |> Array.collect (fun b -> [|b.Open;b.High;b.Low;b.Close;b.Volume|])
+                let inp = bars |> Array.collect (fun b -> [|b.NOpen;b.NHigh;b.NLow;b.NClose;b.NVolume|])
                 use t_inp = torch.tensor(inp,dtype=torch.float32,dimensions=[|1L;40L;5L|])                
                 use t_inp = t_inp.``to``(modelDevice)
                 use q = model.forward t_inp
@@ -447,9 +484,7 @@ let parms1 id lr  =
         let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)
         let sqrtEmbSz = (sqrt (float emsize)).ToScalar()
         let projOut = torch.nn.Linear(emsize,ACTIONS)
-
         let initRange = 0.1
-
         let mdl = 
             F [] [proj; pos_encoder; transformer_encoder; projOut; ln]  (fun t -> //B x S x 5
                 use p1 = proj.forward(t) // B x S x emsize
@@ -457,35 +492,30 @@ let parms1 id lr  =
                 use pB2 = p.permute(1,0,2) //batch second - S x B x emsize
                 use mask = Masks.generateSubsequentMask (t.size().[1]) t.device // S x S
                 use src = pos_encoder.forward(pB2 * sqrtEmbSz) //S x B x emsize
-                use enc = transformer_encoder.forward(src,mask) //S x B x emsize
+                use enc = transformer_encoder.forward(src) //S x B x emsize
                 use encB = enc.permute(1,0,2)  //batch first  // B x S x emsize
                 use dec = encB.[``:``,LAST,``:``]    //keep last value as output to compare with target - B x emsize
                 let pout = projOut.forward(dec) //B x ACTIONS
                 pout
             )
-
         mdl
-
     let model = DQNModel.create createModel
     let exp = {Decay=0.9995; Min=0.01}
     let DQN = DQN.create model 0.9999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 15000
-        BatchSize = 32
-        Epochs = 78}
+        BatchSize = 128
+        Epochs = 1}
 
 
 let lrs = [0.00001]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
-let jobs = parms |> List.map (fun x -> startResetRun x) 
-
+let jobs = parms |> List.map (fun x -> startResetRun x)
 (*
 Test.clearModels()
 jobs |> Async.Parallel |> Async.Ignore |> Async.Start
-
-jobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
-
 *)
+jobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
 
 (*
 verbosity <- LoggingLevel.H
@@ -496,8 +526,7 @@ verbosity <- LoggingLevel.Q
 Test.runTest()
 
 async {Test.evalModels p1} |> Async.Start
-(fst
- _ps).sync (snd _ps)
+(fst _ps).sync (snd _ps)
 
 Policy.model.Online.Module.save @"e:/s/tradestation/temp.bin" 
 
