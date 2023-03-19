@@ -177,7 +177,7 @@ module DQN =
     let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) ddqn =
         use t = torch.no_grad()                              //turn off gradient calculation
         use q_online = ddqn.Model.Online.forward(next_state) //online model estimate of value (from next state)
-        use best_action = q_online.argmax(1L)      //optimum value action from online
+        use best_action = q_online.argmax(1L)                //optimum value action from online
         let idx = actionIdx best_action                      //index of optimum value action
 
         use q_target      = ddqn.Model.Target.forward(next_state) //target model estimates of value (from next state)

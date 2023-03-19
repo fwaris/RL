@@ -20,7 +20,7 @@ type LoggingLevel = Q | L | M | H
         member this.isHigh = match this with H -> true | _ -> false
         member this.IsMed = match this with M | H -> true | _ -> false
 
-let mutable verbosity = LoggingLevel.M
+let mutable verbosity = LoggingLevel.Q
 
 type Parms =
     {
@@ -43,7 +43,7 @@ type Parms =
                 CreateModel     = modelFn
                 DQN             = ddqn
                 LossFn          = torch.nn.HuberLoss()
-                Opt             = torch.optim.NAdam(mps, lr=lr)
+                Opt             = torch.optim.Adam(mps, lr=lr,weight_decay=0.0001)
                 LearnEverySteps = 3
                 SyncEverySteps  = 1000
                 BatchSize       = 32
@@ -191,12 +191,11 @@ module Data =
         else
             Directory.GetFiles(logDir) |> Seq.iter File.Delete
 
-
     let logger = MailboxProcessor.Start(fun inbox -> 
         async {
-            try
-                while true do
-                    let! (agentId:int,parmsId:int,line:string) = inbox.Receive()
+            while true do
+                let! (agentId:int,parmsId:int,line:string) = inbox.Receive()
+                try
                     let fn = root @@ "logs" @@ $"log_{agentId}_{parmsId}.csv"
                     if File.Exists fn |> not then
                         //let logLine = $"{s.AgentId},{s.Episode},{s.Step.Num},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId}"
@@ -204,8 +203,8 @@ module Data =
                         File.AppendAllLines(fn,[header;line])
                     else
                         File.AppendAllLines(fn,[line])
-            with ex -> 
-                printfn $"logger: {ex.Message}"
+                with ex -> 
+                    printfn $"logger: {ex.Message}"
         })
 
 //Properties not expected to change over the course of the run (e.g. model, hyperparameters, ...)
@@ -264,8 +263,9 @@ module Agent =
         |> Option.map (fun (prevBar,bar) -> 
             let avgP     = avgPrice  bar            
             let avgPprev = avgPrice prevBar
-            let sign     = if action = 0 (*buy*) then 1.0 else -1.0 
-            let reward   = (avgP-avgPprev) * sign //* float s.Stock            
+            let reward  = 
+                let sign = if action = 0 (*buy*) then 1.0 else -1.0 
+                if action < 2 then (avgP-avgPprev) * sign else -0.000001
             let tPlus1   = s.Step.Num
             let isDone   = env.IsDone (tPlus1 + 1)
             let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
@@ -292,7 +292,7 @@ module Policy =
         parms.Opt.zero_grad()
         let losseD = losses |> Array.map (fun l -> l.backward(); l.ToDouble())
         let prms = parms.DQN.Model.Online.Module.parameters()
-        torch.nn.utils.clip_grad_norm_(prms,10.0) |> ignore
+        //torch.nn.utils.clip_grad_norm_(prms,10.0) |> ignore
         use t = parms.Opt.step() 
         let avgLoss = losseD |> Array.average
         if Double.IsNaN avgLoss then
@@ -536,11 +536,11 @@ let parms1 id lr  =
     let DQN = DQN.create model 0.9999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 15000
-        BatchSize = 128
+        BatchSize = 32
         Epochs = 100}
 
 
-let lrs = [0.001]///; 0.0001; 0.0002; 0.00001]
+let lrs = [0.0001]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
 let jobs = parms |> List.map (fun x -> startResetRun x)
 (*
@@ -548,6 +548,7 @@ Test.clearModels()
 Data.resetLogs()
 jobs |> Async.Parallel |> Async.Ignore |> Async.Start
 *)
+
 //Test.clearModels()
 //Data.resetLogs()
 //jobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
