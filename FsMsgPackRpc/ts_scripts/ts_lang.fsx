@@ -42,8 +42,8 @@ type Parms =
                 LearnRate       = lr
                 CreateModel     = modelFn
                 DQN             = ddqn
-                LossFn          = torch.nn.HuberLoss()
-                Opt             = torch.optim.Adam(mps, lr=lr,weight_decay=0.0001)
+                LossFn          = torch.nn.SmoothL1Loss()
+                Opt             = torch.optim.Adam(mps, lr=lr,weight_decay=0.00001)
                 LearnEverySteps = 3
                 SyncEverySteps  = 1000
                 BatchSize       = 32
@@ -129,6 +129,8 @@ let TRAIN_SIZE = float fnL * 0.7 |> int
 let LOOKBACK = 40L
 let TX_COST_CNTRCT = 1.0
 let MAX_TRADE_SIZE = 25.
+let NUM_AGENTS = 5
+printfn $"Data size per agent {TRAIN_SIZE / NUM_AGENTS}; [left over {TRAIN_SIZE % NUM_AGENTS}]"
 
 module Data = 
 
@@ -157,11 +159,11 @@ module Data =
             |> List.mapi (fun i (x,y) ->
                 let d =
                     {
-                        NOpen = (y.Open/x.Open) - 1.0
-                        NHigh = (y.High/x.High) - 1.0
-                        NLow =  (y.Low/x.Low)   - 1.0
-                        NClose = (y.Close/x.Close)  - 1.0
-                        NVolume = (y.Volume/x.Volume) - 1.0
+                        NOpen = log(y.Open/x.Open) |> max -18. //- 1.0
+                        NHigh = log(y.High/x.High) |> max -18. //- 1.0
+                        NLow =  log(y.Low/x.Low)   |> max -18. //- 1.0
+                        NClose = log(y.Close/x.Close) |> max -18.// - 1.0
+                        NVolume = log(y.Volume/x.Volume) |> max -18. //- 1.0
                         Bar  = y
                     }
                 if isNaN d.NOpen ||isNaN d.NHigh || isNaN d.NLow || isNaN d.NClose || isNaN d.NVolume then
@@ -177,10 +179,17 @@ module Data =
     dataTest.Length
 
     let trainSets = 
-        let chks = data |> Array.chunkBySize (data.Length / 10)
-        let ls = chks.Length    
-        let last = Array.append chks.[ls-2] chks.[ls-1]        //combine last two chunks
-        Array.append chks.[0..ls-3] [|last|]
+        let baseChunks =
+            let chks = data |> Array.chunkBySize (data.Length / NUM_AGENTS)        
+            let sizes = chks |> Array.map (fun x->x.Length) |> Array.distinct
+            if sizes.Length > 1 then 
+                let ls = chks.Length    
+                let last = Array.append chks.[ls-2] chks.[ls-1]        //combine last two chunks
+                Array.append chks.[0..ls-3] [|last|]
+            else
+                chks
+        baseChunks
+        //|> Array.map(fun chk -> chk |> Seq.stridedChunks (LOOKBACK/4)
 
     trainSets |> Array.iteri(fun  i t -> printfn $"t {i} length {t.Length}")
 
@@ -338,7 +347,7 @@ module Policy =
                     ()
                 if verbosity.IsMed then printfn $"avg loss {avgLoss}"
                 let s0,_ = st_act_done_rwd.[0]
-                if s0.Step.Num % parms.SyncEverySteps = 0 then
+                if s0.Step.Num > 0 && s0.Step.Num % parms.SyncEverySteps = 0 then
                     syncModel parms s0
                 let rs = st_act_done_rwd |> List.map fst
                 policy parms, rs
@@ -475,6 +484,7 @@ let runAgents parms p ms =
     (ms,[1..parms.Epochs])
     ||> List.fold(fun ms i ->
         let ms' = runEpisodes  parms p ms
+        let ms' = ms' |> List.map(fun (m,r) -> m, {r with Episode = i})
         printfn $"run {parms.RunId} {i} done"
         Test.evalModel parms "current" parms.DQN.Model.Online |> ignore
         let ms'' = ms' |> List.map (fun (m,s) -> m, RLState.Reset s)
@@ -500,9 +510,8 @@ let startReRun parms =
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)
     }
 
-
 let parms1 id lr  = 
-    let emsize = 64
+    let emsize = 32
     let dropout = 0.1
     let max_seq = LOOKBACK
     let nheads = 4
@@ -532,13 +541,12 @@ let parms1 id lr  =
             )
         mdl
     let model = DQNModel.create createModel
-    let exp = {Decay=0.9995; Min=0.01}
-    let DQN = DQN.create model 0.9999f exp ACTIONS device
+    let exp = {Decay=0.99995; Min=0.01}
+    let DQN = DQN.create model 0.99999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 15000
-        BatchSize = 32
+        BatchSize = 10
         Epochs = 100}
-
 
 let lrs = [0.0001]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
