@@ -1,7 +1,7 @@
 ﻿//#load "../scripts/packages.fsx"
 //#load "../TsData.fs"
 //#load "../RL.fs"
-open System.Threading.Tasks
+//open System.Threading.Tasks
 open TorchSharp
 open TorchSharp.Fun
 open TsData
@@ -56,6 +56,7 @@ type Parms =
 type RLState =
     {
         AgentId          : int
+        TimeStep         : int
         State            : torch.Tensor
         PrevState        : torch.Tensor
         Step             : Step
@@ -73,7 +74,8 @@ type RLState =
         static member Reset x = 
             let a = 
                 {x with 
-                    Step            = {x.Step with Num=0} //keep current exploration rate; just update step number
+                    //Step            = {x.Step with Num=0} //keep current exploration rate; just update step number
+                    TimeStep        = 0
                     CashOnHand      = x.InitialCash
                     Stock           = 0
                     State           = torch.zeros([|x.LookBack;5L|],dtype=Nullable torch.float32)
@@ -87,6 +89,7 @@ type RLState =
             let expBuff = {DQN.Buffer=RandomAccessList.empty; DQN.Max=50000}
             let lookback = 40L
             {
+                TimeStep         = 0
                 AgentId          = agentId
                 State            = torch.zeros([|lookback;5L|],dtype=Nullable torch.float32)
                 PrevState        = torch.zeros([|lookback;5L|],dtype=Nullable torch.float32)
@@ -225,7 +228,7 @@ module Agent =
     let avgPrice bar = 0.5 * (bar.Bar.High + bar.Bar.Low)        
 
     let buy (env:Market) (s:RLState) = 
-        bar env s.Step.Num
+        bar env s.TimeStep
         |> Option.map (fun bar -> 
             let avgP = avgPrice bar
             let priceWithCost = avgP + TX_COST_CNTRCT
@@ -238,7 +241,7 @@ module Agent =
         |> Option.defaultValue s
 
     let sell (env:Market) (s:RLState) =
-        bar env s.Step.Num
+        bar env s.TimeStep
         |> Option.map (fun bar -> 
             let avgP = avgPrice bar
             let priceWithCost = avgP - TX_COST_CNTRCT
@@ -258,29 +261,29 @@ module Agent =
     let skipHead = torch.TensorIndex.Slice(1)
 
     let getObservations _ (env:Market) (s:RLState) =         
-        if env.IsDone s.Step.Num then s 
+        if env.IsDone s.TimeStep then s 
         else                                
-            let b =  env.prices.[s.Step.Num]
+            let b =  env.prices.[s.TimeStep]
             let t1 = torch.tensor([|b.NOpen;b.NHigh;b.NLow;b.NClose;b.NVolume|],dtype=torch.float32)
             let ts = torch.vstack([|s.State;t1|])
             let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // 40 x 5             
             {s with State = ts2; PrevState = s.State}
         
     let computeRewards parms env s action =         
-        bar env s.Step.Num
-        |> Option.bind (fun cBar -> bar env (s.Step.Num-1) |> Option.map (fun pBar -> pBar,cBar))
+        bar env s.TimeStep
+        |> Option.bind (fun cBar -> bar env (s.TimeStep-1) |> Option.map (fun pBar -> pBar,cBar))
         |> Option.map (fun (prevBar,bar) -> 
             let avgP     = avgPrice  bar            
             let avgPprev = avgPrice prevBar
             let reward  = 
                 let sign = if action = 0 (*buy*) then 1.0 else -1.0 
                 if action < 2 then (avgP-avgPprev) * sign else -0.000001
-            let tPlus1   = s.Step.Num
+            let tPlus1   = s.TimeStep
             let isDone   = env.IsDone (tPlus1 + 1)
             let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
             if verbosity.isHigh then
-                printfn $"{s.AgentId}-{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
-            let logLine = $"{s.AgentId},{s.Episode},{s.Step.Num},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId}"
+                printfn $"{s.AgentId}-{s.TimeStep} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
+            let logLine = $"{s.AgentId},{s.Episode},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId}"
             Data.logger.Post (s.AgentId,parms.RunId,logLine)
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
             let experienceBuff = Experience.append experience s.ExpBuff  
@@ -348,6 +351,7 @@ module Policy =
                 if verbosity.IsMed then printfn $"avg loss {avgLoss}"
                 let s0,_ = st_act_done_rwd.[0]
                 if s0.Step.Num > 0 && s0.Step.Num % parms.SyncEverySteps = 0 then
+                    if verbosity.IsLow then printfn $"sync model {s0.Step.Num}"
                     syncModel parms s0
                 let rs = st_act_done_rwd |> List.map fst
                 policy parms, rs
@@ -384,7 +388,7 @@ module Test =
                     | 1 -> Agent.sell market s
                     | _ -> s
                 //printfn $" {s.TimeStep} act: {act}, cash:{s.CashOnHand}, stock:{s.Stock}"
-                {s with Step = DQN.updateStep exp s.Step})
+                {s with TimeStep = s.TimeStep + 1})
 
         let avgP1 = Agent.avgPrice (Array.last data)
         let sGain = ((avgP1 * float s'.Stock + s'.CashOnHand) - s'.InitialCash) / s'.InitialCash
@@ -457,7 +461,7 @@ let stepAgent parms plcy (m,s) =
         (m,s),((0,true,0.),false) //skip
     else
         let s',adr = step parms m Agent.agent plcy s                           
-        let s'' = {s' with Step = DQN.updateStep parms.DQN.Exploration s'.Step} // update step number and exploration rate for each agent
+        let s'' = {s' with Step = DQN.updateStep parms.DQN.Exploration s'.Step; TimeStep = s'.TimeStep + 1} // update step number and exploration rate for each agent
         (m,s''),(adr,true)
     
 let runEpisodes  parms plcy (ms:(Market*RLState) list) =
@@ -541,14 +545,14 @@ let parms1 id lr  =
             )
         mdl
     let model = DQNModel.create createModel
-    let exp = {Decay=0.99995; Min=0.01}
+    let exp = {Decay=0.99995; Min=0.01; WarupSteps=10000}
     let DQN = DQN.create model 0.99999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 15000
         BatchSize = 10
         Epochs = 100}
 
-let lrs = [0.0001]///; 0.0001; 0.0002; 0.00001]
+let lrs = [0.00001]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
 let jobs = parms |> List.map (fun x -> startResetRun x)
 (*

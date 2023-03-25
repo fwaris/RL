@@ -11,7 +11,7 @@ open FSharp.Collections.ParallelSeq
 type DDQNModel = {Target : IModel;  Online : IModel}
 type Experience = {State:torch.Tensor; NextState:torch.Tensor; Action:int; Reward:float32; Done:bool}
 type ExperienceBuffer = {Buffer : RandomAccessList<Experience>; Max:int}
-type Exploration = {Decay:float; Min:float} with static member Default = {Decay = 0.999; Min=0.01}
+type Exploration = {Decay:float; Min:float; WarupSteps:int} with static member Default = {Decay = 0.999; Min=0.01; WarupSteps = 1000}
 type Step = {Num:int; ExplorationRate:float}
 type DQN = {Model:DDQNModel; Gamma:float32; Exploration:Exploration; Actions:int; Device:torch.Device }
 
@@ -136,9 +136,13 @@ module DQN =
     let randint n : int = torch.randint(n,[|1|],dtype=torch.int32).item()
 
     let updateStep exp step =
+        let expRate = 
+            if exp.WarupSteps < step.Num 
+                then step.ExplorationRate 
+                else step.ExplorationRate * exp.Decay |> max exp.Min
         {
             Num = step.Num + 1
-            ExplorationRate = step.ExplorationRate * exp.Decay |> max exp.Min
+            ExplorationRate = expRate
         }
 
     let create model gamma exploration actions (device:torch.Device) =
@@ -154,7 +158,7 @@ module DQN =
 
     let selectAction (state:torch.Tensor) ddqn step =
         let actionIdx =
-            if rand() < step.ExplorationRate then //explore
+            if step.Num < ddqn.Exploration.WarupSteps && rand() < step.ExplorationRate then //explore
                 randint ddqn.Actions
             else
                 use state = state.``to``(ddqn.Device)  //exploit

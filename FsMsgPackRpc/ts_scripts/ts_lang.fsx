@@ -348,6 +348,7 @@ module Policy =
                 if verbosity.IsMed then printfn $"avg loss {avgLoss}"
                 let s0,_ = st_act_done_rwd.[0]
                 if s0.Step.Num > 0 && s0.Step.Num % parms.SyncEverySteps = 0 then
+                    if verbosity.IsLow then printfn $"sync model {s0.Step.Num}"
                     syncModel parms s0
                 let rs = st_act_done_rwd |> List.map fst
                 policy parms, rs
@@ -541,14 +542,14 @@ let parms1 id lr  =
             )
         mdl
     let model = DQNModel.create createModel
-    let exp = {Decay=0.99995; Min=0.01}
+    let exp = {Decay=0.99995; Min=0.01; WarupSteps=10000}
     let DQN = DQN.create model 0.99999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 15000
         BatchSize = 10
         Epochs = 100}
 
-let lrs = [0.0001]///; 0.0001; 0.0002; 0.00001]
+let lrs = [0.00001]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
 let jobs = parms |> List.map (fun x -> startResetRun x)
 (*
