@@ -1,7 +1,7 @@
 ﻿#load "../scripts/packages.fsx"
 #load "../TsData.fs"
 #load "../RL.fs"
-open System.Threading.Tasks
+//open System.Threading.Tasks
 open TorchSharp
 open TorchSharp.Fun
 open TsData
@@ -330,7 +330,6 @@ module Policy =
         loss
 
     let syncModel parms s = 
-        System.GC.Collect()
         DQNModel.sync parms.DQN.Model parms.DQN.Device
         let fn = root @@ "models" @@ $"model_{parms.RunId}_{s.Episode}_{s.Step.Num}.bin"
         DQNModel.save fn parms.DQN.Model 
@@ -349,10 +348,6 @@ module Policy =
                     let ls1 = losses |> Array.map(Tensor.getData<float32>)
                     ()
                 if verbosity.IsMed then printfn $"avg loss {avgLoss}"
-                let s0,_ = st_act_done_rwd.[0]
-                if s0.Step.Num > 0 && s0.Step.Num % parms.SyncEverySteps = 0 then
-                    if verbosity.IsLow then printfn $"sync model {s0.Step.Num}"
-                    syncModel parms s0
                 let rs = st_act_done_rwd |> List.map fst
                 policy parms, rs
 
@@ -453,7 +448,7 @@ module Test =
 let markets = Data.trainSets |> Array.map (fun brs -> {prices=brs})
 
 let acctBlown (s:RLState) = s.CashOnHand < 10000.0 && s.Stock <= 0
-let isDone (m:Market,s) = m.IsDone (s.Step.Num+1) || acctBlown s
+let isDone (m:Market,s) = m.IsDone (s.TimeStep+1) || acctBlown s
 
 //single step a single agent in its associated market
 let stepAgent parms plcy (m,s) = 
@@ -475,7 +470,10 @@ let runEpisodes  parms plcy (ms:(Market*RLState) list) =
             let s0 = processed.[0] |> fst |> snd
             if s0.Step.Num > 0 &&  s0.Step.Num % parms.LearnEverySteps = 0 then
                 let st_act_done_rwd = processed |> List.map (fun ((m,s),adr) -> s,adr)
-                plcy.update parms st_act_done_rwd |> ignore
+                plcy.update parms st_act_done_rwd |> ignore                
+            if s0.Step.Num > 0 && s0.Step.Num % parms.SyncEverySteps = 0 then
+                if verbosity.IsLow then printfn $"sync model {s0.Step.Num}"
+                plcy.sync parms s0
             System.GC.Collect()
             loop (ms' |> List.map fst)
         else
@@ -548,7 +546,7 @@ let parms1 id lr  =
     let exp = {Decay=0.99995; Min=0.01; WarupSteps=10000}
     let DQN = DQN.create model 0.99999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
-        SyncEverySteps = 15000
+        SyncEverySteps = 500
         BatchSize = 10
         Epochs = 100}
 
