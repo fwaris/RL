@@ -62,6 +62,7 @@ type RLState =
         Step             : Step
         InitialCash      : float
         Stock            : float
+        TradeSize        : float
         CashOnHand       : float
         LookBack         : int64
         ExpBuff          : DQN.ExperienceBuffer
@@ -95,6 +96,7 @@ type RLState =
                 PrevState        = torch.zeros([|lookback;5L|],dtype=Nullable torch.float32)
                 Step             = {ExplorationRate = initExpRate; Num=0}
                 Stock            = 0
+                TradeSize        = 0.0
                 CashOnHand       = initialCash
                 InitialCash      = initialCash
                 LookBack         = lookback
@@ -237,7 +239,7 @@ module Agent =
             let coh = s.CashOnHand - outlay |> max 0.            
             let stock = s.Stock + stockToBuy 
             assert (stock >= 0.)
-            {s with CashOnHand=coh; Stock=stock})
+            {s with CashOnHand=coh; Stock=stock; TradeSize = stockToBuy})
         |> Option.defaultValue s
 
     let sell (env:Market) (s:RLState) =
@@ -249,7 +251,7 @@ module Agent =
             let inlay = stockToSell * priceWithCost
             let coh = s.CashOnHand + inlay
             let remStock = s.Stock - stockToSell |> max 0.
-            {s with CashOnHand=coh; Stock=remStock})
+            {s with CashOnHand=coh; Stock=remStock; TradeSize = -stockToSell})
         |> Option.defaultValue s
 
     let doAction _ env s act =
@@ -276,13 +278,15 @@ module Agent =
             let avgP     = avgPrice  bar            
             let avgPprev = avgPrice prevBar
             let reward  = 
-                let sign = if action = 0 (*buy*) then 1.0 else -1.0 
-                if action < 2 then (avgP-avgPprev) * sign else -0.000001
+                if action < 2 then 
+                    (avgP-avgPprev)/avgPprev * s.TradeSize  //buy or sell action
+                else 
+                    -0.000001 * s.Stock //hold cost
             let tPlus1   = s.TimeStep
             let isDone   = env.IsDone (tPlus1 + 1)
             let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
             if verbosity.isHigh then
-                printfn $"{s.AgentId}-{s.TimeStep} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
+                printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
             let logLine = $"{s.AgentId},{s.Episode},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId}"
             Data.logger.Post (s.AgentId,parms.RunId,logLine)
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
@@ -466,6 +470,7 @@ let runEpisodes  parms plcy (ms:(Market*RLState) list) =
             ms'
             |> List.filter (fun (_,(_,t)) -> t)
             |> List.map (fun ((m,s),(adr,_)) -> (m,s),adr)
+        System.GC.Collect()
         if List.isEmpty processed |> not then                       //if at least 1 agent is not done 
             let s0 = processed.[0] |> fst |> snd
             if s0.Step.Num > 0 &&  s0.Step.Num % parms.LearnEverySteps = 0 then
@@ -474,7 +479,6 @@ let runEpisodes  parms plcy (ms:(Market*RLState) list) =
             if s0.Step.Num > 0 && s0.Step.Num % parms.SyncEverySteps = 0 then
                 if verbosity.IsLow then printfn $"sync model {s0.Step.Num}"
                 plcy.sync parms s0
-            System.GC.Collect()
             loop (ms' |> List.map fst)
         else
             ms' |> List.map fst
@@ -543,10 +547,10 @@ let parms1 id lr  =
             )
         mdl
     let model = DQNModel.create createModel
-    let exp = {Decay=0.99995; Min=0.01; WarupSteps=10000}
+    let exp = {Decay=0.9995; Min=0.01; WarupSteps=5000}
     let DQN = DQN.create model 0.99999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
-        SyncEverySteps = 500
+        SyncEverySteps = 3000
         BatchSize = 10
         Epochs = 100}
 

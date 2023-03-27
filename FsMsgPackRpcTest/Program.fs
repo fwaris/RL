@@ -62,12 +62,14 @@ type RLState =
         Step             : Step
         InitialCash      : float
         Stock            : float
+        TradeSize        : float
         CashOnHand       : float
         LookBack         : int64
         ExpBuff          : DQN.ExperienceBuffer
         S_reward         : float
         S_gain           : float
         Episode          : int
+        AvgLoss          : float
     }
     with 
         ///reset for new episode
@@ -95,6 +97,7 @@ type RLState =
                 PrevState        = torch.zeros([|lookback;5L|],dtype=Nullable torch.float32)
                 Step             = {ExplorationRate = initExpRate; Num=0}
                 Stock            = 0
+                TradeSize        = 0.0
                 CashOnHand       = initialCash
                 InitialCash      = initialCash
                 LookBack         = lookback
@@ -102,6 +105,7 @@ type RLState =
                 S_reward         = -1.0
                 S_gain           = -1.0
                 Episode          = 0
+                AvgLoss          = 0.0
             }
 
 type NBar =
@@ -118,6 +122,8 @@ type NBar =
 type Market = {prices : NBar array}
     with 
         member this.IsDone t = t >= this.prices.Length 
+
+type StepResult = {Market:Market; Rl:RLState; Action_Done_Reward:(int*bool*float); AgentDone:bool}
 
 let device = if torch.cuda_is_available() then torch.CUDA else torch.CPU
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
@@ -237,7 +243,7 @@ module Agent =
             let coh = s.CashOnHand - outlay |> max 0.            
             let stock = s.Stock + stockToBuy 
             assert (stock >= 0.)
-            {s with CashOnHand=coh; Stock=stock})
+            {s with CashOnHand=coh; Stock=stock; TradeSize = stockToBuy})
         |> Option.defaultValue s
 
     let sell (env:Market) (s:RLState) =
@@ -249,7 +255,7 @@ module Agent =
             let inlay = stockToSell * priceWithCost
             let coh = s.CashOnHand + inlay
             let remStock = s.Stock - stockToSell |> max 0.
-            {s with CashOnHand=coh; Stock=remStock})
+            {s with CashOnHand=coh; Stock=remStock; TradeSize = -stockToSell})
         |> Option.defaultValue s
 
     let doAction _ env s act =
@@ -276,13 +282,15 @@ module Agent =
             let avgP     = avgPrice  bar            
             let avgPprev = avgPrice prevBar
             let reward  = 
-                let sign = if action = 0 (*buy*) then 1.0 else -1.0 
-                if action < 2 then (avgP-avgPprev) * sign else -0.000001
+                if action < 2 then 
+                    (avgP-avgPprev)/avgPprev * s.TradeSize  //buy or sell action
+                else 
+                    -0.000001 * s.Stock //hold cost
             let tPlus1   = s.TimeStep
             let isDone   = env.IsDone (tPlus1 + 1)
             let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
             if verbosity.isHigh then
-                printfn $"{s.AgentId}-{s.TimeStep} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
+                printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
             let logLine = $"{s.AgentId},{s.Episode},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId}"
             Data.logger.Post (s.AgentId,parms.RunId,logLine)
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
@@ -348,7 +356,7 @@ module Policy =
                     let ls1 = losses |> Array.map(Tensor.getData<float32>)
                     ()
                 if verbosity.IsMed then printfn $"avg loss {avgLoss}"
-                let rs = st_act_done_rwd |> List.map fst
+                let rs = st_act_done_rwd |> List.map fst |> List.map(fun r -> {r with AvgLoss = avgLoss})
                 policy parms, rs
 
             sync = syncModel
@@ -452,32 +460,62 @@ let isDone (m:Market,s) = m.IsDone (s.TimeStep+1) || acctBlown s
 
 //single step a single agent in its associated market
 let stepAgent parms plcy (m,s) = 
-    if isDone (m,s) then 
-        (m,s),((0,true,0.),false) //skip
+    if isDone (m,s) then         
+        {Market=m; Rl=s; Action_Done_Reward=(0,true,0); AgentDone=true}
     else
         let s',adr = step parms m Agent.agent plcy s                           
         let s'' = {s' with Step = DQN.updateStep parms.DQN.Exploration s'.Step; TimeStep = s'.TimeStep + 1} // update step number and exploration rate for each agent
-        (m,s''),(adr,true)
-    
+        {Market=m; Rl=s''; Action_Done_Reward=adr; AgentDone=false}
+
+let updatePolicy parms plcy rs =
+    let r0 = rs |> List.find (fun x-> not x.AgentDone)
+    if r0.Rl.Step.Num % parms.LearnEverySteps = 0 then 
+        let remainAgents = rs |> List.filter(fun r -> r.AgentDone |> not) |> List.map (fun m -> m.Rl,m.Action_Done_Reward) //update policy for agents still in play
+        let _,updateAgents = plcy.update parms remainAgents
+        let updateAgentsMap = updateAgents |> List.map(fun r -> r.AgentId,r) |> Map.ofList
+        rs |> List.map(fun x -> updateAgentsMap |> Map.tryFind x.Rl.AgentId |> Option.map(fun r -> {x with Rl=r}) |> Option.defaultValue x) //merge update with others
+    else
+        rs
+
+let syncModel parms plcy runStates = 
+    runStates
+    |> List.tryFind(fun x ->not x.AgentDone)
+    |> Option.bind (fun r -> if r.Rl.Step.Num > 0 && r.Rl.Step.Num % parms.SyncEverySteps = 0 then Some r.Rl else None)
+    |> Option.iter(fun r  -> plcy.sync parms r)
+            
 let runEpisodes  parms plcy (ms:(Market*RLState) list) =
     let rec loop ms =
         let ms' = ms |> PSeq.map (stepAgent parms plcy) |> PSeq.toList // operate agents in parallel
-        let processed =
-            ms'
-            |> List.filter (fun (_,(_,t)) -> t)
-            |> List.map (fun ((m,s),(adr,_)) -> (m,s),adr)
-        if List.isEmpty processed |> not then                       //if at least 1 agent is not done 
-            let s0 = processed.[0] |> fst |> snd
-            if s0.Step.Num > 0 &&  s0.Step.Num % parms.LearnEverySteps = 0 then
-                let st_act_done_rwd = processed |> List.map (fun ((m,s),adr) -> s,adr)
-                plcy.update parms st_act_done_rwd |> ignore                
-            if s0.Step.Num > 0 && s0.Step.Num % parms.SyncEverySteps = 0 then
-                if verbosity.IsLow then printfn $"sync model {s0.Step.Num}"
-                plcy.sync parms s0
-            System.GC.Collect()
-            loop (ms' |> List.map fst)
+        let allDone = ms' |> List.forall (fun m -> m.AgentDone)
+        System.GC.Collect()
+        if allDone |> not then
+            let rs = updatePolicy parms plcy ms'
+            syncModel parms plcy rs
+            let ms = rs |> List.map(fun r -> r.Market,r.Rl)
+            loop ms
         else
-            ms' |> List.map fst
+            ms' |> List.map (fun r -> r.Market,r.Rl)
+        //let runStates = updatePolicy parms processed
+        //match runStates with
+        //| xs -> syncModel parms xs
+        //| _  -> 
+        //syncModel parms plcy runStates
+        //loop 
+        //let stst =
+        //if List.isEmpty processed |> not then                       //if at least 1 agent is not done 
+        //    let s0 = processed.[0] |> fst |> snd
+        //    let s' = 
+        //        if s0.Step.Num > 0 &&  s0.Step.Num % parms.LearnEverySteps = 0 then
+        //            let st_act_done_rwd = processed |> List.map (fun ((m,s),adr) -> s,adr)
+        //            plcy.update parms st_act_done_rwd |> snd
+        //        else
+        //           processed |> List.map (fst>>snd)
+        //    if s0.Step.Num > 0 && s0.Step.Num % parms.SyncEverySteps = 0 then
+        //        if verbosity.IsLow then printfn $"sync model {s0.Step.Num}"
+        //        plcy.sync parms s0
+        //    loop (ms' |> List.map fst)
+        //else
+        //    ms' |> List.map fst
     loop ms
 
 let mutable _ps = Unchecked.defaultof<_>
@@ -487,8 +525,12 @@ let runAgents parms p ms =
     ||> List.fold(fun ms i ->
         let ms' = runEpisodes  parms p ms
         let ms' = ms' |> List.map(fun (m,r) -> m, {r with Episode = i})
-        printfn $"run {parms.RunId} {i} done"
-        Test.evalModel parms "current" parms.DQN.Model.Online |> ignore
+        printfn $"run {parms.RunId} {i} done, Avg loss:{ms'|>List.tryHead |> Option.map (fun (_,r0) -> r0.AvgLoss) |> Option.defaultValue 0.0}"
+        ms' 
+        |> List.tryHead 
+        |> Option.iter(fun (_,r0) -> 
+                if r0.Step.Num % 10 = 0 then
+                    Test.evalModel parms "current" parms.DQN.Model.Online |> ignore) 
         let ms'' = ms' |> List.map (fun (m,s) -> m, RLState.Reset s)
         ms'')
 
@@ -543,10 +585,10 @@ let parms1 id lr  =
             )
         mdl
     let model = DQNModel.create createModel
-    let exp = {Decay=0.99995; Min=0.01; WarupSteps=10000}
+    let exp = {Decay=0.9995; Min=0.01; WarupSteps=5000}
     let DQN = DQN.create model 0.99999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
-        SyncEverySteps = 500
+        SyncEverySteps = 3000
         BatchSize = 10
         Epochs = 100}
 

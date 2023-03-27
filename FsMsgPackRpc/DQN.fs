@@ -137,7 +137,7 @@ module DQN =
 
     let updateStep exp step =
         let expRate = 
-            if exp.WarupSteps < step.Num 
+            if step.Num <= exp.WarupSteps
                 then step.ExplorationRate 
                 else step.ExplorationRate * exp.Decay |> max exp.Min
         {
