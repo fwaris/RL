@@ -537,7 +537,10 @@ let startReRun parms =
     async {
         try 
             let p = Policy.policy parms
-            let ms = markets |> Seq.mapi(fun i m -> m,let s = RLState.Default i 1.0 1000000 in {s with Episode = 0; Step = {s.Step with ExplorationRate = parms.DQN.Exploration.Min}}) |> Seq.toList
+            let ms = markets |> Seq.mapi(fun i m -> 
+                m,
+                let s = RLState.Default i 1.0 1000000                
+                {s with Episode = 0; Step = {s.Step with ExplorationRate = parms.DQN.Exploration.Min; Num=parms.DQN.Exploration.WarupSteps+1}}) |> Seq.toList
             let ps = runAgents parms p ms
             _ps <- ps
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)
