@@ -67,5 +67,5 @@ let logE = allRows |> Array.map(fun l -> l.Split(',')) |> Array.map toLogE
 
 let a1 = logE |> Array.filter(fun e -> e.AgentId=0) |> Seq.groupAdjacent (fun (a,b) -> a.Step < b.Step)
 
-let abc = [a1.[4]; a1.[15]; a1.[46]] |> List.map(fun xs -> xs |> List.map(fun x->x.Gain) |> Chart.Violin) |> Chart.combine |> Chart.show
+let abc = [0..a1.Length/10..a1.Length-1] |> List.map (fun i -> a1.[i]) |> List.map(fun xs -> xs |> List.map(fun x->x.Gain) |> Chart.Violin) |> Chart.combine |> Chart.show
 

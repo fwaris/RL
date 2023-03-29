@@ -337,6 +337,16 @@ module Policy =
             ()
         loss
 
+    let loadModel parms (device:torch.Device) =
+        let dir = root @@ "models_restart"
+        Directory.GetFiles(dir,$"model_{parms.RunId}*") |> Seq.sortByDescending (fun f -> (FileInfo f).LastWriteTime) |> Seq.tryHead
+        |> Option.map(fun fn ->
+            let mdl  = DQN.DQNModel.load parms.CreateModel fn                        
+            mdl.Online.to'(device)
+            mdl.Target.to'(device)
+            let dqn = {parms.DQN with Model = mdl; }
+            {parms with DQN = dqn})
+
     let syncModel parms s = 
         DQNModel.sync parms.DQN.Model parms.DQN.Device
         let fn = root @@ "models" @@ $"model_{parms.RunId}_{s.Episode}_{s.Step.Num}.bin"
@@ -495,27 +505,6 @@ let runEpisodes  parms plcy (ms:(Market*RLState) list) =
             loop ms
         else
             ms' |> List.map (fun r -> r.Market,r.Rl)
-        //let runStates = updatePolicy parms processed
-        //match runStates with
-        //| xs -> syncModel parms xs
-        //| _  -> 
-        //syncModel parms plcy runStates
-        //loop 
-        //let stst =
-        //if List.isEmpty processed |> not then                       //if at least 1 agent is not done 
-        //    let s0 = processed.[0] |> fst |> snd
-        //    let s' = 
-        //        if s0.Step.Num > 0 &&  s0.Step.Num % parms.LearnEverySteps = 0 then
-        //            let st_act_done_rwd = processed |> List.map (fun ((m,s),adr) -> s,adr)
-        //            plcy.update parms st_act_done_rwd |> snd
-        //        else
-        //           processed |> List.map (fst>>snd)
-        //    if s0.Step.Num > 0 && s0.Step.Num % parms.SyncEverySteps = 0 then
-        //        if verbosity.IsLow then printfn $"sync model {s0.Step.Num}"
-        //        plcy.sync parms s0
-        //    loop (ms' |> List.map fst)
-        //else
-        //    ms' |> List.map fst
     loop ms
 
 let mutable _ps = Unchecked.defaultof<_>
@@ -524,8 +513,8 @@ let runAgents parms p ms =
     (ms,[1..parms.Epochs])
     ||> List.fold(fun ms i ->
         let ms' = runEpisodes  parms p ms
-        let ms' = ms' |> List.map(fun (m,r) -> m, {r with Episode = i})
         printfn $"run {parms.RunId} {i} done, Avg loss:{ms'|>List.tryHead |> Option.map (fun (_,r0) -> r0.AvgLoss) |> Option.defaultValue 0.0}"
+        let ms' = ms' |> List.map(fun (m,r) -> m, {r with Episode = i})
         ms' 
         |> List.tryHead 
         |> Option.iter(fun (_,r0) -> 
@@ -548,7 +537,7 @@ let startReRun parms =
     async {
         try 
             let p = Policy.policy parms
-            let ms = _ps |> List.map (fun (m,s) ->m, {RLState.Reset s with Episode = 0})
+            let ms = markets |> Seq.mapi(fun i m -> m,let s = RLState.Default i 1.0 1000000 in {s with Episode = 0; Step = {s.Step with ExplorationRate = parms.DQN.Exploration.Min}}) |> Seq.toList
             let ps = runAgents parms p ms
             _ps <- ps
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)
@@ -590,20 +579,25 @@ let parms1 id lr  =
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 3000
         BatchSize = 10
-        Epochs = 100}
+        Epochs = 200}
+
 
 let lrs = [0.00001]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
 let jobs = parms |> List.map (fun x -> startResetRun x)
+let restartJobs = parms |> List.map(fun p -> Policy.loadModel p device |> Option.defaultValue p) |> List.map startReRun
+ 
 (*
 Test.clearModels()
 Data.resetLogs()
 jobs |> Async.Parallel |> Async.Ignore |> Async.Start
+restartJobs |> Async.Parallel |> Async.Ignore |> Async.Start
 *)
 
 Test.clearModels()
 Data.resetLogs()
-jobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
+//jobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
+restartJobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
 
 (*
 verbosity <- LoggingLevel.H
