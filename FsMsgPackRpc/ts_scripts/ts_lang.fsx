@@ -537,10 +537,11 @@ let startReRun parms =
     async {
         try 
             let p = Policy.policy parms
-            let ms = markets |> Seq.mapi(fun i m -> 
-                m,
-                let s = RLState.Default i 1.0 1000000                
-                {s with Episode = 0; Step = {s.Step with ExplorationRate = parms.DQN.Exploration.Min; Num=parms.DQN.Exploration.WarupSteps+1}}) |> Seq.toList
+            let ms = markets |> Seq.mapi(fun i m -> m,RLState.Default i 1.0 1000000) |> Seq.toList
+            //let ms = markets |> Seq.mapi(fun i m -> 
+            //    m,
+            //    let s = RLState.Default i 1.0 1000000                
+            //    {s with Episode = 0; Step = {s.Step with ExplorationRate = parms.DQN.Exploration.Min; Num=parms.DQN.Exploration.WarupSteps+1}}) |> Seq.toList
             let ps = runAgents parms p ms
             _ps <- ps
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)
@@ -582,7 +583,7 @@ let parms1 id lr  =
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 3000
         BatchSize = 10
-        Epochs = 200}
+        Epochs = 300}
 
 
 let lrs = [0.00001]///; 0.0001; 0.0002; 0.00001]
@@ -594,7 +595,7 @@ let restartJobs = parms |> List.map(fun p -> Policy.loadModel p device |> Option
 Test.clearModels()
 Data.resetLogs()
 jobs |> Async.Parallel |> Async.Ignore |> Async.Start
-restartJobs |> Async.Parallel |> Async.Ignore |> Async.Start
+..restartJobs |> Async.Parallel |> Async.Ignore |> Async.Start
 *)
 
 //Test.clearModels()
