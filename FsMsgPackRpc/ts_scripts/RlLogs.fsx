@@ -31,9 +31,17 @@ module Seq =
 val it : seq<seq<string>> = seq [["a"; "a"; "a"]; ["b"]; ["c"; "c"]]
 *)
 let folder = @"e:/s/tradestation/logs"
+[folder] |> List.iter(fun d -> if Directory.Exists d |> not then Directory.CreateDirectory d |> ignore)
+
 let allRows =   
-    Directory.GetFiles(folder,"*.csv")
-    |> Array.collect (fun fn -> File.ReadAllLines fn |> Array.skip 1)
+    let files = Directory.GetFiles(folder,"*.csv")
+    files 
+    |> Seq.collect (fun x -> 
+        use str = File.Open(x,FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+        use strw = new StreamReader(str)
+        let lines = strw |> Seq.unfold(fun x -> let l = x.ReadLine() in if l <> null then Some (l,x) else None) |> Seq.toArray
+        lines)
+    |> Seq.toArray
 
 //"agentId,episode,step,action,price,cash,stock,reward,gain,parmId";
 type LogE = {
@@ -50,20 +58,25 @@ type LogE = {
 }
 
 let toLogE (xs:string[]) =
-    {
-        AgentId     = int xs.[0]
-        Episode     = int xs.[1]
-        Step        = int xs.[2]
-        Action      = int xs.[3]
-        Price       = float xs.[4]
-        Cash        = float xs.[5]
-        Stock       = int xs.[6]
-        Reward      = float xs.[7]
-        Gain        = float xs.[8]
-        ParmId      = int xs.[9]
-    }
+    try
+        {
+            AgentId     = int xs.[0]
+            Episode     = int xs.[1]
+            Step        = int xs.[2]
+            Action      = int xs.[3]
+            Price       = float xs.[4]
+            Cash        = float xs.[5]
+            Stock       = int xs.[6]
+            Reward      = float xs.[7]
+            Gain        = float xs.[8]
+            ParmId      = int xs.[9]
+        }
+        |> Some
+    with ex -> 
+        printfn "%s" ex.Message
+        None
     
-let logE = allRows |> Array.map(fun l -> l.Split(',')) |> Array.map toLogE
+let logE = allRows |> Array.map(fun l -> l.Split(',')) |> Array.choose toLogE
 
 let a1 = logE |> Array.filter(fun e -> e.AgentId=0) |> Seq.groupAdjacent (fun (a,b) -> a.Step < b.Step)
 

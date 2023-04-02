@@ -283,9 +283,13 @@ module Agent =
             let avgPprev = avgPrice prevBar
             let reward  = 
                 if action < 2 then 
-                    (avgP-avgPprev)/avgPprev * s.TradeSize  //buy or sell action
+                    let r1 = (avgP-avgPprev)/avgPprev * s.TradeSize  //buy or sell action
+                    //if r1 < 0.0 then -1.0 else 1.0
+                    r1
                 else 
                     -0.000001 * s.Stock //hold cost
+                    //-0.01
+
             let tPlus1   = s.TimeStep
             let isDone   = env.IsDone (tPlus1 + 1)
             let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
@@ -581,7 +585,7 @@ let parms1 id lr  =
     let exp = {Decay=0.9995; Min=0.01; WarupSteps=5000}
     let DQN = DQN.create model 0.99999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
-        SyncEverySteps = 3000
+        SyncEverySteps = 10000
         BatchSize = 10
         Epochs = 300}
 
@@ -589,7 +593,7 @@ let parms1 id lr  =
 let lrs = [0.00001]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
 let jobs = parms |> List.map (fun x -> startResetRun x)
-let restartJobs = parms |> List.map(fun p -> Policy.loadModel p device |> Option.defaultValue p) |> List.map startReRun
+let restartJobs() = parms |> List.map(fun p -> Policy.loadModel p device |> Option.defaultValue p) |> List.map startReRun
  
 (*
 Test.clearModels()
