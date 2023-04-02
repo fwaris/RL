@@ -33,7 +33,7 @@ val it : seq<seq<string>> = seq [["a"; "a"; "a"]; ["b"]; ["c"; "c"]]
 let folder = @"e:/s/tradestation/logs"
 [folder] |> List.iter(fun d -> if Directory.Exists d |> not then Directory.CreateDirectory d |> ignore)
 
-let allRows =   
+let allRows() =   
     let files = Directory.GetFiles(folder,"*.csv")
     files 
     |> Seq.collect (fun x -> 
@@ -76,9 +76,12 @@ let toLogE (xs:string[]) =
         printfn "%s" ex.Message
         None
     
-let logE = allRows |> Array.map(fun l -> l.Split(',')) |> Array.choose toLogE
+let logE() = allRows() |> Array.map(fun l -> l.Split(',')) |> Array.choose toLogE
 
-let a1 = logE |> Array.filter(fun e -> e.AgentId=0) |> Seq.groupAdjacent (fun (a,b) -> a.Step < b.Step)
+let a1() = logE() |> Array.filter(fun e -> e.AgentId=0) |> Seq.groupAdjacent (fun (a,b) -> a.Step < b.Step)
 
-let abc = [0..a1.Length/10..a1.Length-1] |> List.map (fun i -> a1.[i]) |> List.map(fun xs -> xs |> List.map(fun x->x.Gain) |> Chart.Violin) |> Chart.combine |> Chart.show
+let chart() =
+    let a1 = a1()
+    [0..a1.Length/10..a1.Length-1] |> List.map (fun i -> a1.[i]) |> List.map(fun xs -> xs |> List.map(fun x->x.Gain) |> Chart.Violin) |> Chart.combine |> Chart.show
 
+System.GC.Collect()
