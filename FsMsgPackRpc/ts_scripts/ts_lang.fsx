@@ -13,6 +13,7 @@ open DQN
 open System
 open FSharp.Collections.ParallelSeq
 open SeqUtils
+let FTR_SIZE = 6
 
 type LoggingLevel = Q | L | M | H 
     with  
@@ -80,8 +81,8 @@ type RLState =
                     TimeStep        = 0
                     CashOnHand      = x.InitialCash
                     Stock           = 0
-                    State           = torch.zeros([|x.LookBack;5L|],dtype=Nullable torch.float32)
-                    PrevState       = torch.zeros([|x.LookBack;5L|],dtype=Nullable torch.float32)
+                    State           = torch.zeros([|x.LookBack;FTR_SIZE|],dtype=Nullable torch.float32)
+                    PrevState       = torch.zeros([|x.LookBack;FTR_SIZE|],dtype=Nullable torch.float32)
                 }            
             if verbosity.IsLow then 
                 printfn  $"Reset called {x.AgentId} x={x.Step.ExplorationRate} a={a.Step.ExplorationRate}"
@@ -93,8 +94,8 @@ type RLState =
             {
                 TimeStep         = 0
                 AgentId          = agentId
-                State            = torch.zeros([|lookback;5L|],dtype=Nullable torch.float32)
-                PrevState        = torch.zeros([|lookback;5L|],dtype=Nullable torch.float32)
+                State            = torch.zeros([|lookback;FTR_SIZE|],dtype=Nullable torch.float32)
+                PrevState        = torch.zeros([|lookback;FTR_SIZE|],dtype=Nullable torch.float32)
                 Step             = {ExplorationRate = initExpRate; Num=0}
                 Stock            = 0
                 TradeSize        = 0.0
@@ -270,9 +271,10 @@ module Agent =
         if env.IsDone s.TimeStep then s 
         else                                
             let b =  env.prices.[s.TimeStep]
-            let t1 = torch.tensor([|b.NOpen;b.NHigh;b.NLow;b.NClose;b.NVolume|],dtype=torch.float32)
+            let haveStock = if s.Stock > 0.0 then 1.0 else -1.0
+            let t1 = torch.tensor([|b.NOpen;b.NHigh;b.NLow;b.NClose;b.NVolume; haveStock|],dtype=torch.float32)
             let ts = torch.vstack([|s.State;t1|])
-            let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // 40 x 5             
+            let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // 40 x FTR_SIZE             
             {s with State = ts2; PrevState = s.State}
         
     let computeRewards parms env s action =         
@@ -394,8 +396,9 @@ module Test =
         let s' = 
             (s,dataChunks) 
             ||> Array.fold (fun s bars -> 
-                let inp = bars |> Array.collect (fun b -> [|b.NOpen;b.NHigh;b.NLow;b.NClose;b.NVolume|])
-                use t_inp = torch.tensor(inp,dtype=torch.float32,dimensions=[|1L;40L;5L|])                
+                let haveStock = if s.Stock > 0 then 1.0 else -1.0
+                let inp = bars |> Array.collect (fun b -> [|b.NOpen;b.NHigh;b.NLow;b.NClose;b.NVolume; haveStock|])
+                use t_inp = torch.tensor(inp,dtype=torch.float32,dimensions=[|1L;40L;6L|])                
                 use t_inp = t_inp.``to``(modelDevice)
                 use q = model.forward t_inp
                 let act = q.argmax(-1L).flatten().ToInt32()               
@@ -559,7 +562,7 @@ let parms1 id lr  =
     let nlayers = 2L
 
     let createModel() = 
-        let proj = torch.nn.Linear(5L,emsize)
+        let proj = torch.nn.Linear(FTR_SIZE,emsize)
         let ln = torch.nn.LayerNorm(emsize)
         let pos_encoder = PositionalEncoder.create dropout emsize max_seq
         let encoder_layer = torch.nn.TransformerEncoderLayer(emsize,nheads,emsize,dropout)
@@ -568,13 +571,13 @@ let parms1 id lr  =
         let projOut = torch.nn.Linear(emsize,ACTIONS)
         let initRange = 0.1
         let mdl = 
-            F [] [proj; pos_encoder; transformer_encoder; projOut; ln]  (fun t -> //B x S x 5
+            F [] [proj; pos_encoder; transformer_encoder; projOut; ln]  (fun t -> //B x S x FTR_SIZE
                 use p1 = proj.forward(t) // B x S x emsize
                 use p = ln.forward(p1)
                 use pB2 = p.permute(1,0,2) //batch second - S x B x emsize
                 //use mask = Masks.generateSubsequentMask (t.size().[1]) t.device // S x S
                 use src = pos_encoder.forward(pB2 * sqrtEmbSz) //S x B x emsize
-                use enc = transformer_encoder.forward(src) //S x B x emsize
+                use enc = transformer_encoder.forward(src,null,null) //S x B x emsize
                 use encB = enc.permute(1,0,2)  //batch first  // B x S x emsize
                 use dec = encB.[``:``,LAST,``:``]    //keep last value as output to compare with target - B x emsize
                 let pout = projOut.forward(dec) //B x ACTIONS
@@ -612,7 +615,6 @@ verbosity <- LoggingLevel.H
 verbosity <- LoggingLevel.M
 verbosity <- LoggingLevel.L
 verbosity <- LoggingLevel.Q
-
 Test.runTest()
 
 async {Test.evalModels p1} |> Async.Start

@@ -70,7 +70,7 @@ let transformImage (resp:ImageResponse) =
     use t2 = 255.f.ToScalar() / torch.maximum(torch.ones_like t1, t1)  //inverts distance near is higher; max 'nearness' is 255
     use t3 = t2.reshape(resp.height,resp.width,1)
     use t4 = t3.permute(2,0,1)                                         //HWC -> CHW 
-    torchvision.transforms.Resize(84,84).forward(t4)
+    torchvision.transforms.Resize(84,84).call(t4)
 
 ///compute next state from previous state and 
 ///new observations from the environment

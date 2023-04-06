@@ -37,9 +37,9 @@
     <PackageReference Include="FsPickler" Version="5.3.2" />
     <PackageReference Include="MessagePack.FSharpExtensions" Version="4.0.0" />
     <PackageReference Include="Plotly.NET" Version="4.0.0" />
-    <PackageReference Include="TorchSharp-cuda-windows" Version="0.99.3" />
+    <PackageReference Include="TorchSharp-cuda-windows" Version="0.99.4" />
     <PackageReference Include="TorchSharp.Fun" Version="0.77.0" />
-    <PackageReference Include="TorchVision" Version="0.99.3" />
+    <PackageReference Include="TorchVision" Version="0.99.4" />
   </ItemGroup>
 
   <ItemGroup>
