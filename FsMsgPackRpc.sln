@@ -7,6 +7,8 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsMsgPackRpc", "FsMsgPackRp
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsMsgPackRpcTest", "FsMsgPackRpcTest\FsMsgPackRpcTest.fsproj", "{FD7DBEB7-FE38-4A9B-A9C4-3677D89C3879}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TorchSharp.Fun", "..\TorchSharp.Fun\TorchSharp.Fun\TorchSharp.Fun.fsproj", "{0AB4384F-C170-95DD-0B12-841EEF3A39B2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{FD7DBEB7-FE38-4A9B-A9C4-3677D89C3879}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FD7DBEB7-FE38-4A9B-A9C4-3677D89C3879}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FD7DBEB7-FE38-4A9B-A9C4-3677D89C3879}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0AB4384F-C170-95DD-0B12-841EEF3A39B2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0AB4384F-C170-95DD-0B12-841EEF3A39B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0AB4384F-C170-95DD-0B12-841EEF3A39B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0AB4384F-C170-95DD-0B12-841EEF3A39B2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

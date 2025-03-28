@@ -602,7 +602,7 @@ let restartJobs() = parms |> List.map(fun p -> Policy.loadModel p device |> Opti
 Test.clearModels()
 Data.resetLogs()
 jobs |> Async.Parallel |> Async.Ignore |> Async.Start
-..restartJobs |> Async.Parallel |> Async.Ignore |> Async.Start
+p..restartJobs |> Async.Parallel |> Async.Ignore |> Async.Start
 *)
 
 //Test.clearModels()

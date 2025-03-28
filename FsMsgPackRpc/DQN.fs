@@ -24,7 +24,7 @@ module DQNModel =
 
     let sync models (device:torch.Device) =
         let s1 = models.Online.Module.state_dict() |> Seq.map(fun kv -> kv.Key,kv.Value.cpu()) |> dict |> Collections.Generic.Dictionary
-        let tgtMdl = models.Target.Module.cpu()
+        let tgtMdl = models.Target.Module.cpu(false)
         tgtMdl.load_state_dict(s1) |> ignore        
         tgtMdl.``to``(device) |> ignore
 
@@ -146,8 +146,8 @@ module DQN =
         }
 
     let create model gamma exploration actions (device:torch.Device) =
-        model.Target.Module.to'(device) |> ignore
-        model.Online.Module.to'(device) |> ignore
+        model.Target.Module.``to``(device) |> ignore
+        model.Online.Module.``to``(device) |> ignore
         {
             Model = model
             Exploration = exploration

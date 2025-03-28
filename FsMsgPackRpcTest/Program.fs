@@ -2,6 +2,7 @@
 //#load "../TsData.fs"
 //#load "../RL.fs"
 //open System.Threading.Tasks
+open MathNet.Numerics
 open TorchSharp
 open TorchSharp.Fun
 open TsData
@@ -13,6 +14,12 @@ open DQN
 open System
 open FSharp.Collections.ParallelSeq
 open SeqUtils
+
+let LOOKBACK = 100L
+let TX_COST_CNTRCT = 0.5
+let MAX_TRADE_SIZE = 5.
+let NUM_AGENTS = 5
+let INPUT_DIM = 6L
 
 type LoggingLevel = Q | L | M | H 
     with  
@@ -26,7 +33,7 @@ type Parms =
     {
         LearnRate        : float
         CreateModel      : unit -> IModel                   //need model creation function so that we can load weights from file
-        DQN             : DQN
+        DQN              : DQN
         LossFn           : Loss<torch.Tensor,torch.Tensor,torch.Tensor>
         Opt              : torch.optim.Optimizer
         LearnEverySteps  : int
@@ -80,8 +87,8 @@ type RLState =
                     TimeStep        = 0
                     CashOnHand      = x.InitialCash
                     Stock           = 0
-                    State           = torch.zeros([|x.LookBack;5L|],dtype=Nullable torch.float32)
-                    PrevState       = torch.zeros([|x.LookBack;5L|],dtype=Nullable torch.float32)
+                    State           = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
+                    PrevState       = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                 }            
             if verbosity.IsLow then 
                 printfn  $"Reset called {x.AgentId} x={x.Step.ExplorationRate} a={a.Step.ExplorationRate}"
@@ -89,18 +96,17 @@ type RLState =
 
         static member Default agentId initExpRate initialCash = 
             let expBuff = {DQN.Buffer=RandomAccessList.empty; DQN.Max=50000}
-            let lookback = 40L
             {
                 TimeStep         = 0
                 AgentId          = agentId
-                State            = torch.zeros([|lookback;5L|],dtype=Nullable torch.float32)
-                PrevState        = torch.zeros([|lookback;5L|],dtype=Nullable torch.float32)
+                State            = torch.zeros([|LOOKBACK;INPUT_DIM|],dtype=Nullable torch.float32)
+                PrevState        = torch.zeros([|LOOKBACK;INPUT_DIM|],dtype=Nullable torch.float32)
                 Step             = {ExplorationRate = initExpRate; Num=0}
                 Stock            = 0
                 TradeSize        = 0.0
                 CashOnHand       = initialCash
                 InitialCash      = initialCash
-                LookBack         = lookback
+                LookBack         = LOOKBACK
                 ExpBuff          = expBuff
                 S_reward         = -1.0
                 S_gain           = -1.0
@@ -110,6 +116,8 @@ type RLState =
 
 type NBar =
     {
+        Slope2 : float
+        Slope1 : float
         NOpen  : float 
         NHigh  : float
         NLow   : float
@@ -133,15 +141,12 @@ let data_dir = System.Environment.GetEnvironmentVariable("DATA_DRIVE")
 let root = data_dir @@ @"s\tradestation"
 let fn = root @@ "mes_hist_td2.csv"
 let fnL = File.ReadLines fn |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not) |> Seq.length
-
 let TRAIN_SIZE = float fnL * 0.7 |> int
-let LOOKBACK = 40L
-let TX_COST_CNTRCT = 1.0
-let MAX_TRADE_SIZE = 25.
-let NUM_AGENTS = 5
+
 printfn $"Data size per agent {TRAIN_SIZE / NUM_AGENTS}; [left over {TRAIN_SIZE % NUM_AGENTS}]"
 
 module Data = 
+    let avgPrice bar = 0.5 * (bar.High + bar.Low)        
 
     let isNaN (c:float) = Double.IsNaN c || Double.IsInfinity c
 
@@ -162,12 +167,24 @@ module Data =
                     }
                 d)
             |> Seq.toList
-        let pd = data |> List.pairwise |> List.truncate 100000
+        let pd = data |> List.windowed 200 |> List.truncate 100000
         let pds =
             pd
-            |> List.mapi (fun i (x,y) ->
+            |> List.mapi (fun i xs ->
+                let x = List.last xs
+                let y = xs.[xs.Length - 2]
+                let pts1 = xs |> List.map avgPrice
+                let x1N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(pts1).Normalize(1.0)
+                let y1N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([0 .. pts1.Length]).Normalize(1.0)
+                let pts2 = xs |> List.skip 100 |> List.map avgPrice
+                let y2N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(pts2).Normalize(1.0)
+                let x2N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([0 .. pts2.Length]).Normalize(1.0)
+                let struct(_,s1) = LinearRegression.SimpleRegression.Fit(Seq.zip x1N y1N) 
+                let struct(_,s2) = LinearRegression.SimpleRegression.Fit(Seq.zip x2N y2N)                    
                 let d =
                     {
+                        Slope1 = s1
+                        Slope2 = s2
                         NOpen = log(y.Open/x.Open) |> max -18. //- 1.0
                         NHigh = log(y.High/x.High) |> max -18. //- 1.0
                         NLow =  log(y.Low/x.Low)   |> max -18. //- 1.0
@@ -270,7 +287,7 @@ module Agent =
         if env.IsDone s.TimeStep then s 
         else                                
             let b =  env.prices.[s.TimeStep]
-            let t1 = torch.tensor([|b.NOpen;b.NHigh;b.NLow;b.NClose;b.NVolume|],dtype=torch.float32)
+            let t1 = torch.tensor([|b.Slope1;b.Slope2;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
             let ts = torch.vstack([|s.State;t1|])
             let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // 40 x 5             
             {s with State = ts2; PrevState = s.State}
@@ -342,14 +359,19 @@ module Policy =
         Directory.GetFiles(dir,$"model_{parms.RunId}*") |> Seq.sortByDescending (fun f -> (FileInfo f).LastWriteTime) |> Seq.tryHead
         |> Option.map(fun fn ->
             let mdl  = DQN.DQNModel.load parms.CreateModel fn                        
-            mdl.Online.to'(device)
-            mdl.Target.to'(device)
+            mdl.Online.Module.``to``(device) |> ignore
+            mdl.Target.Module.``to``(device) |> ignore
             let dqn = {parms.DQN with Model = mdl; }
             {parms with DQN = dqn})
+
+    let ensurDirForFilePath (file:string) = 
+        let dir = Path.GetDirectoryName(file)
+        if dir |> Directory.Exists |> not then Directory.CreateDirectory(dir) |> ignore
 
     let syncModel parms s = 
         DQNModel.sync parms.DQN.Model parms.DQN.Device
         let fn = root @@ "models" @@ $"model_{parms.RunId}_{s.Episode}_{s.Step.Num}.bin"
+        ensurDirForFilePath fn
         DQNModel.save fn parms.DQN.Model 
         if verbosity.IsLow then printfn "Synced"
 
@@ -390,8 +412,9 @@ module Test =
         let s' = 
             (s,dataChunks) 
             ||> Array.fold (fun s bars -> 
-                let inp = bars |> Array.collect (fun b -> [|b.NOpen;b.NHigh;b.NLow;b.NClose;b.NVolume|])
-                use t_inp = torch.tensor(inp,dtype=torch.float32,dimensions=[|1L;40L;5L|])                
+                let inp = bars |> Array.collect (fun b -> [|b.Slope1;b.Slope2;b.NOpen;b.NHigh;b.NLow;b.NClose|])
+                
+                use t_inp = torch.tensor(inp,dimensions=ReadOnlySpan [|1L;40L;INPUT_DIM|], dtype=torch.float32)
                 use t_inp = t_inp.``to``(modelDevice)
                 use q = model.forward t_inp
                 let act = q.argmax(-1L).flatten().ToInt32()               
@@ -460,8 +483,10 @@ module Test =
         evalModel parms interimModel
 
     let clearModels() = 
-        root @@ "models" |> Directory.GetFiles |> Seq.iter File.Delete
-        root @@ "models_eval" |> Directory.GetFiles |> Seq.iter File.Delete
+        let mdir = root @@ "models"
+        let edir = root @@ "models_eval"
+        if Directory.Exists mdir then mdir |> Directory.GetFiles |> Seq.iter File.Delete
+        if Directory.Exists edir then edir |> Directory.GetFiles |> Seq.iter File.Delete
 
 let markets = Data.trainSets |> Array.map (fun brs -> {prices=brs})
 
@@ -551,11 +576,11 @@ let parms1 id lr  =
     let nlayers = 2L
 
     let createModel() = 
-        let proj = torch.nn.Linear(5L,emsize)
+        let proj = torch.nn.Linear(INPUT_DIM,emsize)
         let ln = torch.nn.LayerNorm(emsize)
         let pos_encoder = PositionalEncoder.create dropout emsize max_seq
         let encoder_layer = torch.nn.TransformerEncoderLayer(emsize,nheads,emsize,dropout)
-        let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)
+        let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)        
         let sqrtEmbSz = (sqrt (float emsize)).ToScalar()
         let projOut = torch.nn.Linear(emsize,ACTIONS)
         let initRange = 0.1
@@ -566,7 +591,7 @@ let parms1 id lr  =
                 use pB2 = p.permute(1,0,2) //batch second - S x B x emsize
                 //use mask = Masks.generateSubsequentMask (t.size().[1]) t.device // S x S
                 use src = pos_encoder.forward(pB2 * sqrtEmbSz) //S x B x emsize
-                use enc = transformer_encoder.forward(src) //S x B x emsize
+                use enc = transformer_encoder.call(src) //S x B x emsize
                 use encB = enc.permute(1,0,2)  //batch first  // B x S x emsize
                 use dec = encB.[``:``,LAST,``:``]    //keep last value as output to compare with target - B x emsize
                 let pout = projOut.forward(dec) //B x ACTIONS

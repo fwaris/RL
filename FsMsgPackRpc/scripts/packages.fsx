@@ -11,8 +11,8 @@
 
 #load "../SeqUtils.fs"
 #load "../FsMsgPackRpc.fs"
-#load "../AirSimCar.fs"
-#load "../CarEnvironment.fs"
+//#load "../AirSimCar.fs"
+//#load "../CarEnvironment.fs"
 #load "../DQN.fs"
 
 open System

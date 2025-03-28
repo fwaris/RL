@@ -80,8 +80,82 @@ let logE() = allRows() |> Array.map(fun l -> l.Split(',')) |> Array.choose toLog
 
 let a1() = logE() |> Array.filter(fun e -> e.AgentId=0) |> Seq.groupAdjacent (fun (a,b) -> a.Step < b.Step)
 
-let chart() =
+let genChart everyNth (f:LogE->float) =
     let a1 = a1()
-    [0..a1.Length/10..a1.Length-1] |> List.map (fun i -> a1.[i]) |> List.map(fun xs -> xs |> List.map(fun x->x.Gain) |> Chart.Violin) |> Chart.combine |> Chart.show
+    printfn $"Len {a1.Length}"
+    [0..a1.Length/everyNth..a1.Length-1] 
+    |> List.map (fun i -> a1.[i]) 
+    |> List.map(fun xs -> xs |> List.map f |> Chart.Violin) 
+    |> Chart.combine 
+    |> Chart.withTitle $"F distribution over epochs every {everyNth} episode"
+    |> Chart.show
+    
+
+let gainsChart everyNth =
+    let a1 = a1()
+    a1.Length
+    [0..a1.Length/everyNth..a1.Length-1] 
+    |> List.map (fun i -> a1.[i]) 
+    |> List.map(fun xs -> xs |> List.map(fun x->x.Gain) |> Chart.Violin) 
+    |> Chart.combine 
+    |> Chart.withTitle $"Pct gain distribution over epochs every {everyNth} episode"
+    |> Chart.show
+
+let cashOnHandChart everyNth =
+    let a1 = a1()
+    [0..a1.Length/everyNth..a1.Length-1] 
+    |> List.map (fun i -> a1.[i]) 
+    |> List.map(fun xs -> xs |> List.map(fun x->x.Cash) |> Chart.Violin) 
+    |> Chart.combine 
+    |> Chart.withTitle $"Cash onhand distribution over epochs every {everyNth} episode"
+    |> Chart.show
+   
 
 System.GC.Collect()
+
+let actionChart everyNth =
+    let a1 = a1()
+    [0..a1.Length/everyNth..a1.Length-1] 
+    |> List.map (fun i -> a1.[i]) 
+    |> List.map(fun xs -> xs |> List.map(fun x->x.Action) |> Chart.Violin) 
+    |> Chart.combine 
+    |> Chart.withTitle $"Action distribution 0=Buy, 1=Sell, 2=Hold: every {everyNth} episode"
+    |> Chart.show   
+
+let actionVsChart everyNth (f:LogE->float) =    
+    let a1 = a1()
+    [0..a1.Length/everyNth..a1.Length-1] 
+    |> List.map (fun i -> a1.[i]) 
+    |> List.map(fun xs -> Chart.Histogram2D (xs |> List.map(fun x->x.Action), xs |> List.map f))
+    |> Chart.combine 
+    |> Chart.withTitle $"Action vs X 0=Buy, 1=Sell, 2=Hold: every {everyNth} episode"
+    |> Chart.show   
+
+(*
+gainsChart 1
+actionChart 1
+cashOnHandChart 1
+*)
+
+genChart 1 (fun x->float x.Stock)
+genChart 1 (fun x->float x.Reward)
+genChart 1 (fun x->float x.Price)
+actionVsChart 1 (fun x->x.Price)
+actionVsChart 1 (fun x->x.Reward)
+let logs = a1()
+logs |> List.sumBy _.Length
+(List.head logs)
+let ag1 = logE() |> Array.filter (fun x -> x.AgentId = 1 && x.Episode=10) 
+ag1.Length
+ag1 |> Seq.map _.Reward |> Seq.indexed |> Chart.Line |> Chart.show
+[
+ag1 |> Seq.map _.Cash |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo "Cash"
+ag1 |> Seq.mapi (fun i x -> i, float x.Stock * x.Price) |> Chart.Line |> Chart.withTraceInfo "Stock"
+]
+|> Chart.combine |> Chart.show
+
+ag1 |> Seq.map _.Gain |> Seq.indexed |> Chart.Line |> Chart.show
+ag1 |> Seq.map _.Action |> Seq.indexed |> Chart.Line |> Chart.show
+ag1 |> Seq.mapi (fun i x->i,x.Cash + (float x.Stock * x.Price)) |> Chart.Line |> Chart.show
+
+
