@@ -137,6 +137,20 @@ actionChart 1
 cashOnHandChart 1
 *)
 
+let plotGain() = 
+    let ag1 = logE()
+    let ep = 
+        ag1 
+        |> Array.countBy _.Episode 
+        |> Array.sortByDescending  (fun (x,c) -> c,x) 
+        |> Seq.head 
+        |> fst
+    let ag1 = logE() |> Array.filter (fun x -> x.AgentId = 1 && x.Episode=ep)
+    printfn $"Data length :{ag1.Length}"    
+    ag1 |> Seq.map _.Gain  |> Seq.indexed |> Chart.Line |> Chart.withTitle $"Gain ep: {ep}"
+    |> Chart.show
+plotGain()
+
 genChart 1 (fun x->float x.Stock)
 genChart 1 (fun x->float x.Reward)
 genChart 1 (fun x->float x.Price)
@@ -145,24 +159,22 @@ actionVsChart 1 (fun x->x.Reward)
 let logs = a1()
 logs |> List.sumBy _.Length
 (List.head logs)
-let ag1 = logE() |> Array.filter (fun x -> x.AgentId = 2 && x.Episode=27) 
-ag1.Length
-ag1 |> Seq.map _.Reward |> Seq.indexed |> Chart.Line |> Chart.show
-ag1 |> Seq.map _.Gain |> Seq.indexed |> Chart.Line |> Chart.show
 
-[
-ag1 |> Seq.map _.Cash |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo "Cash"
-ag1 |> Seq.mapi (fun i x -> i, float x.Stock * x.Price) |> Chart.Line |> Chart.withTraceInfo "Stock"
-]
-|> Chart.combine |> Chart.show
+let testPlots() = 
+    let ag1 = logE()
+    [
+    ag1 |> Seq.map _.Cash |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo "Cash"
+    ag1 |> Seq.mapi (fun i x -> i, float x.Stock * x.Price) |> Chart.Line |> Chart.withTraceInfo "Stock"
+    ]
+    |> Chart.combine |> Chart.show
 
-[
-ag1 |> Seq.map (fun x -> if x.Action=0 then 1 else 0) |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo "buy"
-ag1 |> Seq.map (fun x -> if x.Action=1 then 1 else 0) |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo "sell"
-ag1 |> Seq.map (fun x -> if x.Action=2 then 1 else 0) |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo "hold"
-]
-|> Chart.combine |> Chart.show
+    [
+    ag1 |> Seq.map (fun x -> if x.Action=0 then 1 else 0) |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo "buy"
+    ag1 |> Seq.map (fun x -> if x.Action=1 then 1 else 0) |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo "sell"
+    ag1 |> Seq.map (fun x -> if x.Action=2 then 1 else 0) |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo "hold"
+    ]
+    |> Chart.combine |> Chart.show
 
-ag1 |> Seq.mapi (fun i x->i,x.Cash + (float x.Stock * x.Price)) |> Chart.Line |> Chart.show
+    ag1 |> Seq.mapi (fun i x->i,x.Cash + (float x.Stock * x.Price)) |> Chart.Line |> Chart.show
 
 
