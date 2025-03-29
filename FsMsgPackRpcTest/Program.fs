@@ -550,7 +550,7 @@ let runAgents parms p ms =
         ms' 
         |> List.tryHead 
         |> Option.iter(fun (_,r0) -> 
-                if r0.Step.Num % 10 = 0 then
+                if r0.Episode % 5 = 0 then
                     Test.evalModel parms "current" parms.DQN.Model.Online |> ignore) 
         let ms'' = ms' |> List.map (fun (m,s) -> m, RLState.Reset s)
         ms'')
