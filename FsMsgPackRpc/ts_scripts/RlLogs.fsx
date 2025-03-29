@@ -30,7 +30,8 @@ module Seq =
 ["a"; "a"; "a"; "b"; "c"; "c"] |> Seq.groupAdjacent (fun (a,b)->a=b)
 val it : seq<seq<string>> = seq [["a"; "a"; "a"]; ["b"]; ["c"; "c"]]
 *)
-let folder = @"e:/s/tradestation/logs"
+let dataDrive = Environment.GetEnvironmentVariable("DATA_DRIVE")
+let folder = @$"{dataDrive}/s/tradestation/logs"
 [folder] |> List.iter(fun d -> if Directory.Exists d |> not then Directory.CreateDirectory d |> ignore)
 
 let allRows() =   
@@ -149,16 +150,18 @@ let plotGain() =
     printfn $"Data length :{ag1.Length}"    
     ag1 |> Seq.map _.Gain  |> Seq.indexed |> Chart.Line |> Chart.withTitle $"Gain ep: {ep}"
     |> Chart.show
-plotGain()
 
-genChart 1 (fun x->float x.Stock)
-genChart 1 (fun x->float x.Reward)
-genChart 1 (fun x->float x.Price)
-actionVsChart 1 (fun x->x.Price)
-actionVsChart 1 (fun x->x.Reward)
-let logs = a1()
-logs |> List.sumBy _.Length
-(List.head logs)
+let test2() =
+    plotGain()
+
+    genChart 1 (fun x->float x.Stock)
+    genChart 1 (fun x->float x.Reward)
+    genChart 1 (fun x->float x.Price)
+    actionVsChart 1 (fun x->x.Price)
+    actionVsChart 1 (fun x->x.Reward)
+    let logs = a1()
+    logs |> List.sumBy _.Length
+    (List.head logs)
 
 let testPlots() = 
     let ag1 = logE()
