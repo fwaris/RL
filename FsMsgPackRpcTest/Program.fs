@@ -18,7 +18,7 @@ open SeqUtils
 let LOOKBACK = 100L
 let TX_COST_CNTRCT = 0.5
 let MAX_TRADE_SIZE = 5.
-let NUM_AGENTS = 10
+let NUM_AGENTS = 5L
 let INPUT_DIM = 6L
 
 type LoggingLevel = Q | L | M | H 
@@ -143,7 +143,7 @@ let fn = root @@ "mes_hist_td2.csv"
 let fnL = File.ReadLines fn |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not) |> Seq.length
 let TRAIN_SIZE = float fnL * 0.7 |> int
 
-printfn $"Data size per agent {TRAIN_SIZE / NUM_AGENTS}; [left over {TRAIN_SIZE % NUM_AGENTS}]"
+printfn $"Data size per agent {TRAIN_SIZE / int NUM_AGENTS}; [left over {TRAIN_SIZE % int NUM_AGENTS}]"
 
 module Data = 
     let avgPrice bar = 0.5 * (bar.High + bar.Low)        
@@ -209,7 +209,7 @@ module Data =
 
     let trainSets = 
         let baseChunks =
-            let chks = data |> Array.chunkBySize (data.Length / NUM_AGENTS)        
+            let chks = data |> Array.chunkBySize (data.Length / int NUM_AGENTS)        
             let sizes = chks |> Array.map (fun x->x.Length) |> Array.distinct
             if sizes.Length > 1 then 
                 let ls = chks.Length    
