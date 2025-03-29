@@ -18,7 +18,7 @@ open SeqUtils
 let LOOKBACK = 100L
 let TX_COST_CNTRCT = 0.5
 let MAX_TRADE_SIZE = 5.
-let NUM_AGENTS = 5
+let NUM_AGENTS = 20
 let INPUT_DIM = 6L
 
 type LoggingLevel = Q | L | M | H 
@@ -167,7 +167,7 @@ module Data =
                     }
                 d)
             |> Seq.toList
-        let pd = data |> List.windowed 200 |> List.truncate 100000
+        let pd = data |> List.windowed 200 //|> List.truncate (100000 * 4)
         let pds =
             pd
             |> List.mapi (fun i xs ->
@@ -353,9 +353,16 @@ module Policy =
             let t_td_tgt = Tensor.getDataNested<float32> td_tgt
             ()
         loss
+    let ensureDirForFilePath (file:string) = 
+        let dir = Path.GetDirectoryName(file)
+        if dir |> Directory.Exists |> not then Directory.CreateDirectory(dir) |> ignore
+
+    let ensureDir (dir:string) = 
+       if Directory.Exists dir |> not then Directory.CreateDirectory(dir) |> ignore
 
     let loadModel parms (device:torch.Device) =
         let dir = root @@ "models_restart"
+        ensureDir dir
         Directory.GetFiles(dir,$"model_{parms.RunId}*") |> Seq.sortByDescending (fun f -> (FileInfo f).LastWriteTime) |> Seq.tryHead
         |> Option.map(fun fn ->
             let mdl  = DQN.DQNModel.load parms.CreateModel fn                        
@@ -364,14 +371,11 @@ module Policy =
             let dqn = {parms.DQN with Model = mdl; }
             {parms with DQN = dqn})
 
-    let ensurDirForFilePath (file:string) = 
-        let dir = Path.GetDirectoryName(file)
-        if dir |> Directory.Exists |> not then Directory.CreateDirectory(dir) |> ignore
 
     let syncModel parms s = 
         DQNModel.sync parms.DQN.Model parms.DQN.Device
         let fn = root @@ "models" @@ $"model_{parms.RunId}_{s.Episode}_{s.Step.Num}.bin"
-        ensurDirForFilePath fn
+        ensureDirForFilePath fn
         DQNModel.save fn parms.DQN.Model 
         if verbosity.IsLow then printfn "Synced"
 

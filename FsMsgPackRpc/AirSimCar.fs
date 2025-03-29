@@ -120,7 +120,7 @@ type CarState =
         timestamp : uint64
     }
 
-[<MessagePackObject>]
+//[<MessagePackObject>]
 type ImageType = 
     | Scene = 0
     | DepthPlanar = 1

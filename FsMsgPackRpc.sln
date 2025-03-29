@@ -7,8 +7,6 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsMsgPackRpc", "FsMsgPackRp
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "FsMsgPackRpcTest", "FsMsgPackRpcTest\FsMsgPackRpcTest.fsproj", "{FD7DBEB7-FE38-4A9B-A9C4-3677D89C3879}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TorchSharp.Fun", "..\TorchSharp.Fun\TorchSharp.Fun\TorchSharp.Fun.fsproj", "{0AB4384F-C170-95DD-0B12-841EEF3A39B2}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
