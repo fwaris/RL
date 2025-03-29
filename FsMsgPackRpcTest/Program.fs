@@ -18,7 +18,7 @@ open SeqUtils
 let LOOKBACK = 100L
 let TX_COST_CNTRCT = 0.5
 let MAX_TRADE_SIZE = 5.
-let NUM_AGENTS = 20
+let NUM_AGENTS = 10
 let INPUT_DIM = 6L
 
 type LoggingLevel = Q | L | M | H 
@@ -150,6 +150,9 @@ module Data =
 
     let isNaN (c:float) = Double.IsNaN c || Double.IsInfinity c
 
+    let clipSlope (x:float) = 
+        max -5.0 (min 5.0 x) //clip slope to [-5,5]
+
     let loadData() = 
         let data =
             File.ReadLines fn
@@ -183,8 +186,8 @@ module Data =
                 let struct(_,s2) = LinearRegression.SimpleRegression.Fit(Seq.zip x2N y2N)                    
                 let d =
                     {
-                        Slope1 = s1
-                        Slope2 = s2
+                        Slope1 = clipSlope s1
+                        Slope2 = clipSlope s2
                         NOpen = log(y.Open/x.Open) |> max -18. //- 1.0
                         NHigh = log(y.High/x.High) |> max -18. //- 1.0
                         NLow =  log(y.Low/x.Low)   |> max -18. //- 1.0
@@ -248,12 +251,12 @@ module Data =
 module Agent = 
     open DQN
     let bar (env:Market) t = if t < env.prices.Length && t >= 0 then env.prices.[t] |> Some else None
-    let avgPrice bar = 0.5 * (bar.Bar.High + bar.Bar.Low)        
+    
 
     let buy (env:Market) (s:RLState) = 
         bar env s.TimeStep
-        |> Option.map (fun bar -> 
-            let avgP = avgPrice bar
+        |> Option.map (fun nbar -> 
+            let avgP = Data.avgPrice nbar.Bar
             let priceWithCost = avgP + TX_COST_CNTRCT
             let stockToBuy = s.CashOnHand / priceWithCost |> floor |> max 0. |> min MAX_TRADE_SIZE
             let outlay = stockToBuy * priceWithCost
@@ -265,8 +268,8 @@ module Agent =
 
     let sell (env:Market) (s:RLState) =
         bar env s.TimeStep
-        |> Option.map (fun bar -> 
-            let avgP = avgPrice bar
+        |> Option.map (fun nbar -> 
+            let avgP = Data.avgPrice nbar.Bar
             let priceWithCost = avgP - TX_COST_CNTRCT
             let stockToSell = s.Stock |> min MAX_TRADE_SIZE
             let inlay = stockToSell * priceWithCost
@@ -296,8 +299,8 @@ module Agent =
         bar env s.TimeStep
         |> Option.bind (fun cBar -> bar env (s.TimeStep-1) |> Option.map (fun pBar -> pBar,cBar))
         |> Option.map (fun (prevBar,bar) -> 
-            let avgP     = avgPrice  bar            
-            let avgPprev = avgPrice prevBar
+            let avgP     = Data.avgPrice  bar.Bar            
+            let avgPprev = Data.avgPrice prevBar.Bar
             let reward  = 
                 if action < 2 then 
                     (avgP-avgPprev)/avgPprev * s.TradeSize  //buy or sell action
@@ -326,9 +329,9 @@ module Agent =
 module Policy =
 
     let updateQ parms (losses:torch.Tensor []) =        
-        parms.Opt.zero_grad()
         let losseD = losses |> Array.map (fun l -> l.backward(); l.ToDouble())
-        let prms = parms.DQN.Model.Online.Module.parameters()
+        parms.Opt.zero_grad()
+        //let prms = parms.DQN.Model.Online.Module.parameters()
         //torch.nn.utils.clip_grad_norm_(prms,10.0) |> ignore
         use t = parms.Opt.step() 
         let avgLoss = losseD |> Array.average
@@ -418,9 +421,9 @@ module Test =
             ||> Array.fold (fun s bars -> 
                 let inp = bars |> Array.collect (fun b -> [|b.Slope1;b.Slope2;b.NOpen;b.NHigh;b.NLow;b.NClose|])
                 
-                use t_inp = torch.tensor(inp,dimensions=ReadOnlySpan [|1L;40L;INPUT_DIM|], dtype=torch.float32)
-                use t_inp = t_inp.``to``(modelDevice)
-                use q = model.forward t_inp
+                use d_inp = torch.tensor(inp,dimensions=ReadOnlySpan [|1L;40L;INPUT_DIM|], dtype=torch.float32)
+                use d_inp = d_inp.``to``(modelDevice)
+                use q = model.forward d_inp
                 let act = q.argmax(-1L).flatten().ToInt32()               
                 let s = 
                     match act with
@@ -430,7 +433,7 @@ module Test =
                 //printfn $" {s.TimeStep} act: {act}, cash:{s.CashOnHand}, stock:{s.Stock}"
                 {s with TimeStep = s.TimeStep + 1})
 
-        let avgP1 = Agent.avgPrice (Array.last data)
+        let avgP1 = Data.avgPrice (Array.last data).Bar
         let sGain = ((avgP1 * float s'.Stock + s'.CashOnHand) - s'.InitialCash) / s'.InitialCash
         let adjGain = sGain /  float data.Length * float refLen
         adjGain

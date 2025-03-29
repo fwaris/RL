@@ -41,6 +41,8 @@
     <PackageReference Include="TorchSharp-cuda-windows" Version="0.105.0" />
     <PackageReference Include="TorchSharp.Fun" Version="0.90.1" />
     <PackageReference Include="TorchVision" Version="0.105.0" />
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+
   </ItemGroup>
 
   <!--<ItemGroup>

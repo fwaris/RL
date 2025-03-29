@@ -175,23 +175,41 @@ module DQN =
 
     let td_estimate (state:torch.Tensor) (actions:int[]) ddqn =
         use q = ddqn.Model.Online.forward(state)                         //value of each available action (when taken from the give state)
-        let idx = actionIdx (torch.tensor(actions,dtype=torch.int64))    //index of action actually taken 
-        q.index(idx)                                                     //value of taken action
+        let idx = actionIdx (torch.tensor(actions,dtype=torch.int64))         //index of action actually taken         
+        let idx = q.index(idx)                                                //value of taken action
+
+        if false then //set to true to debug
+            let t_state = Tensor.getDataNested<float32> state
+            let t_q = Tensor.getDataNested<float32> q
+            let t_idx = Tensor.getDataNested<float32> idx
+            ()
+            
+        idx
+    
 
     let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) ddqn =
         use t = torch.no_grad()                              //turn off gradient calculation
         use q_online = ddqn.Model.Online.forward(next_state) //online model estimate of value (from next state)
         use best_action = q_online.argmax(1L)                //optimum value action from online
+
         let idx = actionIdx best_action                      //index of optimum value action
 
         use q_target      = ddqn.Model.Target.forward(next_state) //target model estimates of value (from next state)
         use q_target_best = q_target.index(idx)                   //value of best action according to target model 
                                                                   //where the 'best action' is determined by the online model
 
-        use t_reward = torch.tensor(reward).``to``(ddqn.Device)  //reward to device (cpu/gpu)
-        use t_isDone = torch.tensor(isDone).``to``(ddqn.Device)  //was episode done?
-        use t_isDoneF = t_isDone.float()                         //convert boolean to float32
-        use ret = t_reward + (1.0f.ToScalar() -  t_isDoneF) * ddqn.Gamma.ToScalar() * q_target_best //reward + discounted value
+        use d_reward = torch.tensor(reward).``to``(ddqn.Device)  //reward to device (cpu/gpu)
+        use d_isDone = torch.tensor(isDone).``to``(ddqn.Device)  //was episode done?
+        use d_isDoneF = d_isDone.float()                         //convert boolean to float32
+        use ret = d_reward + (1.0f.ToScalar() -  d_isDoneF) * ddqn.Gamma.ToScalar() * q_target_best //reward + discounted value
+
+        if false then //set to true to debug
+            let t_q_online = Tensor.getDataNested<float32> q_online
+            let t_best_action = Tensor.getDataNested<int64> best_action
+            let t_q_target_best = Tensor.getDataNested<float32> q_target_best
+            let t_ret = Tensor.getDataNested<float32> ret
+            ()
+
         ret.float()                                                                                 //convert to float32
 
 
