@@ -147,11 +147,12 @@ let plotGain() =
         |> fst
     printfn $"Data length :{ag1.Length}"    
     [
-        for a in (ag1 |> Array.distinctBy _.AgentId) do
-            let ag1 = ag1 |> Array.filter (fun x -> x.AgentId = a.AgentId && x.Episode=ep)
-            ag1 |> Seq.map _.Gain  |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo $"{a.AgentId}"
+        for a in (ag1 |> Array.distinctBy (fun a -> a.ParmId,a.AgentId)) do
+            let ag1 = ag1 |> Array.filter (fun x -> x.AgentId = a.AgentId && x.Episode=ep && x.ParmId = a.ParmId )
+            ag1 |> Seq.map _.Gain  |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo $"{a.ParmId}-{a.AgentId}"
     ]
     |> Chart.combine
+    |> Chart.withYAxisStyle(MinMax=(-0.1,+0.1))
     |> Chart.withTitle $"Gain ep: {ep}"
     |> Chart.show
     // let ag1 = logE() |> Array.filter (fun x -> x.AgentId = 1 && x.Episode=ep)
