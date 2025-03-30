@@ -151,7 +151,8 @@ module Data =
     let isNaN (c:float) = Double.IsNaN c || Double.IsInfinity c
 
     let clipSlope (x:float) = 
-        max -5.0 (min 5.0 x) //clip slope to [-5,5]
+        tanh (x/5.0)
+        //max -5.0 (min 5.0 x) //clip slope to [-5,5]
 
     let loadData() = 
         let data =
@@ -575,12 +576,12 @@ let startReRun parms =
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)
     }
 
-let parms1 id lr  = 
+let parms1 id (lr,layers)  = 
     let emsize = 32
     let dropout = 0.1
     let max_seq = LOOKBACK
     let nheads = 4
-    let nlayers = 2L
+    let nlayers = layers
 
     let createModel() = 
         let proj = torch.nn.Linear(INPUT_DIM,emsize)
@@ -614,7 +615,7 @@ let parms1 id lr  =
         Epochs = 200}
 
 
-let lrs = [0.00001]///; 0.0001; 0.0002; 0.00001]
+let lrs = [0.00001,3L; 0.0001,4L]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
 let jobs = parms |> List.map (fun x -> startResetRun x)
 let restartJobs = parms |> List.map(fun p -> Policy.loadModel p device |> Option.defaultValue p) |> List.map startReRun
