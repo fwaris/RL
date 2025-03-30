@@ -18,7 +18,7 @@ open SeqUtils
 let LOOKBACK = 100L
 let TX_COST_CNTRCT = 0.5
 let MAX_TRADE_SIZE = 5.
-let NUM_AGENTS = 5L
+let NUM_AGENTS = 10L
 let INPUT_DIM = 6L
 
 type LoggingLevel = Q | L | M | H 

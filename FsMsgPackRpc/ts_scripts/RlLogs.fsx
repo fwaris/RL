@@ -112,7 +112,6 @@ let cashOnHandChart everyNth =
     |> Chart.show
    
 
-System.GC.Collect()
 
 let actionChart everyNth =
     let a1 = a1()
@@ -191,4 +190,5 @@ let testPlots() =
 
 (*
 plotGain()
+System.GC.Collect()
 *)
