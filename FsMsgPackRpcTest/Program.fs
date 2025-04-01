@@ -12,6 +12,7 @@ open System.IO
 open Plotly.NET
 open DQN
 open System
+
 open FSharp.Collections.ParallelSeq
 open SeqUtils
 
@@ -19,8 +20,8 @@ let TREND_WINDOW = 40L
 let REWARD_HORIZON_BARS = 10
 let LOOKBACK = 10L
 let TX_COST_CNTRCT = 0.5
-let MAX_TRADE_SIZE = 5.
-let EPISODE_LENGTH = 336
+let MAX_TRADE_SIZE = 25.
+let EPISODE_LENGTH = 336*4
 let INPUT_DIM = 6L
 
 type LoggingLevel = Q | L | M | H 
@@ -324,12 +325,12 @@ module Agent =
         bar env s.TimeStep
         |> Option.map (fun cBar -> 
             let avgP     = Data.avgPrice  cBar.Bar
-            let futurePrices = [s.TimeStep+1 .. s.TimeStep+5] |> List.choose (bar env) |> List.map _.Bar |> List.map Data.avgPrice
+            let futurePrices = [s.TimeStep+1 .. s.TimeStep + REWARD_HORIZON_BARS] |> List.choose (bar env) |> List.map _.Bar |> List.map Data.avgPrice
             let intermediateReward = 
                 if action = 0 && futurePrices |> List.exists (fun p -> p >= avgP + TX_COST_CNTRCT) then
-                    0.01
+                    0.001
                 elif action = 1 && futurePrices |> List.exists (fun p -> p <= avgP - TX_COST_CNTRCT) then
-                    -0.01
+                    -0.001
                 else
                     -0.0001
             let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
@@ -676,7 +677,7 @@ let parms1 id (lr,layers)  =
         Epochs = 200}
 
 
-let lrs = [0.0001,3L; 0.0001,4L]///; 0.0001; 0.0002; 0.00001]
+let lrs = [0.001,6L; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
 let jobs = parms |> List.map (fun x -> startResetRun x)
 let restartJobs = parms |> List.map(fun p -> Policy.loadModel p device |> Option.defaultValue p) |> List.map startReRun
