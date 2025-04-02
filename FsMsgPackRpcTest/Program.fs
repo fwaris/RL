@@ -12,17 +12,23 @@ open System.IO
 open Plotly.NET
 open DQN
 open System
-
 open FSharp.Collections.ParallelSeq
 open SeqUtils
+let ( @@ ) a b = Path.Combine(a,b)
 
-let TREND_WINDOW = 40L
+let TREND_WINDOW = 20L
 let REWARD_HORIZON_BARS = 10
-let LOOKBACK = 10L
+let LOOKBACK = 30L
 let TX_COST_CNTRCT = 0.5
 let MAX_TRADE_SIZE = 25.
-let EPISODE_LENGTH = 336*4
+let EPISODE_LENGTH = 336 //*4
 let INPUT_DIM = 6L
+let TRAIN_FRAC = 0.7
+let ACTIONS = 3 //0,1,2 - buy, sell, hold
+let device = if torch.cuda_is_available() then torch.CUDA else torch.CPU
+let data_dir = System.Environment.GetEnvironmentVariable("DATA_DRIVE")
+let root = data_dir @@ @"s\tradestation"
+let INPUT_FILE = root @@ "mes_hist_td2.csv"
 
 type LoggingLevel = Q | L | M | H 
     with  
@@ -80,6 +86,8 @@ type RLState =
         S_gain           : float
         Episode          : int
         AvgLoss          : float
+        Actions          : ActionResult list
+        IsDone           : bool
     }
     with 
         ///reset for new episode
@@ -92,6 +100,7 @@ type RLState =
                     Stock           = 0
                     State           = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                     PrevState       = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
+                    Actions         = []
                 }            
             if verbosity.IsLow then 
                 printfn  $"Reset called {x.AgentId} x={x.Step.ExplorationRate} a={a.Step.ExplorationRate}"
@@ -115,6 +124,8 @@ type RLState =
                 S_gain           = -1.0
                 Episode          = 0
                 AvgLoss          = 0.0
+                IsDone           = false
+                Actions          = []
             }
 
 type NBar =
@@ -142,20 +153,8 @@ type MarketSlice = {Market:Prices; StartIndex:int; EndIndex:int}
         member this.LastBar = this.Market.prices.[this.EndIndex]
         member this.Length = this.EndIndex - this.StartIndex + 1
 
-type StepResult = {Market:MarketSlice; Rl:RLState; Action_Done_Reward:(int*bool*float); AgentDone:bool}
+type StepResult = {Market:MarketSlice; Rl:RLState; ActionResult:ActionResult}
 
-let device = if torch.cuda_is_available() then torch.CUDA else torch.CPU
-let ACTIONS = 3 //0,1,2 - buy, sell, hold
-let ( @@ ) a b = Path.Combine(a,b)
-let data_dir = System.Environment.GetEnvironmentVariable("DATA_DRIVE")
-
-let root = data_dir @@ @"s\tradestation"
-let fn = root @@ "mes_hist_td2.csv"
-let fnL = File.ReadLines fn |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not) |> Seq.length
-let TRAIN_SIZE = float fnL * 0.7 |> int
-let NUM_AGENTS = TRAIN_SIZE / EPISODE_LENGTH
-
-printfn $"Episode size {EPISODE_LENGTH} * agents {NUM_AGENTS}; [left over {TRAIN_SIZE % int NUM_AGENTS}]"
 
 module Data = 
     let avgPrice bar = 0.5 * (bar.High + bar.Low)        
@@ -168,7 +167,7 @@ module Data =
 
     let loadData() = 
         let data =
-            File.ReadLines fn
+            File.ReadLines INPUT_FILE
             |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not)
             |> Seq.map(fun l -> 
                 let xs = l.Split(',')
@@ -203,11 +202,24 @@ module Data =
                     {
                         TrendLong = cs1
                         TrendShort = cs2
-                        NOpen = log(y.Open/x.Open) |> max -18. //- 1.0
-                        NHigh = log(y.High/x.High) |> max -18. //- 1.0
-                        NLow =  log(y.Low/x.Low)   |> max -18. //- 1.0
-                        NClose = log(y.Close/x.Close) |> max -18.// - 1.0
-                        NVolume = log(y.Volume/x.Volume) |> max -18. //- 1.0
+                        NOpen = exp(y.Open  / x.Open) 
+                        NHigh = exp(y.High /  x.High) 
+                        NLow =  exp(y.Low / x.Low)   
+                        NClose = exp(y.Close / x.Close)
+                        NVolume = exp(y.Volume / x.Volume) 
+
+                        //TrendLong = cs1
+                        //TrendShort = cs2
+                        //NOpen = log(y.Open/x.Open) |> max -18. //- 1.0
+                        //NHigh = log(y.High/x.High) |> max -18. //- 1.0
+                        //NLow =  log(y.Low/x.Low)   |> max -18. //- 1.0
+                        //NClose = log(y.Close/x.Close) |> max -18.// - 1.0
+                        //NVolume = log(y.Volume/x.Volume) |> max -18. //- 1.0
+                        //NOpen = (y.Open/x.Open) //|> max -18. //- 1.0
+                        //NHigh = (y.High/x.High) //|> max -18. //- 1.0
+                        //NLow =  (y.Low/x.Low)   //|> max -18. //- 1.0
+                        //NClose = (y.Close/x.Close) //|> max -18.// - 1.0
+                        //NVolume = (y.Volume/x.Volume) //|> max -18. //- 1.0
                         Bar  = y
                     }
                 if isNaN d.NOpen ||isNaN d.NHigh || isNaN d.NLow || isNaN d.NClose || isNaN d.NVolume then
@@ -217,7 +229,8 @@ module Data =
         let xl = pds |> List.last
         pds |> List.map snd
 
-    let dataRaw = loadData()
+    let dataRaw = loadData() |> List.truncate (EPISODE_LENGTH * 10)
+    let TRAIN_SIZE = float dataRaw.Length * 0.7 |> int
     let dataTrain = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
     let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray
     let pricesTrain = {prices = dataTrain}
@@ -245,6 +258,13 @@ module Data =
                 with ex -> 
                     printfn $"logger: {ex.Message}"
         })
+
+
+
+let NUM_AGENTS = Data.TRAIN_SIZE / EPISODE_LENGTH
+//let NUM_AGENTS = 1
+
+printfn $"Episode size {EPISODE_LENGTH} * agents {NUM_AGENTS}; [left over {Data.TRAIN_SIZE % int NUM_AGENTS}]"
 
 //Properties not expected to change over the course of the run (e.g. model, hyperparameters, ...)
 //can support multiple concurrent runs
@@ -280,113 +300,64 @@ module Agent =
         |> Option.defaultValue s
 
     let doAction _ env s act =
-        match act with
-        | 0 -> buy env s
-        | 1 -> sell env s
-        | _ -> s                //hold
+        let s = 
+            match act with
+            | 0 -> buy env s
+            | 1 -> sell env s
+            | _ -> s                //hold
+        {s with TimeStep = s.TimeStep + 1}
 
     let skipHead = torch.TensorIndex.Slice(1)
 
     let getObservations _ (env:MarketSlice) (s:RLState) =         
-        if env.IsDone s.TimeStep then s 
-        else                               
-            let b =  bar env s.TimeStep |> Option.defaultWith (fun () -> failwith "bar not found")
-            let t1 = torch.tensor([|b.TrendLong;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
-            let ts = torch.vstack([|s.State;t1|])
-            let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // 40 x 5             
-            {s with State = ts2; PrevState = s.State}
+        let b =  bar env s.TimeStep |> Option.defaultWith (fun () -> failwith "bar not found")
+        let t1 = torch.tensor([|b.TrendLong;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
+        let ts = torch.vstack([|s.State;t1|])
+        let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // 40 x 5             
+        {s with State = ts2; PrevState = s.State}
         
     let computeRewards parms env s action =         
-        bar env s.TimeStep
-        |> Option.bind (fun cBar -> bar env (s.TimeStep+1) |> Option.map (fun nBar -> cBar,nBar))
-        |> Option.map (fun (prevBar,bar) -> 
-            let avgP     = Data.avgPrice  bar.Bar            
-            let avgPprev = Data.avgPrice prevBar.Bar
-            let sign     = if action = 0 then 1.0 else -1.0
-            let reward  = 
-                if action < 2 then 
-                    (avgP-avgPprev)/avgPprev * s.TradeSize * sign  //buy or sell action
-                else 
-                    -0.001 * s.Stock //hold cost
-            let tPlus1   = s.TimeStep
-            let isDone   = env.IsDone (tPlus1 + 1)
-            let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
-            if verbosity.isHigh then
-                printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
-            let logLine = $"{s.AgentId},{s.Episode},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId}"
-            Data.logger.Post (s.AgentId,parms.RunId,logLine)
-            let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
-            let experienceBuff = Experience.append experience s.ExpBuff  
-            {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain},isDone,reward
-        )
-        |> Option.defaultValue (s,false,0.0)
-
-    let computeRewards1 parms env s action =         
         bar env s.TimeStep
         |> Option.map (fun cBar -> 
             let avgP     = Data.avgPrice  cBar.Bar
             let futurePrices = [s.TimeStep+1 .. s.TimeStep + REWARD_HORIZON_BARS] |> List.choose (bar env) |> List.map _.Bar |> List.map Data.avgPrice
             let intermediateReward = 
                 if action = 0 && futurePrices |> List.exists (fun p -> p >= avgP + TX_COST_CNTRCT) then
-                    0.001
+                    0.0005
                 elif action = 1 && futurePrices |> List.exists (fun p -> p <= avgP - TX_COST_CNTRCT) then
-                    -0.001
+                    0.0005
                 else
                     -0.0001
             let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
             let isDone   = env.IsDone (s.TimeStep + 1)
-            let reward  = if isDone then sGain else intermediateReward         
+            let reward  = 
+                if isDone then 
+                    sGain 
+                else 
+                    intermediateReward         
             if verbosity.isHigh then
                 printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
             let logLine = $"{s.AgentId},{s.Episode},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId}"
             Data.logger.Post (s.AgentId,parms.RunId,logLine)
             let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
             let experienceBuff = Experience.append experience s.ExpBuff  
-            {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain},isDone,reward
+            {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain; IsDone=isDone},isDone,reward
         )
         |> Option.defaultValue (s,false,0.0)
        
-    let computeRewards2 parms env s action =         
-        bar env s.TimeStep
-        |> Option.map (fun cBar -> 
-            let avgP     = Data.avgPrice  cBar.Bar
-            let futurePrices = [s.TimeStep+1 .. s.TimeStep+5] |> List.choose (bar env) |> List.map _.Bar |> List.map Data.avgPrice
-            let ys = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(futurePrices).Normalize(1.0)
-            let xs = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([0 .. futurePrices.Length]).Normalize(1.0)
-            let struct(_,s1) = LinearRegression.SimpleRegression.Fit(Seq.zip xs ys)
-            let cs1 = Data.clipSlope s1
-            let reward  = 
-                if action = 0 then s1 
-                elif action = 1 then -s1
-                else -0.001
-            let tPlus1   = s.TimeStep
-            let isDone   = env.IsDone (tPlus1 + 1)
-            let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
-            if verbosity.isHigh then
-                printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
-            let logLine = $"{s.AgentId},{s.Episode},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId}"
-            Data.logger.Post (s.AgentId,parms.RunId,logLine)
-            let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
-            let experienceBuff = Experience.append experience s.ExpBuff  
-            {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain},isDone,reward
-        )
-        |> Option.defaultValue (s,false,0.0)
-
 
     let agent  = 
         {
             doAction = doAction
             getObservations = getObservations
-            computeRewards = computeRewards1
+            computeRewards = computeRewards
         }
 
 module Policy =
 
     let updateQ parms (losses:torch.Tensor []) =        
-        let losseD = losses |> Array.map (fun l -> l.backward(); l.ToDouble())
         parms.Opt.zero_grad()
-        //let prms = parms.DQN.Model.Online.Module.parameters()
-        //torch.nn.utils.clip_grad_norm_(prms,10.0) |> ignore
+        let losseD = losses |> Array.map (fun l -> l.backward(); l.ToDouble())
         use t = parms.Opt.step() 
         let avgLoss = losseD |> Array.average
         if Double.IsNaN avgLoss then
@@ -443,7 +414,7 @@ module Policy =
                 act
 
             update = fun parms st_act_done_rwd  ->      
-                let losses = st_act_done_rwd |> PSeq.map (fun (s,_) -> loss parms s) |> PSeq.toArray
+                let losses = st_act_done_rwd |> Seq.map (fun (s,_) -> loss parms s) |> Seq.toArray
                 let avgLoss = updateQ parms losses
                 if Double.IsNaN avgLoss then
                     let ls1 = losses |> Array.map(Tensor.getData<float32>)
@@ -469,26 +440,27 @@ module Test =
         let exp = Exploration.Default        
         let dataChunks = market.Market.prices |> Array.windowed (int LOOKBACK)
         let modelDevice = model.Module.parameters() |> Seq.head |> fun t -> t.device        
-        let s' = 
-            (s,dataChunks) 
-            ||> Array.fold (fun s bars -> 
-                let inp = bars |> Array.collect (fun b -> [|b.TrendLong;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|])                
+        let s',actionsTaken = 
+            ((s,[]),dataChunks) 
+            ||> Array.fold (fun (s,acc) bars -> 
+                let inp = bars |> Array.collect (fun b -> [|b.TrendLong;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|])    
                 use d_inp = torch.tensor(inp,dimensions=ReadOnlySpan [|1L;LOOKBACK;INPUT_DIM|], dtype=torch.float32)
+                //let t_d_inp = Tensor.getDataNested<float32> d_inp
                 use d_inp = d_inp.``to``(modelDevice)
                 use q = model.forward d_inp
+                //let t_q = Tensor.getData<float32> q
                 let act = q.argmax(-1L).flatten().ToInt32()               
                 let s = 
                     match act with              //just execute buy / sell actions
                     | 0 -> Agent.buy market s
                     | 1 -> Agent.sell market s
                     | _ -> s
-                {s with TimeStep = s.TimeStep + 1})
-
+                {s with TimeStep = s.TimeStep + 1},act::acc)
         let lastPrice = market.LastBar.Bar |> Data.avgPrice
         let sGain = ((lastPrice * float s'.Stock + s'.CashOnHand) - s'.InitialCash) / s'.InitialCash
         let years = (market.LastBar.Bar.Time - (market.Market.prices.[0].Bar.Time)).TotalDays / 365.0
         let annualizedGain = sGain / years
-        annualizedGain
+        annualizedGain,actionsTaken
         //printfn $"model: {modelFile}, gain: {gain}, adjGain: {adjGain}"
         //modelFile,adjGain
 
@@ -497,9 +469,12 @@ module Test =
             model.Module.eval()
             let testMarket = let tm = testMarket() in {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}
             let trainMarket = let tm = trainMarket() in {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}            
-            let gainTest = evalModelTT model testMarket 
-            let gainTrain = evalModelTT model trainMarket
+            let gainTest,actTest = evalModelTT model testMarket 
+            let gainTrain,actTrain = evalModelTT model trainMarket
+            let testDist = actTest |> List.countBy id |> List.sortBy fst
+            let trainDist = actTrain |> List.countBy id |> List.sortBy fst
             printfn $"model: {parms.RunId} {name}, Annual Gain -  Test: {gainTest}, Train: {gainTrain}"
+            printfn $"Test dist: {testDist}; Train dist: {trainDist}"
             name,gainTest,gainTrain
         finally
             model.Module.train()
@@ -552,17 +527,14 @@ let isDone (m:MarketSlice,s) = m.IsDone (s.TimeStep+1) || acctBlown s
 
 //single step a single agent in its associated market
 let stepAgent parms plcy (m,s) = 
-    if isDone (m,s) then         
-        {Market=m; Rl=s; Action_Done_Reward=(0,true,0); AgentDone=true}
-    else
-        let s',adr = step parms m Agent.agent plcy s                           
-        let s'' = {s' with Step = DQN.updateStep parms.DQN.Exploration s'.Step; TimeStep = s'.TimeStep + 1} // update step number and exploration rate for each agent
-        {Market=m; Rl=s''; Action_Done_Reward=adr; AgentDone=false}
+    let s',ar = step parms m Agent.agent plcy s                           
+    let s'' = {s' with Step = DQN.updateStep parms.DQN.Exploration s'.Step; Actions=ar::s.Actions} // update step number and exploration rate for each agent
+    {Market=m; Rl=s''; ActionResult=ar}
 
 let updatePolicy parms plcy rs =
-    let r0 = rs |> List.find (fun x-> not x.AgentDone)
+    let r0 = rs |> List.find (fun x -> not x.Rl.IsDone)
     if r0.Rl.Step.Num % parms.LearnEverySteps = 0 then 
-        let remainAgents = rs |> List.filter(fun r -> r.AgentDone |> not) |> List.map (fun m -> m.Rl,m.Action_Done_Reward) //update policy for agents still in play
+        let remainAgents = rs |> List.filter(fun r -> r.Rl.IsDone |> not) |> List.map (fun m -> m.Rl,m.ActionResult) //update policy for agents still in play
         let _,updateAgents = plcy.update parms remainAgents
         let updateAgentsMap = updateAgents |> List.map(fun r -> r.AgentId,r) |> Map.ofList
         rs |> List.map(fun x -> updateAgentsMap |> Map.tryFind x.Rl.AgentId |> Option.map(fun r -> {x with Rl=r}) |> Option.defaultValue x) //merge update with others
@@ -571,17 +543,16 @@ let updatePolicy parms plcy rs =
 
 let syncModel parms plcy runStates = 
     runStates
-    |> List.tryFind(fun x ->not x.AgentDone)
+    |> List.tryFind(fun x -> x.Rl.IsDone)
     |> Option.bind (fun r -> if r.Rl.Step.Num > 0 && r.Rl.Step.Num % parms.SyncEverySteps = 0 then Some r.Rl else None)
     |> Option.iter(fun r  -> plcy.sync parms r)
             
 let runEpisodes  parms plcy (ms:(MarketSlice*RLState) list) =
     let rec loop ms =
-        let ms' = ms |> PSeq.map (stepAgent parms plcy) |> PSeq.toList // operate agents in parallel
-        //let ms' = ms |> List.map (stepAgent parms plcy) // operate agents in parallel
-        let allDone = ms' |> List.forall (fun m -> m.AgentDone)
+        let ms' = ms |> List.map (stepAgent parms plcy) // to debug run serially
+        let allDone = ms' |> List.forall (fun m -> m.Rl.IsDone)
         System.GC.Collect()
-        if allDone |> not then
+        if not allDone then
             let rs = updatePolicy parms plcy ms'
             syncModel parms plcy rs
             let ms = rs |> List.map(fun r -> r.Market,r.Rl)
@@ -596,17 +567,25 @@ let runAgents parms p ms =
     (ms,[1..parms.Epochs])
     ||> List.fold(fun ms i ->
         let ms' = runEpisodes  parms p ms
-        printfn $"run {parms.RunId} {i} done, Avg loss:{ms'|>List.tryHead |> Option.map (fun (_,r0) -> r0.AvgLoss) |> Option.defaultValue 0.0}"
+        let avgLoss = ms' |> List.map (fun (_,r) -> r.AvgLoss) |> List.average
+        let actDist = 
+            ms' 
+            |> List.collect (fun (_,r) -> r.Actions) 
+            |> List.countBy (fun ar -> ar.Action,ar.IsRand ) 
+            |> List.sortBy fst
+        let actDstStr = actDist |> List.map (fun ((a,r),c) -> $"{if r then '!' else ' '}{a}:{c}") |> String.concat ","
+        printfn $"run {parms.RunId} {i} done, Avg loss:{avgLoss}; Dist:{actDstStr}"
         let ms' = ms' |> List.map(fun (m,r) -> m, {r with Episode = i})
         ms' 
         |> List.tryHead 
         |> Option.iter(fun (_,r0) -> 
                 if r0.Episode % 5 = 0 then
                     Test.evalModel parms "current" parms.DQN.Model.Online |> ignore) 
+
         let ms'' = ms' |> List.map (fun (m,s) -> m, RLState.Reset s)
         ms'')
 
-let marketSlices parms : (MarketSlice*RLState) list =
+let trainMarkets parms : (MarketSlice*RLState) list =
     let episodes = Data.dataTrain.Length / EPISODE_LENGTH    
     let idxs = [0 .. episodes-1] |> List.map (fun i -> i * EPISODE_LENGTH)
     idxs
@@ -618,21 +597,11 @@ let marketSlices parms : (MarketSlice*RLState) list =
         let s = {s1 with Episode = 0; Step = {s1.Step with ExplorationRate = parms.DQN.Exploration.Min}}
         mslice,s)       
 
-let startResetRun parms =
-    async {
-        try 
-            let p = Policy.policy parms
-            let ms = marketSlices parms
-            let ps = runAgents parms p ms
-            _ps <- ps
-        with ex -> printfn "%A" (ex.Message,ex.StackTrace)    
-    }
-
 let startReRun parms = 
     async {
         try 
             let p = Policy.policy parms
-            let ms = marketSlices parms
+            let ms = trainMarkets parms
             let ps = runAgents parms p ms
             _ps <- ps
         with ex -> printfn "%A" (ex.Message,ex.StackTrace)
@@ -653,6 +622,7 @@ let parms1 id (lr,layers)  =
         let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)        
         let sqrtEmbSz = (sqrt (float emsize)).ToScalar()
         let projOut = torch.nn.Linear(emsize,ACTIONS)
+        let activation = torch.nn.Tanh()
         let initRange = 0.1
         let mdl = 
             F [] [proj; pos_encoder; transformer_encoder; projOut; ln]  (fun t -> //B x S x 5
@@ -664,34 +634,26 @@ let parms1 id (lr,layers)  =
                 use enc = transformer_encoder.call(src) //S x B x emsize
                 use encB = enc.permute(1,0,2)  //batch first  // B x S x emsize
                 use dec = encB.[``:``,LAST,``:``]    //keep last value as output to compare with target - B x emsize
-                let pout = projOut.forward(dec) //B x ACTIONS
-                pout
+                use pout = projOut.forward(dec) //B x ACTIONS
+                let act = activation.forward pout
+                let t_act = Tensor.getDataNested<float32> act
+                act
             )
         mdl
     let model = DQNModel.create createModel
-    let exp = {Decay=0.9995; Min=0.01; WarupSteps=5000}
+    let exp = {Decay=0.9995; Min=0.01; WarupSteps=1000000}
     let DQN = DQN.create model 0.99999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 3000
         BatchSize = 10
-        Epochs = 200}
+        Epochs = 1000}
 
-
-let lrs = [0.001,6L; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
+let lrs = [0.00001,2L]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
-let jobs = parms |> List.map (fun x -> startResetRun x)
 let restartJobs = parms |> List.map(fun p -> Policy.loadModel p device |> Option.defaultValue p) |> List.map startReRun
  
-(*
 Test.clearModels()
 Data.resetLogs()
-jobs |> Async.Parallel |> Async.Ignore |> Async.Start
-restartJobs |> Async.Parallel |> Async.Ignore |> Async.Start
-*)
-
-Test.clearModels()
-Data.resetLogs()
-//jobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
 restartJobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
 
 (*

@@ -24,7 +24,7 @@ module DQNModel =
 
     let sync models (device:torch.Device) =
         let s1 = models.Online.Module.state_dict() |> Seq.map(fun kv -> kv.Key,kv.Value.cpu()) |> dict |> Collections.Generic.Dictionary
-        let tgtMdl = models.Target.Module.cpu(false)
+        let tgtMdl = models.Target.Module.cpu()
         tgtMdl.load_state_dict(s1) |> ignore        
         tgtMdl.``to``(device) |> ignore
 
@@ -158,13 +158,13 @@ module DQN =
 
     let selectAction (state:torch.Tensor) ddqn step =
         let actionIdx =
-            if step.Num < ddqn.Exploration.WarupSteps && rand() < step.ExplorationRate then //explore
-                randint ddqn.Actions
+            if step.Num < ddqn.Exploration.WarupSteps || rand() < step.ExplorationRate then //explore
+                randint ddqn.Actions,true
             else
                 use state = state.``to``(ddqn.Device)  //exploit
                 use state = state.unsqueeze(0)
                 use action_values = ddqn.Model.Online.forward(state)
-                action_values.argmax().ToInt32()
+                action_values.argmax().ToInt32(),false
         actionIdx
 
     let actionIdx (actions:torch.Tensor) = 
@@ -202,20 +202,12 @@ module DQN =
         use d_isDone = torch.tensor(isDone).``to``(ddqn.Device)  //was episode done?
         use d_isDoneF = d_isDone.float()                         //convert boolean to float32
         use ret = d_reward + (1.0f.ToScalar() -  d_isDoneF) * ddqn.Gamma.ToScalar() * q_target_best //reward + discounted value
-
+        t.Dispose()
         if false then //set to true to debug
             let t_q_online = Tensor.getDataNested<float32> q_online
             let t_best_action = Tensor.getDataNested<int64> best_action
             let t_q_target_best = Tensor.getDataNested<float32> q_target_best
             let t_ret = Tensor.getDataNested<float32> ret
+            let isgrad = torch.is_grad_enabled()
             ()
-
-        ret.float()                                                                                 //convert to float32
-
-
-
-
-
-
-
-
+        ret.float()   //convert to float32
