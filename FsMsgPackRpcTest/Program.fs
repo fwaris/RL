@@ -21,7 +21,7 @@ let REWARD_HORIZON_BARS = 10
 let LOOKBACK = 30L
 let TX_COST_CNTRCT = 0.5
 let MAX_TRADE_SIZE = 25.
-let EPISODE_LENGTH = 336 //*4
+let EPISODE_LENGTH = 336 *4
 let INPUT_DIM = 6L
 let TRAIN_FRAC = 0.7
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
@@ -229,7 +229,7 @@ module Data =
         let xl = pds |> List.last
         pds |> List.map snd
 
-    let dataRaw = loadData() |> List.truncate (EPISODE_LENGTH * 10)
+    let dataRaw = loadData() //|> List.truncate (EPISODE_LENGTH * 10)
     let TRAIN_SIZE = float dataRaw.Length * 0.7 |> int
     let dataTrain = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
     let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray
