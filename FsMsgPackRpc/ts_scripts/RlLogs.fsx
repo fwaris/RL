@@ -56,6 +56,8 @@ type LogE = {
     Reward  : float
     Gain    : float
     ParmId  : int
+    Market  : int
+    IsDone  : bool
 }
 
 let toLogE (xs:string[]) =
@@ -71,6 +73,8 @@ let toLogE (xs:string[]) =
             Reward      = float xs.[7]
             Gain        = float xs.[8]
             ParmId      = int xs.[9]
+            Market      = int xs.[10]
+            IsDone      = bool.Parse xs.[11]
         }
         |> Some
     with ex -> 
@@ -80,6 +84,17 @@ let toLogE (xs:string[]) =
 let logE() = allRows() |> Array.map(fun l -> l.Split(',')) |> Array.choose toLogE
 
 let a1() = logE() |> Array.filter(fun e -> e.AgentId=0) |> Seq.groupAdjacent (fun (a,b) -> a.Step < b.Step)
+
+let lastEpoch() = 
+    let ag1 = logE()
+    let ep = 
+        ag1 
+        |> Array.countBy _.Episode 
+        |> Array.sortByDescending  (fun (x,c) -> c,x) 
+        |> Seq.head 
+        |> fst
+    ag1 |> Array.filter (fun x -> x.Episode = ep)
+
 
 let genChart everyNth (f:LogE->float) =
     let a1 = a1()
@@ -160,6 +175,27 @@ let plotGain() =
     // ag1 |> Seq.map _.Gain  |> Seq.indexed |> Chart.Line |> Chart.withTitle $"Gain ep: {ep}"
     // |> Chart.show
 
+let plotActionsByMarket() = 
+    let ag1 = lastEpoch()
+    let ep = ag1 |> Seq.tryHead |> Option.map _.Episode |> Option.defaultValue 0
+    printfn $"Data length :{ag1.Length}"    
+    ag1 
+    |> Array.groupBy _.ParmId
+    |> Array.collect(fun (p,xs) ->
+        xs 
+        |> Array.groupBy _.Market
+        |> Array.map(fun (m,ys) -> 
+            ys 
+            |> Array.sortBy _.Step
+            |> Array.map _.Gain
+            |> Array.indexed 
+            |> Chart.Line 
+            |> Chart.withTraceInfo $"Market {m}"
+        ))
+    |> Chart.combine 
+    |> Chart.withTitle $"Gain by market slice. Ep {ep}"
+    |> Chart.show
+
 let test2() =
     plotGain()
 
@@ -192,4 +228,5 @@ let testPlots() =
 (*
 plotGain()
 System.GC.Collect()
+plotActionsByMarket()
 *)

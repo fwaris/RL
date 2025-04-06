@@ -12,7 +12,7 @@ let ( @@ ) a b = Path.Combine(a,b)
 
 let TREND_WINDOW_BARS = 20
 let REWARD_HORIZON_BARS = 10
-let LOOKBACK = 30L
+let LOOKBACK = 10L
 let TX_COST_CNTRCT = 0.5
 let MAX_TRADE_SIZE = 25.
 let EPISODE_LENGTH = 336 //* 5

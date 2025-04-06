@@ -69,8 +69,8 @@ let computeRewards parms env s action =
                 intermediateReward         
         if verbosity.isHigh then
             printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
-        let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId}"
-        Data.logger.Post (s.AgentId,parms.RunId,logLine)
+        let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
+        Data.logger.Post (s.Epoch,parms.RunId,logLine)
         let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
         let experienceBuff = Experience.append experience s.ExpBuff  
         {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward

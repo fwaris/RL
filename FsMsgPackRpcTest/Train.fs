@@ -64,5 +64,5 @@ let trainEpisodes parms plcy ms =
     ||> List.fold (fun agent e -> 
         let agent = AgentState.ResetForEpisode agent
         let agent' = trainEpisode parms plcy {agent with Epoch=e} ms
-        async{Test.evalModels parms} |> Async.Start      
+        //async{Test.evalModels parms} |> Async.Start      
         agent')
