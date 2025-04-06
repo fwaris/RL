@@ -65,7 +65,7 @@ let computeRewards parms env s action =
             | 0                    -> -1.0
             | 1 when canSell s     -> 0.0
             | 1                    -> -1.0
-            | _                    -> -0.001
+            | _                    -> (s.CashOnHand / s.InitialCash) * -0.001
         let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
         let isDone   = env.IsDone (s.TimeStep + 1)
         let reward  = 

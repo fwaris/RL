@@ -52,6 +52,27 @@ let computeRewards parms env s action =
     bar env s.TimeStep
     |> Option.map (fun cBar -> 
         let avgP     = Data.avgPrice  cBar.Bar
+        let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
+        let isDone   = env.IsDone (s.TimeStep + 1)
+        let reward  = 
+            if isDone then 
+                sGain 
+            else
+                (s.CashOnHand / s.InitialCash) * -0.001
+        if verbosity.isHigh then
+            printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
+        let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
+        Data.logger.Post (s.Epoch,parms.RunId,logLine)
+        let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
+        let experienceBuff = Experience.append experience s.ExpBuff  
+        {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward
+    )
+    |> Option.defaultValue (s,false,0.0)
+
+let computeRewards2 parms env s action =         
+    bar env s.TimeStep
+    |> Option.map (fun cBar -> 
+        let avgP     = Data.avgPrice  cBar.Bar
         let futurePrices = [s.TimeStep .. s.TimeStep + REWARD_HORIZON_BARS] |> List.choose (bar env) |> List.map _.Bar |> List.map Data.avgPrice
         let intermediateReward = 
             if action = 0 && futurePrices |> List.exists (fun p -> p >= avgP + TX_COST_CNTRCT) then
