@@ -196,6 +196,28 @@ let plotActionsByMarket() =
     |> Chart.withTitle $"Gain by market slice. Ep {ep}"
     |> Chart.show
 
+let grainTrendByMarket() = 
+    let ag1 = logE()
+    printfn $"Data length :{ag1.Length}"    
+    ag1 
+    |> Array.groupBy _.ParmId
+    |> Array.collect(fun (p,xs) ->
+        xs 
+        |> Array.groupBy _.Market
+        |> Array.map(fun (m,ys) -> 
+            ys 
+            |> Array.filter _.IsDone
+            |> Array.sortBy _.Episode
+            |> Array.map _.Gain
+            |> Array.indexed 
+            |> Chart.Line 
+            |> Chart.withTraceInfo $"Market {m}"
+        ))
+    |> Chart.combine 
+    |> Chart.withTitle $"Gains by market slice over Epochs"
+    |> Chart.show
+
+
 let test2() =
     plotGain()
 
@@ -229,4 +251,5 @@ let testPlots() =
 plotGain()
 System.GC.Collect()
 plotActionsByMarket()
+grainTrendByMarket()
 *)

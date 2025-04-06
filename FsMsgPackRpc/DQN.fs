@@ -158,7 +158,7 @@ module DQN =
 
     let selectAction (state:torch.Tensor) ddqn step =
         let actionIdx =
-            if step.Num < ddqn.Exploration.WarupSteps || rand() < step.ExplorationRate then //explore
+            if rand() < step.ExplorationRate then //explore
                 randint ddqn.Actions,true
             else
                 use state = state.``to``(ddqn.Device)  //exploit
@@ -173,18 +173,18 @@ module DQN =
             torch.TensorIndex.Tensor (actions)                                             //actions dimension
         |]
 
-    let td_estimate (state:torch.Tensor) (actions:int[]) ddqn =
-        use q = ddqn.Model.Online.forward(state)                              //value of each available actions (when taken from the give state)
-        let idx = actionIdx (torch.tensor(actions,dtype=torch.int64))         //indexes of the actions actually taken by agents (in the given batch)
-        let idx = q.index(idx)                                                //values of the taken actions
+    let td_estimate (state:torch.Tensor) (actions:int[]) (model:IModel) =
+        use q = model.forward(state)                                   //value of each available actions (when taken from the give state)
+        let idx = actionIdx (torch.tensor(actions,dtype=torch.int64))  //indexes of the actions actually taken by agents (in the given batch)
+        let actVals = q.index(idx)                                      //values of the taken actions
 
         if false then //set to true to debug
             let t_state = Tensor.getDataNested<float32> state
             let t_q = Tensor.getDataNested<float32> q
-            let t_idx = Tensor.getDataNested<float32> idx
+            let t_actVals = Tensor.getDataNested<float32> actVals
             ()
             
-        idx
+        actVals
     
 
     let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) ddqn =
@@ -202,12 +202,13 @@ module DQN =
         use d_isDone = torch.tensor(isDone).``to``(ddqn.Device)  //was episode done?
         use d_isDoneF = d_isDone.float()                         //convert boolean to float32
         use ret = d_reward + (1.0f.ToScalar() -  d_isDoneF) * ddqn.Gamma.ToScalar() * q_target_best //reward + discounted value
-        t.Dispose()
-        if false then //set to true to debug
+        if true then //set to true to debug
             let t_q_online = Tensor.getDataNested<float32> q_online
             let t_best_action = Tensor.getDataNested<int64> best_action
             let t_q_target_best = Tensor.getDataNested<float32> q_target_best
             let t_ret = Tensor.getDataNested<float32> ret
-            let isgrad = torch.is_grad_enabled()
+            let i = 1
             ()
         ret.float()   //convert to float32
+
+    

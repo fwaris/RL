@@ -32,10 +32,10 @@ let startReRun parms =
     }
 
 let parms1 id (lr,layers)  = 
-    let emsize = 32
+    let emsize = 8
     let dropout = 0.1
     let max_seq = LOOKBACK
-    let nheads = 4
+    let nheads = 1
     let nlayers = layers
 
     let createModel() = 
@@ -73,7 +73,7 @@ let parms1 id (lr,layers)  =
         BatchSize = 10
         Epochs = 1000}
 
-let lrs = [0.00001,2L]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
+let lrs = [0.00001,1L]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
 let restartJobs = parms |> List.map(fun p -> Policy.loadModel p device |> Option.defaultValue p) |> List.map startReRun
  

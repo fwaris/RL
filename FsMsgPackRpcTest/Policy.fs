@@ -7,40 +7,32 @@ open DQN
 open RL
 open Types
 
-let private updateQ parms (lossTensor:torch.Tensor) =        
-    lossTensor.backward()
-    let avgLoss = lossTensor.mean().ToDouble()
-    use t = parms.Opt.step()         
-    if Double.IsNaN avgLoss then
-        let pns = parms.DQN.Model.Online.Module.named_parameters() |> Seq.map(fun struct(n,x) -> n, Tensor.getDataNested<float32> x) |> Seq.toArray
-        ()
-        failwith "Nan loss"
-    avgLoss
-
-let private loss parms s = 
-    parms.Opt.zero_grad()
-    let states,nextStates,rewards,actions,dones = Experience.recall parms.BatchSize s.ExpBuff  //sample from experience
+let private updateQOnline parms state = 
+    let states,nextStates,rewards,actions,dones = Experience.recall parms.BatchSize state.ExpBuff  //sample from experience
     use states = states.``to``(parms.DQN.Device)
     use nextStates = nextStates.``to``(parms.DQN.Device)
-    let td_est = DQN.td_estimate states actions parms.DQN           //estimate the Q-value of state-action pairs from online model
-    let td_tgt = DQN.td_target rewards nextStates dones parms.DQN   //
+    let td_est = DQN.td_estimate states actions parms.DQN.Model.Online   //online qvals of state-action pairs
+    let td_tgt = DQN.td_target rewards nextStates dones parms.DQN   //discounted qvals of opt-action next states
     let loss = parms.LossFn.forward(td_est,td_tgt)
-    if verbosity.IsLow && s.Step.Num % 1000 = 0 then 
-        printfn $"Step {s.Step.Num}"
+    let avgLoss = loss.mean().ToDouble()
+    parms.Opt.zero_grad()
+    loss.backward()
+    parms.Opt.step() |> ignore
+    if verbosity.IsLow && state.Step.Num % 1000 = 0 then 
+        printfn $"Step {state.Step.Num}"
         printfn $"Actions"
         printfn "%A" actions
         let t_td_est = Tensor.getDataNested<float32> td_tgt
         printfn $"Esimate Q vals"
         printfn "%A" t_td_est
-
-    if loss.ToDouble() |> Double.IsNaN then 
+    if true (*avgLoss |> Double.IsNaN*) then 
         let t_states = Tensor.getDataNested<float32> states
         let t_nextStates = Tensor.getDataNested<float32> nextStates
-        let t_states = Tensor.getDataNested<float32> states
         let t_td_est = Tensor.getDataNested<float32> td_est
         let t_td_tgt = Tensor.getDataNested<float32> td_tgt
+        let i = 1
         ()
-    loss
+    {state with CurrentLoss = avgLoss}
 
 let loadModel parms (device:torch.Device) =
     let dir = root @@ "models_restart"
@@ -52,7 +44,6 @@ let loadModel parms (device:torch.Device) =
         mdl.Target.Module.``to``(device) |> ignore
         let dqn = {parms.DQN with Model = mdl; }
         {parms with DQN = dqn})
-
 
 let private syncModel parms s = 
     DQNModel.sync parms.DQN.Model parms.DQN.Device
@@ -68,14 +59,11 @@ let rec policy parms =
             act,isRandom
 
         update = fun parms state  ->      
-            let lossTensor = loss parms state
-            let avgLoss = updateQ parms lossTensor
-            if Double.IsNaN avgLoss then
-                let ls1 = lossTensor |> Tensor.getData<float32>
-                ()
-            if verbosity.IsMed then printfn $"avg loss {avgLoss}"
-            let state' = {state with CurrentLoss=avgLoss}
-            policy parms, state'
+            if state.Step.Num < parms.DQN.Exploration.WarupSteps then 
+                policy parms, state
+            else
+                let state' = updateQOnline parms state
+                policy parms, state'
 
         sync = syncModel
     }
