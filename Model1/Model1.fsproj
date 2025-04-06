@@ -12,6 +12,7 @@
     <Compile Include="Policy.fs" />
     <Compile Include="Test.fs" />
     <Compile Include="Train.fs" />
+    <Compile Include="Model.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
@@ -22,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\FsMsgPackRpc\FsMsgPackRpc.fsproj" />
+    <ProjectReference Include="..\RL\RL.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

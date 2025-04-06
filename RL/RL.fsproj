@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <None Include="ts_scripts\RlLogs.fsx" />
+    <None Include="ts_scripts\ModelEval.fsx" />
     <None Include="ts_scripts\sandbox.fsx" />
     <None Include="ts_scripts\loganalsyis.fsx" />
     <None Include="ts_scripts\ts.fsx" />

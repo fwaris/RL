@@ -59,7 +59,7 @@ let trainEpisode  parms plcy (agent:AgentState) (ms:MarketSlice list) =
 
 
 let trainEpisodes parms plcy ms = 
-    let agent = AgentState.Default 0 1.0 1000000
+    let agent = AgentState.Default 0 1.0 INITIAL_CASH
     (agent,[1..parms.Epochs])
     ||> List.fold (fun agent e -> 
         let agent = AgentState.ResetForEpisode agent

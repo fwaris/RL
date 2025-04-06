@@ -31,7 +31,7 @@ module Seq =
 val it : seq<seq<string>> = seq [["a"; "a"; "a"]; ["b"]; ["c"; "c"]]
 *)
 let dataDrive = Environment.GetEnvironmentVariable("DATA_DRIVE")
-let folder = @$"{dataDrive}/s/tradestation/logs"
+let folder = @$"{dataDrive}/s/tradestation/model2/logs"
 [folder] |> List.iter(fun d -> if Directory.Exists d |> not then Directory.CreateDirectory d |> ignore)
 
 let allRows() =   

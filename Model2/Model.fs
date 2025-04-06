@@ -1,4 +1,4 @@
-﻿module Program
+﻿module Model
 open System
 open TorchSharp
 open TorchSharp.Fun
@@ -17,22 +17,9 @@ let trainMarkets =
         if endIdx <= i then failwith $"Invalid index {i}"
         {Market = Data.pricesTrain; StartIndex=i; EndIndex=endIdx})
 
-printfn $"Running with {NUM_MKT_SLICES} market slices each of length {EPISODE_LENGTH} *  ; [left over {Data.TRAIN_SIZE % int NUM_MKT_SLICES}]"
-
-let mutable _ps = Unchecked.defaultof<_>
-
-let startReRun parms = 
-    async {
-        try 
-            let plcy = Policy.policy parms
-            let agent = Train.trainEpisodes parms plcy trainMarkets
-            _ps <- agent
-        with ex -> 
-            printfn "%A" (ex.Message,ex.StackTrace)
-    }
 
 let parms1 id (lr,layers)  = 
-    let emsize = 8
+    let emsize = 32
     let dropout = 0.1
     let max_seq = LOOKBACK
     let nheads = 1
@@ -75,37 +62,3 @@ let parms1 id (lr,layers)  =
 
 let lrs = [0.00001,1L]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
-let restartJobs = parms |> List.map(fun p -> Policy.loadModel p device |> Option.defaultValue p) |> List.map startReRun
- 
-let run() =
-    Test.clearModels()
-    Data.resetLogs()
-    restartJobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
-
-verbosity <- LoggingLevel.L
-run()
-
-(*
-verbosity <- LoggingLevel.M
-verbosity <- LoggingLevel.L
-verbosity <- LoggingLevel.Q
-
-Test.runTest()
-
-async {Test.evalModels p1} |> Async.Start
-(fst _ps).sync (snd _ps)
-
-Policy.model.Online.Module.save @"e:/s/tradestation/temp.bin" 
-
-let m2 = DQN.DQNModel.load Policy.createModel  @"e:/s/tradestation/temp.bin" 
-
-Policy.model.Online.Module.parameters() |> Seq.iter (printfn "%A")
-
-m2.Online.Module.parameters() |> Seq.iter (printfn "%A")
-
-let p1 = m2.Online.Module.parameters() |> Seq.head |> Tensor.getDataNested<float32>
-let p2 = Policy.model.Online.Module.parameters() |> Seq.head |> Tensor.getDataNested<float32>
-p1 = p2
-*)
-
-

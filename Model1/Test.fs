@@ -16,34 +16,30 @@ let saveInterim parms =
 let testMarket() = {prices = Data.dataTest}
 let trainMarket() = {prices = Data.dataTrain}
 
-let evalModelTT (model:IModel) (market:MarketSlice) = 
-    let s = AgentState.Default -1 0.0 1_000_000 
-    let exp = Exploration.Default        
-    let dataChunks = market.Market.prices |> Array.windowed (int LOOKBACK)
-    let modelDevice = model.Module.parameters() |> Seq.head |> fun t -> t.device        
-    let s',actionsTaken = 
-        ((s,[]),dataChunks) 
-        ||> Array.fold (fun (s,acc) bars -> 
-            let inp = bars |> Array.collect (fun b -> [|b.TrendLong;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|])    
-            use d_inp = torch.tensor(inp,dimensions=ReadOnlySpan [|1L;LOOKBACK;INPUT_DIM|], dtype=torch.float32)
-            //let t_d_inp = Tensor.getDataNested<float32> d_inp
-            use d_inp = d_inp.``to``(modelDevice)
-            use q = model.forward d_inp
-            //let t_q = Tensor.getData<float32> q
-            let act = q.argmax(-1L).flatten().ToInt32()               
-            let s = 
-                match act with              //just execute buy / sell actions
-                | 0 -> Agent.buy market s
-                | 1 -> Agent.sell market s
-                | _ -> s
-            {s with TimeStep = s.TimeStep + 1},act::acc)
-    let lastPrice = market.LastBar.Bar |> Data.avgPrice
-    let sGain = ((lastPrice * float s'.Stock + s'.CashOnHand) - s'.InitialCash) / s'.InitialCash
-    let years = (market.LastBar.Bar.Time - (market.Market.prices.[0].Bar.Time)).TotalDays / 365.0
-    let annualizedGain = sGain / years
-    annualizedGain,actionsTaken
-    //printfn $"model: {modelFile}, gain: {gain}, adjGain: {adjGain}"
-    //modelFile,adjGain
+let runAgent (policy:IModel) (market:MarketSlice) (s:AgentState) = 
+    let s' = Agent.getObservations () market s
+    use state = s'.State.unsqueeze(0)
+    use actionVals  = policy.forward(state)
+    let action = actionVals.argmax(1L).ToInt32()
+    let s'' = Agent.doAction () market s' action
+    s'',action
+
+let evalModelTT (policy:IModel) (market:MarketSlice) =
+    let sInit = AgentState.Default -1 0.0 INITIAL_CASH 
+    let rec loop actions s = 
+        if market.IsDone (s.TimeStep + 1) then 
+            let lastBar = market.LastBar
+            let avgPrice = Data.avgPrice lastBar.Bar
+            let equity = s.CashOnHand + (avgPrice * s.Stock)
+            let gain = (equity - s.InitialCash) / s.InitialCash
+            let years = (market.LastBar.Bar.Time - (market.Market.prices.[0].Bar.Time)).TotalDays / 365.0
+            let annualizedGain = gain / years
+            actions,annualizedGain
+        else
+            let s'',action = runAgent policy market s
+            loop (action::actions) s''
+    let actions,gain = loop [] sInit
+    gain,actions
 
 let evalModel parms (name:string) (model:IModel) =
     try
@@ -54,7 +50,7 @@ let evalModel parms (name:string) (model:IModel) =
         let gainTrain,actTrain = evalModelTT model trainMarket
         let testDist = actTest |> List.countBy id |> List.sortBy fst
         let trainDist = actTrain |> List.countBy id |> List.sortBy fst
-        printfn $"Emodel: {parms.RunId} {name}, Annual Gain -  Test: %0.3f{gainTest}, Train: $0.3f{gainTrain}"
+        printfn $"Emodel: {parms.RunId} {name}, Annual Gain -  Test: %0.3f{gainTest}, Train: %0.3f{gainTrain}"
         printfn $"Test dist: {testDist}; Train dist: {trainDist}"
         name,gainTest,gainTrain,testDist
     finally
