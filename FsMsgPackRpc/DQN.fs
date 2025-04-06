@@ -174,9 +174,9 @@ module DQN =
         |]
 
     let td_estimate (state:torch.Tensor) (actions:int[]) ddqn =
-        use q = ddqn.Model.Online.forward(state)                         //value of each available action (when taken from the give state)
-        let idx = actionIdx (torch.tensor(actions,dtype=torch.int64))         //index of action actually taken         
-        let idx = q.index(idx)                                                //value of taken action
+        use q = ddqn.Model.Online.forward(state)                              //value of each available actions (when taken from the give state)
+        let idx = actionIdx (torch.tensor(actions,dtype=torch.int64))         //indexes of the actions actually taken by agents (in the given batch)
+        let idx = q.index(idx)                                                //values of the taken actions
 
         if false then //set to true to debug
             let t_state = Tensor.getDataNested<float32> state

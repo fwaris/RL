@@ -16,12 +16,12 @@ open FSharp.Collections.ParallelSeq
 open SeqUtils
 let ( @@ ) a b = Path.Combine(a,b)
 
-let TREND_WINDOW = 40L
+let TREND_WINDOW = 20L
 let REWARD_HORIZON_BARS = 10
-let LOOKBACK = 10L
+let LOOKBACK = 30L
 let TX_COST_CNTRCT = 0.5
 let MAX_TRADE_SIZE = 25.
-let EPISODE_LENGTH = 336 //*4
+let EPISODE_LENGTH = 336 //* 5
 let INPUT_DIM = 6L
 let TRAIN_FRAC = 0.7
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
@@ -207,6 +207,9 @@ module Data =
                         NLow =  exp(y.Low / x.Low)   
                         NClose = exp(y.Close / x.Close)
                         NVolume = exp(y.Volume / x.Volume) 
+
+                        //TrendLong = cs1
+                        //TrendShort = cs2
                         //NOpen = log(y.Open/x.Open) |> max -18. //- 1.0
                         //NHigh = log(y.High/x.High) |> max -18. //- 1.0
                         //NLow =  log(y.Low/x.Low)   |> max -18. //- 1.0
@@ -226,7 +229,7 @@ module Data =
         let xl = pds |> List.last
         pds |> List.map snd
 
-    let dataRaw = loadData() |> List.truncate (EPISODE_LENGTH * 2)
+    let dataRaw = loadData() //|> List.truncate (EPISODE_LENGTH * 10)
     let TRAIN_SIZE = float dataRaw.Length * 0.7 |> int
     let dataTrain = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
     let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray
@@ -258,10 +261,8 @@ module Data =
 
 
 
-//let fnL = File.ReadLines INPUT_FILE |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not) |> Seq.length
-//let TRAIN_SIZE = float fnL * 0.7 |> int
-//let NUM_AGENTS = TRAIN_SIZE / EPISODE_LENGTH
-let NUM_AGENTS = 1
+let NUM_AGENTS = Data.TRAIN_SIZE / EPISODE_LENGTH
+//let NUM_AGENTS = 1
 
 printfn $"Episode size {EPISODE_LENGTH} * agents {NUM_AGENTS}; [left over {Data.TRAIN_SIZE % int NUM_AGENTS}]"
 
@@ -444,9 +445,10 @@ module Test =
             ||> Array.fold (fun (s,acc) bars -> 
                 let inp = bars |> Array.collect (fun b -> [|b.TrendLong;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|])    
                 use d_inp = torch.tensor(inp,dimensions=ReadOnlySpan [|1L;LOOKBACK;INPUT_DIM|], dtype=torch.float32)
+                //let t_d_inp = Tensor.getDataNested<float32> d_inp
                 use d_inp = d_inp.``to``(modelDevice)
                 use q = model.forward d_inp
-                let t_q = Tensor.getData<float32> q
+                //let t_q = Tensor.getData<float32> q
                 let act = q.argmax(-1L).flatten().ToInt32()               
                 let s = 
                     match act with              //just execute buy / sell actions
@@ -541,7 +543,7 @@ let updatePolicy parms plcy rs =
 
 let syncModel parms plcy runStates = 
     runStates
-    |> List.tryFind(fun x -> x.Rl.IsDone)
+    |> List.tryFind(fun x -> not x.Rl.IsDone)
     |> Option.bind (fun r -> if r.Rl.Step.Num > 0 && r.Rl.Step.Num % parms.SyncEverySteps = 0 then Some r.Rl else None)
     |> Option.iter(fun r  -> plcy.sync parms r)
             
@@ -620,7 +622,7 @@ let parms1 id (lr,layers)  =
         let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)        
         let sqrtEmbSz = (sqrt (float emsize)).ToScalar()
         let projOut = torch.nn.Linear(emsize,ACTIONS)
-        let activation = torch.nn.Softmax(1L)
+        let activation = torch.nn.Tanh()
         let initRange = 0.1
         let mdl = 
             F [] [proj; pos_encoder; transformer_encoder; projOut; ln]  (fun t -> //B x S x 5
@@ -639,20 +641,23 @@ let parms1 id (lr,layers)  =
             )
         mdl
     let model = DQNModel.create createModel
-    let exp = {Decay=0.9995; Min=0.01; WarupSteps=5000}
+    let exp = {Decay=0.9995; Min=0.01; WarupSteps=50}
     let DQN = DQN.create model 0.99999f exp ACTIONS device
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 3000
         BatchSize = 10
-        Epochs = 500}
+        Epochs = 1000}
 
-let lrs = [0.0001,2L]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
+let lrs = [0.00001,2L]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
 let restartJobs = parms |> List.map(fun p -> Policy.loadModel p device |> Option.defaultValue p) |> List.map startReRun
  
-//Test.clearModels()
-//Data.resetLogs()
-//restartJobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
+let run() =
+    Test.clearModels()
+    Data.resetLogs()
+    restartJobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
+
+//run()
 
 (*
 verbosity <- LoggingLevel.H
@@ -678,6 +683,8 @@ let p2 = Policy.model.Online.Module.parameters() |> Seq.head |> Tensor.getDataNe
 p1 = p2
 *)
 
-let d1 = Data.dataTrain
-
+//let model = DQN.DQNModel.load (parms.Head.CreateModel) @"E:\s\tradestation\models\model_0_0_3.bin"
+//model.Online.Module.Dispose()
+//model.Target.Module.Dispose()
+Test.evalModelFile parms.Head @"E:\s\tradestation\models\model_0_0_3.bin"
 

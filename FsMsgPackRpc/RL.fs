@@ -13,8 +13,8 @@ type ActionResult = {Action:int; IsDone:bool; Reward:float; IsRand:bool}
 ///policy can receive a list of state-action-isDone-reward tuples to support multiple agents, each operating in its own environment
 type Policy<'parms,'state> =
     {
-        selectAction : 'parms  -> 'state -> int*bool
-        update       : 'parms -> ('state*ActionResult) list -> Policy<'parms,'state>*'state list
+        selectAction : 'parms -> 'state -> int*bool
+        update       : 'parms -> 'state -> Policy<'parms,'state>*'state
         sync         : 'parms -> 'state -> unit
     }
 

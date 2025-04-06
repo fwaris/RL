@@ -6,6 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="Data.fs" />
+    <Compile Include="Agent.fs" />
+    <Compile Include="Policy.fs" />
+    <Compile Include="Test.fs" />
+    <Compile Include="Train.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
