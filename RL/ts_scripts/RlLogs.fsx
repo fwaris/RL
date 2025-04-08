@@ -31,10 +31,11 @@ module Seq =
 val it : seq<seq<string>> = seq [["a"; "a"; "a"]; ["b"]; ["c"; "c"]]
 *)
 let dataDrive = Environment.GetEnvironmentVariable("DATA_DRIVE")
-let folder = @$"{dataDrive}/s/tradestation/model2/logs"
-[folder] |> List.iter(fun d -> if Directory.Exists d |> not then Directory.CreateDirectory d |> ignore)
+let model2 = @$"{dataDrive}/s/tradestation/model2/logs"
+let model1 = @$"{dataDrive}/s/tradestation/model1/logs"
+[model1; model2] |> List.iter(fun d -> if Directory.Exists d |> not then Directory.CreateDirectory d |> ignore)
 
-let allRows() =   
+let allRows folder =   
     let files = Directory.GetFiles(folder,"*.csv")
     files 
     |> Seq.collect (fun x -> 
@@ -81,12 +82,12 @@ let toLogE (xs:string[]) =
         printfn "%s" ex.Message
         None
     
-let logE() = allRows() |> Array.map(fun l -> l.Split(',')) |> Array.choose toLogE
+let logE folder = allRows folder |> Array.map(fun l -> l.Split(',')) |> Array.choose toLogE
 
-let a1() = logE() |> Array.filter(fun e -> e.AgentId=0) |> Seq.groupAdjacent (fun (a,b) -> a.Step < b.Step)
+let a1 folder = logE folder |> Array.filter(fun e -> e.AgentId=0) |> Seq.groupAdjacent (fun (a,b) -> a.Step < b.Step)
 
-let lastEpoch() = 
-    let ag1 = logE()
+let lastEpoch folder = 
+    let ag1 = logE folder
     let ep = 
         ag1 
         |> Array.countBy _.Episode 
@@ -96,8 +97,8 @@ let lastEpoch() =
     ag1 |> Array.filter (fun x -> x.Episode = ep)
 
 
-let genChart everyNth (f:LogE->float) =
-    let a1 = a1()
+let genChart folder everyNth (f:LogE->float) =
+    let a1 = a1 folder
     printfn $"Len {a1.Length}"
     [0..a1.Length/everyNth..a1.Length-1] 
     |> List.map (fun i -> a1.[i]) 
@@ -107,8 +108,8 @@ let genChart everyNth (f:LogE->float) =
     |> Chart.show
     
 
-let gainsChart everyNth =
-    let a1 = a1()
+let gainsChart folder everyNth =
+    let a1 = a1 folder
     a1.Length
     [0..a1.Length/everyNth..a1.Length-1] 
     |> List.map (fun i -> a1.[i]) 
@@ -117,19 +118,18 @@ let gainsChart everyNth =
     |> Chart.withTitle $"Pct gain distribution over epochs every {everyNth} episode"
     |> Chart.show
 
-let cashOnHandChart everyNth =
-    let a1 = a1()
+let cashOnHandChart folder everyNth =
+    let a1 = a1 folder
     [0..a1.Length/everyNth..a1.Length-1] 
     |> List.map (fun i -> a1.[i]) 
     |> List.map(fun xs -> xs |> List.map(fun x->x.Cash) |> Chart.Violin) 
     |> Chart.combine 
     |> Chart.withTitle $"Cash onhand distribution over epochs every {everyNth} episode"
     |> Chart.show
-   
 
 
-let actionChart everyNth =
-    let a1 = a1()
+let actionChart folder everyNth =
+    let a1 = a1 folder
     [0..a1.Length/everyNth..a1.Length-1] 
     |> List.map (fun i -> a1.[i]) 
     |> List.map(fun xs -> xs |> List.map(fun x->x.Action) |> Chart.Violin) 
@@ -137,8 +137,8 @@ let actionChart everyNth =
     |> Chart.withTitle $"Action distribution 0=Buy, 1=Sell, 2=Hold: every {everyNth} episode"
     |> Chart.show   
 
-let actionVsChart everyNth (f:LogE->float) =    
-    let a1 = a1()
+let actionVsChart folder everyNth (f:LogE->float) =    
+    let a1 = a1 folder
     [0..a1.Length/everyNth..a1.Length-1] 
     |> List.map (fun i -> a1.[i]) 
     |> List.map(fun xs -> Chart.Histogram2D (xs |> List.map(fun x->x.Action), xs |> List.map f))
@@ -152,8 +152,8 @@ actionChart 1
 cashOnHandChart 1
 *)
 
-let plotGain() = 
-    let ag1 = logE()
+let plotGain folder = 
+    let ag1 = logE folder
     let ep = 
         ag1 
         |> Array.countBy _.Episode 
@@ -168,15 +168,15 @@ let plotGain() =
     ]
     |> Chart.combine
     |> Chart.withYAxisStyle(MinMax=(-0.1,+0.1))
-    |> Chart.withTitle $"Gain ep: {ep}"
+    |> Chart.withTitle $"Gain ep: {ep}<br>{folder}"
     |> Chart.show
     // let ag1 = logE() |> Array.filter (fun x -> x.AgentId = 1 && x.Episode=ep)
     // printfn $"Data length :{ag1.Length}"    
     // ag1 |> Seq.map _.Gain  |> Seq.indexed |> Chart.Line |> Chart.withTitle $"Gain ep: {ep}"
     // |> Chart.show
 
-let plotActionsByMarket() = 
-    let ag1 = lastEpoch()
+let plotActionsByMarket folder = 
+    let ag1 = lastEpoch folder
     let ep = ag1 |> Seq.tryHead |> Option.map _.Episode |> Option.defaultValue 0
     printfn $"Data length :{ag1.Length}"    
     ag1 
@@ -193,11 +193,11 @@ let plotActionsByMarket() =
             |> Chart.withTraceInfo $"Market {m}"
         ))
     |> Chart.combine 
-    |> Chart.withTitle $"Gain by market slice. Ep {ep}"
+    |> Chart.withTitle $"Gain by market slice. Ep {ep}<br>{folder}"
     |> Chart.show
 
-let grainTrendByMarket() = 
-    let ag1 = logE()
+let grainTrendByMarket folder = 
+    let ag1 = logE folder
     printfn $"Data length :{ag1.Length}"    
     ag1 
     |> Array.groupBy _.ParmId
@@ -214,24 +214,25 @@ let grainTrendByMarket() =
             |> Chart.withTraceInfo $"Market {m}"
         ))
     |> Chart.combine 
-    |> Chart.withTitle $"Gains by market slice over Epochs"
+    |> Chart.withTitle $"Gains by market slice over Epochs<br>{folder}"
     |> Chart.show
 
 
 let test2() =
-    plotGain()
+    let folder = model1
+    plotGain folder
 
-    genChart 1 (fun x->float x.Stock)
-    genChart 1 (fun x->float x.Reward)
-    genChart 1 (fun x->float x.Price)
-    actionVsChart 1 (fun x->x.Price)
-    actionVsChart 1 (fun x->x.Reward)
-    let logs = a1()
+    genChart folder 1 (fun x->float x.Stock)
+    genChart folder 1 (fun x->float x.Reward)
+    genChart folder 1 (fun x->float x.Price)
+    actionVsChart folder 1 (fun x->x.Price)
+    actionVsChart folder 1 (fun x->x.Reward)
+    let logs = a1 folder
     logs |> List.sumBy _.Length
     (List.head logs)
 
-let testPlots() = 
-    let ag1 = logE()
+let testPlots folder = 
+    let ag1 = logE folder
     [
     ag1 |> Seq.map _.Cash |> Seq.indexed |> Chart.Line |> Chart.withTraceInfo "Cash"
     ag1 |> Seq.mapi (fun i x -> i, float x.Stock * x.Price) |> Chart.Line |> Chart.withTraceInfo "Stock"
@@ -250,6 +251,9 @@ let testPlots() =
 (*
 plotGain()
 System.GC.Collect()
-plotActionsByMarket()
-grainTrendByMarket()
+plotActionsByMarket model1
+grainTrendByMarket model1
+plotActionsByMarket model2
+grainTrendByMarket model2
 *)
+
