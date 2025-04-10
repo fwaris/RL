@@ -17,7 +17,7 @@ let TX_COST_CNTRCT = 0.5
 let MAX_TRADE_SIZE = 1.
 let INITIAL_CASH = 5000.0
 let EPISODE_LENGTH = 336 //* 5
-let INPUT_DIM = 8L
+let INPUT_DIM = 9L
 let TRAIN_FRAC = 0.7
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
 let device = if torch.cuda_is_available() then torch.CUDA else torch.CPU
@@ -145,6 +145,7 @@ type AgentState =
 type NBar =
     {
         TrendShort : float
+        TrendMed : float
         TrendLong : float
         NOpen  : float 
         NHigh  : float

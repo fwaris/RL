@@ -13,6 +13,13 @@ let clipSlope (x:float) =
     tanh (x/5.0)
     //max -5.0 (min 5.0 x) //clip slope to [-5,5]
 
+let getSlope (pts:float list) =
+    let ys = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(pts).Normalize(1.0)
+    let xs = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([0 .. pts.Length]).Normalize(1.0)
+    let struct(_,slope) = LinearRegression.SimpleRegression.Fit(Seq.zip xs ys) 
+    clipSlope slope
+
+
 let loadData() = 
     let data =
         File.ReadLines INPUT_FILE
@@ -36,20 +43,17 @@ let loadData() =
         |> List.mapi (fun i xs ->
             let x = List.last xs
             let y = xs.[xs.Length - 2]
-            let pts1 = xs |> List.map avgPrice
-            let ys1N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(pts1).Normalize(1.0)
-            let xs1N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([0 .. pts1.Length]).Normalize(1.0)
-            let pts2 = xs |> List.skip (xs.Length/2) |> List.map avgPrice
-            let ys2N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(pts2).Normalize(1.0)
-            let xs2N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([0 .. pts2.Length]).Normalize(1.0)
-            let struct(_,s1) = LinearRegression.SimpleRegression.Fit(Seq.zip xs1N ys1N) 
-            let struct(_,s2) = LinearRegression.SimpleRegression.Fit(Seq.zip xs2N ys2N)
-            let cs1 = clipSlope s1
-            let cs2 = clipSlope s2
+            let pts = xs |> List.map avgPrice
+            let ptsMed = pts |> List.skip (xs.Length / 3 * 1)
+            let ptsShort = pts |> List.skip (xs.Length / 3 * 2 )
+            let slope = getSlope pts
+            let slopeMed = getSlope ptsMed
+            let slopeShort = getSlope ptsShort
             let d =
                 {
-                    TrendLong = cs1
-                    TrendShort = cs2
+                    TrendLong = slope
+                    TrendMed = slopeMed
+                    TrendShort = slopeShort
 
                     NOpen = (y.Open - x.Open) / x.Open 
                     NHigh = (y.High - x.High) / x.High 

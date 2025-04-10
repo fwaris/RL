@@ -48,7 +48,7 @@ let getObservations _ (env:MarketSlice) (s:AgentState) =
     let b =  bar env s.TimeStep |> Option.defaultWith (fun () -> failwith "bar not found")
     let avgP = Data.avgPrice b.Bar
     let buySell = torch.tensor([|canBuy avgP s; canSell s|],dtype=torch.float32)
-    let t1 = torch.tensor([|b.TrendLong;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
+    let t1 = torch.tensor([|b.TrendLong;b.TrendMed;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
     let t1 = torch.hstack(buySell,t1)
     let ts = torch.vstack([|s.State;t1|])
     let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // 40 x 5             
@@ -65,7 +65,7 @@ let computeRewards parms env s action =
             | 0                    -> -1.0
             | 1 when canSell s     -> 0.01
             | 1                    -> -1.0
-            | _                    -> -0.0001 //if (s.CashOnHand / s.InitialCash) >= 1.0 then  +0.001 else -0.001
+            | _                    -> -0.001 //if (s.CashOnHand / s.InitialCash) >= 1.0 then  +0.001 else -0.001
         let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
         let isDone   = env.IsDone (s.TimeStep + 1)
         let reward  = 
