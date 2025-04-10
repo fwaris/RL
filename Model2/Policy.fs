@@ -19,12 +19,13 @@ let private updateQOnline parms state =
     loss.backward()
     parms.Opt.step() |> ignore
     if verbosity.IsLow && state.Step.Num % 1000 = 0 then 
-        printfn $"Step {state.Step.Num}"
+        printfn $"Step {state.Step.Num} / {state.Epoch}"
         printfn $"Actions"
-        printfn "%A" actions
-        let t_td_est = Tensor.getDataNested<float32> td_tgt
-        printfn $"Esimate Q vals"
-        printfn "%A" t_td_est
+        let t_td_est = Tensor.getData<float32> td_tgt
+        Seq.zip actions t_td_est 
+        |> Seq.chunkBySize 5
+        |> Seq.iter (fun xs ->
+            xs |> Seq.iter (fun (a,v) -> printf $"{a} %0.3f{v} "); printfn "")
     if true (*avgLoss |> Double.IsNaN*) then 
         let t_states = Tensor.getDataNested<float32> states
         let t_nextStates = Tensor.getDataNested<float32> nextStates

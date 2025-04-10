@@ -61,18 +61,18 @@ let computeRewards parms env s action =
         let futurePrices = [s.TimeStep .. s.TimeStep + REWARD_HORIZON_BARS] |> List.choose (bar env) |> List.map _.Bar |> List.map Data.avgPrice
         let interReward = 
             match action with 
-            | 0 when canBuy avgP s -> 0.0
+            | 0 when canBuy avgP s -> 0.01
             | 0                    -> -1.0
-            | 1 when canSell s     -> 0.0
+            | 1 when canSell s     -> 0.01
             | 1                    -> -1.0
-            | _                    -> (s.CashOnHand / s.InitialCash) * -0.001
+            | _                    -> -0.0001 //if (s.CashOnHand / s.InitialCash) >= 1.0 then  +0.001 else -0.001
         let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
         let isDone   = env.IsDone (s.TimeStep + 1)
         let reward  = 
             if isDone then 
-                sGain + interReward
+                (sGain * 1.5) 
             else 
-                interReward                
+                sGain + interReward                
         if verbosity.isHigh then
             printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
         let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"

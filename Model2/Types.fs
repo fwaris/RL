@@ -10,9 +10,9 @@ open RL
 
 let ( @@ ) a b = Path.Combine(a,b)
 
-let TREND_WINDOW_BARS = 20
+let TREND_WINDOW_BARS = 40
 let REWARD_HORIZON_BARS = 10
-let LOOKBACK = 10L
+let LOOKBACK =30L
 let TX_COST_CNTRCT = 0.5
 let MAX_TRADE_SIZE = 1.
 let INITIAL_CASH = 5000.0
@@ -108,8 +108,8 @@ type AgentState =
                     State           = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                     PrevState       = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                 }            
-            if verbosity.IsLow then 
-                printfn  $"Reset market called {x.AgentId} exp. rate = {x.Step.ExplorationRate} step = {a.Step.Num}"
+            // if verbosity.IsLow then 
+            //     printfn  $"Reset market called {x.AgentId} exp. rate = {x.Step.ExplorationRate} step = {a.Step.Num}"
             a
 
         static member ResetForEpisode x = 
@@ -117,12 +117,12 @@ type AgentState =
                 { AgentState.ResetForMarket x with 
                     Stats = AgentStats.Default
                 }
-            if verbosity.IsLow then 
-                printfn  $"Reset market called {x.AgentId} exp. rate = {x.Step.ExplorationRate} step = {a.Step.Num}"
+            //if verbosity.isHigh then 
+            //    printfn  $"Reset market called {x.AgentId} exp. rate = {x.Step.ExplorationRate} step = {a.Step.Num}"
             a
 
         static member Default agentId initExpRate initialCash = 
-            let expBuff = {DQN.Buffer=RandomAccessList.empty; DQN.Max=50000}
+            let expBuff = {DQN.Buffer=RandomAccessList.empty; DQN.Max=int 10e5}
             {
                 TimeStep         = 0
                 AgentId          = agentId
@@ -137,7 +137,7 @@ type AgentState =
                 ExpBuff          = expBuff
                 S_reward         = -1.0
                 S_gain           = -1.0
-                Epoch          = 0
+                Epoch            = 0
                 CurrentLoss      = 0.0
                 Stats            = AgentStats.Default
             }

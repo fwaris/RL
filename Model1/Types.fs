@@ -108,8 +108,8 @@ type AgentState =
                     State           = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                     PrevState       = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                 }            
-            if verbosity.IsLow then 
-                printfn  $"Reset market called {x.AgentId} exp. rate = {x.Step.ExplorationRate} step = {a.Step.Num}"
+            // if verbosity.IsLow then 
+            //     printfn  $"Reset market called {x.AgentId} exp. rate = {x.Step.ExplorationRate} step = {a.Step.Num}"
             a
 
         static member ResetForEpisode x = 
@@ -118,7 +118,7 @@ type AgentState =
                     Stats = AgentStats.Default
                 }
             if verbosity.IsLow then 
-                printfn  $"Reset market called {x.AgentId} exp. rate = {x.Step.ExplorationRate} step = {a.Step.Num}"
+                printfn  $"Reset episode called {x.AgentId} exp. rate = {x.Step.ExplorationRate} step = {a.Step.Num}"
             a
 
         static member Default agentId initExpRate initialCash = 

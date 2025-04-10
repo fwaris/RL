@@ -47,8 +47,9 @@ module Experience =
         let ls = buff.Buffer
         let ls = RandomAccessList.cons exp ls
         let ls =
-            if RandomAccessList.length ls > buff.Max then 
-                RandomAccessList.uncons ls |> snd
+            if ls.Length > buff.Max * 2 then
+                //trim list
+                ls |> RandomAccessList.toSeq |> Seq.take buff.Max |> RandomAccessList.ofSeq
             else
                 ls
         {buff with Buffer = ls}
@@ -56,13 +57,14 @@ module Experience =
     let sample n buff =
         if buff.Buffer.Length <= n then
             buff.Buffer |> Seq.toArray 
-        else
-            let idx = torch.randperm(int64 buff.Buffer.Length,dtype=torch.int) |> Tensor.getData<int> 
+        else           
+            let maxLen = min buff.Max buff.Buffer.Length //temporarily buffer may be longer than max
+            let idx = torch.randperm(int64 maxLen,dtype=torch.int) |> Tensor.getData<int> 
             [|for i in 0..n-1 -> buff.Buffer.[idx.[i]]|]
 
     let recall n buff =
         let exps = sample n buff
-        let states     = exps |> Array.map (fun x->x.State.unsqueeze(0L)) |> torch.vstack
+        let states     = exps |> Array.map (fun x->x.State.unsqueeze(0L)) |> torch.vstack        
         let nextStates = exps |> Array.map (fun x->x.NextState.unsqueeze(0L)) |> torch.vstack
         let actions    = exps |> Array.map (fun x->x.Action)
         let rewards    = exps |> Array.map (fun x -> x.Reward)
@@ -202,7 +204,8 @@ module DQN =
         use d_isDone = torch.tensor(isDone).``to``(ddqn.Device)  //was episode done?
         use d_isDoneF = d_isDone.float()                         //convert boolean to float32
         use ret = d_reward + (1.0f.ToScalar() -  d_isDoneF) * ddqn.Gamma.ToScalar() * q_target_best //reward + discounted value
-        if true then //set to true to debug
+        if false then //set to true to debug
+            let t_d_isDoneF = Tensor.getDataNested<float32> d_isDoneF
             let t_q_online = Tensor.getDataNested<float32> q_online
             let t_best_action = Tensor.getDataNested<int64> best_action
             let t_q_target_best = Tensor.getDataNested<float32> q_target_best
