@@ -8,7 +8,7 @@ type Agent<'parms,'env,'state> = //note: 'parms are hyper parameters that are no
         computeRewards  : 'parms -> 'env -> 'state -> int -> 'state*bool*float
     }
 
-type ActionResult = {Action:int; IsDone:bool; Reward:float; IsRand:bool}
+type ActionResult = {ActionTaken:int; IsDone:bool; Reward:float; IsRand:bool}
 
 ///policy can receive a list of state-action-isDone-reward tuples to support multiple agents, each operating in its own environment
 type Policy<'parms,'state> =
@@ -24,5 +24,5 @@ let step parms env agent policy s0 =
     let s1               = agent.doAction parms env s0 act
     let s2               = agent.getObservations parms env s1
     let s3,isDone,reward = agent.computeRewards parms env s2 act
-    s3,{Action=act; IsDone=isDone; Reward=reward; IsRand=isRand}
+    s3,{ActionTaken=act; IsDone=isDone; Reward=reward; IsRand=isRand}
     

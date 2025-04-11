@@ -36,10 +36,12 @@ let loadData() =
                     Volume = float xs.[6]
                 }
             d)
+        |> Seq.filter (fun x -> x.High > 0. && x.Low > 0. && x.Open > 0. && x.Close > 0.)
         |> Seq.toList
+
     let pd = data |> List.windowed TREND_WINDOW_BARS //|> List.truncate (100000 * 4)
     let pds =
-        pd
+        pd        
         |> List.mapi (fun i xs ->
             let x = List.last xs
             let y = xs.[xs.Length - 2]

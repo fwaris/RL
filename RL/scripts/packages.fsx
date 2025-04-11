@@ -13,6 +13,7 @@
 #load "../FsMsgPackRpc.fs"
 //#load "../AirSimCar.fs"
 //#load "../CarEnvironment.fs"
+#load "../Experience.fs"
 #load "../DQN.fs"
 
 open System

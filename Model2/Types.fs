@@ -25,7 +25,7 @@ let data_dir = System.Environment.GetEnvironmentVariable("DATA_DRIVE")
 let root = data_dir @@ @"s\tradestation\model2"
 let inputDir = data_dir @@ @"s\tradestation"
 let INPUT_FILE = inputDir @@ "mes_hist_td2.csv"
-
+//let INPUT_FILE = inputDir @@ "mes_hist_td.csv"
 let ensureDirForFilePath (file:string) = 
     let dir = Path.GetDirectoryName(file)
     if dir |> Directory.Exists |> not then Directory.CreateDirectory(dir) |> ignore
@@ -81,7 +81,7 @@ type AgentState =
     {
         AgentId          : int
         TimeStep         : int
-        State            : torch.Tensor
+        CurrentState     : torch.Tensor
         PrevState        : torch.Tensor
         Step             : Step
         InitialCash      : float
@@ -89,7 +89,7 @@ type AgentState =
         TradeSize        : float
         CashOnHand       : float
         LookBack         : int64
-        ExpBuff          : DQN.ExperienceBuffer
+        ExpBuff          : Experience.ExperienceBuffer
         S_reward         : float
         S_gain           : float
         CurrentLoss      : float
@@ -105,7 +105,7 @@ type AgentState =
                     TimeStep        = 0
                     CashOnHand      = x.InitialCash
                     Stock           = 0
-                    State           = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
+                    CurrentState           = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                     PrevState       = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                 }            
             // if verbosity.IsLow then 
@@ -122,11 +122,11 @@ type AgentState =
             a
 
         static member Default agentId initExpRate initialCash = 
-            let expBuff = {DQN.Buffer=RandomAccessList.empty; DQN.Max=int 10e5}
+            let expBuff = Experience.createStratifiedSampled (int 50e5) 5
             {
                 TimeStep         = 0
                 AgentId          = agentId
-                State            = torch.zeros([|LOOKBACK;INPUT_DIM|],dtype=Nullable torch.float32)
+                CurrentState            = torch.zeros([|LOOKBACK;INPUT_DIM|],dtype=Nullable torch.float32)
                 PrevState        = torch.zeros([|LOOKBACK;INPUT_DIM|],dtype=Nullable torch.float32)
                 Step             = {ExplorationRate = initExpRate; Num=0}
                 Stock            = 0

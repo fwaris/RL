@@ -58,7 +58,7 @@ let private syncModel parms s =
 let rec policy parms = 
     {
         selectAction = fun parms (s:AgentState) -> 
-            let act,isRandom =  DQN.selectAction s.State parms.DQN s.Step
+            let act,isRandom =  DQN.selectAction s.CurrentState parms.DQN s.Step
             act,isRandom
 
         update = fun parms state  ->      

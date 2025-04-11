@@ -9,8 +9,7 @@ open FSharp.Collections.ParallelSeq
 
 ///DDQNModel maintains target and online versions of a model
 type DDQNModel = {Target : IModel;  Online : IModel}
-type Experience = {State:torch.Tensor; NextState:torch.Tensor; Action:int; Reward:float32; Done:bool}
-type ExperienceBuffer = {Buffer : RandomAccessList<Experience>; Max:int}
+
 type Exploration = {Decay:float; Min:float; WarupSteps:int} with static member Default = {Decay = 0.999; Min=0.01; WarupSteps = 1000}
 type Step = {Num:int; ExplorationRate:float}
 type DQN = {Model:DDQNModel; Gamma:float32; Exploration:Exploration; Actions:int; Device:torch.Device }
@@ -40,97 +39,6 @@ module DQNModel =
             printfn "%A" (ex.Message,ex.StackTrace)
         ddqn
 
-module Experience =
-    let createBuffer maxExperiance = {Buffer =RandomAccessList.empty; Max=maxExperiance}
-
-    let append exp buff = 
-        let ls = buff.Buffer
-        let ls = RandomAccessList.cons exp ls
-        let ls =
-            if ls.Length > buff.Max * 2 then
-                //trim list
-                ls |> RandomAccessList.toSeq |> Seq.take buff.Max |> RandomAccessList.ofSeq
-            else
-                ls
-        {buff with Buffer = ls}
-
-    let sample n buff =
-        if buff.Buffer.Length <= n then
-            buff.Buffer |> Seq.toArray 
-        else           
-            let maxLen = min buff.Max buff.Buffer.Length //temporarily buffer may be longer than max
-            let idx = torch.randperm(int64 maxLen,dtype=torch.int) |> Tensor.getData<int> 
-            [|for i in 0..n-1 -> buff.Buffer.[idx.[i]]|]
-
-    let recall n buff =
-        let exps = sample n buff
-        let states     = exps |> Array.map (fun x->x.State.unsqueeze(0L)) |> torch.vstack        
-        let nextStates = exps |> Array.map (fun x->x.NextState.unsqueeze(0L)) |> torch.vstack
-        let actions    = exps |> Array.map (fun x->x.Action)
-        let rewards    = exps |> Array.map (fun x -> x.Reward)
-        let dones      = exps |> Array.map (fun x->x.Done)
-        states,nextStates,rewards,actions,dones
-
-    type Tser = int*int64[]*List<float32[]*float32[]*int*float32*bool> //use simple types for serialization
-    let save path buff =
-        let data = 
-            buff.Buffer 
-            |> Seq.map (fun x-> 
-                x.State.data<float32>().ToArray(),
-                x.NextState.data<float32>().ToArray(),
-                x.Action,
-                x.Reward,
-                x.Done
-            )
-            |> Seq.toList
-
-        if Seq.isEmpty data then failwithf "empty buffer cannot be saved as tensor shape is unknown"
-        let shape = (Seq.head buff.Buffer).State.shape
-        let ser = MBrace.FsPickler.BinarySerializer()
-        use str = System.IO.File.Create (path:string)
-        let sval:Tser = (buff.Max,shape,data)
-        ser.Serialize(str,sval)
-
-    let saveAsync path buff =
-        async {
-            do save path buff
-        }
-
-    let load path =
-        let ser = MBrace.FsPickler.BinarySerializer()
-        use str = System.IO.File.OpenRead(path:string)        
-        let t1 = DateTime.Now
-        printfn $"ExpBuff: loading from {path}"
-        let ((mx,shape,data):Tser) = ser.Deserialize<Tser>(str)
-        let t2 = DateTime.Now
-        printfn $"ExpBuff: loaded %0.2f{(t2-t1).TotalMinutes} minutes"
-        printfn "ExpBuff: creating tensors"
-        let buff = createBuffer mx    
-        let tensors =
-            data
-            |> PSeq.map (fun (st,nst,act,rwd,dn) ->
-                    let bst = System.Runtime.InteropServices.MemoryMarshal.Cast<float32,byte>(Span(st))
-                    let bnst = System.Runtime.InteropServices.MemoryMarshal.Cast<float32,byte>(Span(nst))
-                    let tst = torch.zeros(shape,dtype=Nullable torch.float32)
-                    tst.bytes <- bst
-                    let tnst = torch.zeros(shape,dtype=Nullable torch.float32)
-                    tnst.bytes <- bnst
-                    {
-                        State       = tst
-                        NextState   = tnst
-                        Action      = act
-                        Reward      = rwd
-                        Done        = dn
-                    }            
-                )
-            |> PSeq.toList
-        let t3 = DateTime.Now
-        printfn $"ExpBuff: tensors created %0.2f{(t3-t2).TotalMinutes} minutes"
-        printfn $"ExpBuff: create random access list"
-        let expL = RandomAccessList.ofSeq tensors
-        let t4 = DateTime.Now
-        printfn $"ExpBuff: random access list created %0.2f{(t4-t3).TotalMinutes} minutes"
-        {buff with Buffer=expL}
 
 module DQN =
     //use randomization from single source - pytorch
@@ -204,6 +112,10 @@ module DQN =
         use d_isDone = torch.tensor(isDone).``to``(ddqn.Device)  //was episode done?
         use d_isDoneF = d_isDone.float()                         //convert boolean to float32
         use ret = d_reward + (1.0f.ToScalar() -  d_isDoneF) * ddqn.Gamma.ToScalar() * q_target_best //reward + discounted value
+                                                                                                    //this is the 'q-value' of the
+                                                                                                    //next-state, best-action pair
+                                                                                                    //according to the target model
+
         if false then //set to true to debug
             let t_d_isDoneF = Tensor.getDataNested<float32> d_isDoneF
             let t_q_online = Tensor.getDataNested<float32> q_online
@@ -212,6 +124,7 @@ module DQN =
             let t_ret = Tensor.getDataNested<float32> ret
             let i = 1
             ()
+
         ret.float()   //convert to float32
 
     

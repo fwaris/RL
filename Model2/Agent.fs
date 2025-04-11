@@ -1,5 +1,6 @@
 ﻿module Agent
 open DQN
+open Experience
 open Types
 open TorchSharp
 open RL
@@ -50,11 +51,28 @@ let getObservations _ (env:MarketSlice) (s:AgentState) =
     let buySell = torch.tensor([|canBuy avgP s; canSell s|],dtype=torch.float32)
     let t1 = torch.tensor([|b.TrendLong;b.TrendMed;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
     let t1 = torch.hstack(buySell,t1)
-    let ts = torch.vstack([|s.State;t1|])
-    let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // 40 x 5             
-    {s with State = ts2; PrevState = s.State}
+    let ts = torch.vstack([|s.CurrentState;t1|])
+    let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // LOOKBACK * INPUT_DIM
+    {s with CurrentState = ts2; PrevState = s.CurrentState}
         
 let computeRewards parms env s action =         
+    bar env s.TimeStep
+    |> Option.map (fun cBar -> 
+        let avgP     = Data.avgPrice  cBar.Bar
+        let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
+        let isDone   = env.IsDone (s.TimeStep + 1)
+        let reward = sGain
+        if verbosity.isHigh then
+            printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
+        let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
+        Data.logger.Post (s.Epoch,parms.RunId,logLine)
+        let experience = {NextState = s.CurrentState; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
+        let experienceBuff = Experience.append experience s.ExpBuff  
+        {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward
+    )
+    |> Option.defaultValue (s,false,0.0)
+
+let computeRewards1 parms env s action =         
     bar env s.TimeStep
     |> Option.map (fun cBar -> 
         let avgP     = Data.avgPrice  cBar.Bar
@@ -65,19 +83,19 @@ let computeRewards parms env s action =
             | 0                    -> -1.0
             | 1 when canSell s     -> 0.01
             | 1                    -> -1.0
-            | _                    -> -0.001 //if (s.CashOnHand / s.InitialCash) >= 1.0 then  +0.001 else -0.001
+            | _                    -> if s.Stock <= 0 then -0.01 else 0.0 //if (s.CashOnHand / s.InitialCash) >= 1.0 then  +0.001 else -0.001
         let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
         let isDone   = env.IsDone (s.TimeStep + 1)
         let reward  = 
             if isDone then 
-                (sGain * 1.5) 
+                if s.Stock = 0 && s.InitialCash = s.CashOnHand then -1.0 else sGain
             else 
                 sGain + interReward                
         if verbosity.isHigh then
             printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
         let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
         Data.logger.Post (s.Epoch,parms.RunId,logLine)
-        let experience = {NextState = s.State; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
+        let experience = {NextState = s.CurrentState; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
         let experienceBuff = Experience.append experience s.ExpBuff  
         {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward
     )

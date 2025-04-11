@@ -40,7 +40,7 @@ let reportEpisode parms (agent:AgentState) =
         agent.Stats.Actions
         |> Map.toSeq 
         |> Seq.collect snd
-        |> Seq.countBy (fun ar -> ar.Action,ar.IsRand ) 
+        |> Seq.countBy (fun ar -> ar.ActionTaken,ar.IsRand ) 
         |> Seq.toList
         |> List.sortBy fst
         |> List.map (fun ((a,r),c) -> $"""{if r then $"!{a}" else $"{a}"}:{c}""")

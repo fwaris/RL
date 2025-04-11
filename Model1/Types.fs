@@ -89,7 +89,7 @@ type AgentState =
         TradeSize        : float
         CashOnHand       : float
         LookBack         : int64
-        ExpBuff          : DQN.ExperienceBuffer
+        ExpBuff          : Experience.ExperienceBuffer
         S_reward         : float
         S_gain           : float
         CurrentLoss      : float
@@ -122,7 +122,7 @@ type AgentState =
             a
 
         static member Default agentId initExpRate initialCash = 
-            let expBuff = {DQN.Buffer=RandomAccessList.empty; DQN.Max=50000}
+            let expBuff = Experience.createStratifiedSampled (int 3e5) 2
             {
                 TimeStep         = 0
                 AgentId          = agentId

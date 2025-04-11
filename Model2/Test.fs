@@ -19,7 +19,7 @@ let trainMarket() = {prices = Data.dataTrain}
 
 let runAgent (policy:IModel) (market:MarketSlice) (s:AgentState) = 
     let s' = Agent.getObservations () market s
-    use state = s'.State.unsqueeze(0)
+    use state = s'.CurrentState.unsqueeze(0)
     use actionVals  = policy.forward(state)
     let action = actionVals.argmax(1L).ToInt32()
     let s'' = Agent.doAction () market s' action

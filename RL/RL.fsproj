@@ -1,11 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
-
   <ItemGroup>
     <None Include="ts_scripts\RlLogs.fsx" />
     <None Include="ts_scripts\ModelEval.fsx" />
@@ -28,10 +26,10 @@
     <Compile Include="AirSimCar.fs" />
     <Compile Include="CarEnvironment.fs" />
     <Compile Include="RL.fs" />
+    <Compile Include="Experience.fs" />
     <Compile Include="DQN.fs" />
     <Compile Include="TsData.fs" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="Fsharp.Collections.ParallelSeq" Version="1.2.0" />
     <PackageReference Include="FSharpx.Collections" Version="3.1.0" />
@@ -43,15 +41,11 @@
     <PackageReference Include="TorchSharp.Fun" Version="0.90.1" />
     <PackageReference Include="TorchVision" Version="0.105.0" />
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
-
   </ItemGroup>
-
   <!--<ItemGroup>
     <ProjectReference Include="..\..\TorchSharp.Fun\TorchSharp.Fun\TorchSharp.Fun.fsproj" />
   </ItemGroup>-->
-
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="9.0.201" />
   </ItemGroup>
-
 </Project>

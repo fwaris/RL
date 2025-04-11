@@ -4,6 +4,7 @@ open System.IO
 open TorchSharp
 open TorchSharp.Fun
 open DQN
+open Experience
 open RL
 open Types
 

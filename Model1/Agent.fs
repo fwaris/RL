@@ -1,5 +1,6 @@
 ﻿module Agent
 open DQN
+open Experience
 open Types
 open TorchSharp
 open RL
