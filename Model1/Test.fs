@@ -13,12 +13,17 @@ let interimModel = root @@ "test_DQN.bin"
 let saveInterim parms =    
     DQN.DQNModel.save interimModel parms.DQN.Model
 
-let testMarket() = {prices = Data.dataTest}
-let trainMarket() = {prices = Data.dataTrain}
+let testMarket() = 
+    let tm = {prices = Data.dataTest}
+    {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}
+
+let trainMarket() = 
+    let tm = {prices = Data.dataTrain}
+    {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}
 
 let runAgent (policy:IModel) (market:MarketSlice) (s:AgentState) = 
     let s' = Agent.getObservations () market s
-    use state = s'.State.unsqueeze(0)
+    use state = s'.CurrentState.unsqueeze(0)
     use actionVals  = policy.forward(state)
     let action = actionVals.argmax(1L).ToInt32()
     let s'' = Agent.doAction () market s' action
@@ -34,22 +39,22 @@ let evalModelTT (policy:IModel) (market:MarketSlice) =
             let gain = (equity - s.InitialCash) / s.InitialCash
             let years = (market.LastBar.Bar.Time - (market.Market.prices.[0].Bar.Time)).TotalDays / 365.0
             let annualizedGain = gain / years
-            actions,annualizedGain
+            let actDist = actions |> List.countBy id |> List.sortBy fst
+            actDist,annualizedGain
         else
             let s'',action = runAgent policy market s
             loop (action::actions) s''
     let actions,gain = loop [] sInit
     gain,actions
 
+
 let evalModel parms (name:string) (model:IModel) =
     try
         model.Module.eval()
-        let testMarket = let tm = testMarket() in {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}
-        let trainMarket = let tm = trainMarket() in {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}            
-        let gainTest,actTest = evalModelTT model testMarket 
-        let gainTrain,actTrain = evalModelTT model trainMarket
-        let testDist = actTest |> List.countBy id |> List.sortBy fst
-        let trainDist = actTrain |> List.countBy id |> List.sortBy fst
+        let testMarket =  testMarket() 
+        let trainMarket = trainMarket()
+        let gainTest,testDist = evalModelTT model testMarket 
+        let gainTrain,trainDist = evalModelTT model trainMarket
         printfn $"Emodel: {parms.RunId} {name}, Annual Gain -  Test: %0.3f{gainTest}, Train: %0.3f{gainTrain}"
         printfn $"Test dist: {testDist}; Train dist: {trainDist}"
         name,gainTest,gainTrain,testDist

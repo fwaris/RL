@@ -1,7 +1,7 @@
 ﻿#load "../scripts/packages.fsx"
 #load "../TsData.fs"
 #load "../RL.fs"
-#I @"../../Model2"
+#I @"../../Model1"
 #load "Types.fs"
 #load "Data.fs"
 #load "Agent.fs"

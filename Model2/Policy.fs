@@ -8,9 +8,10 @@ open RL
 open Types
 
 let private updateQOnline parms state = 
+    let device = DQNModel.device parms.DQN.Model.Online
     let states,nextStates,rewards,actions,dones = Experience.recall parms.BatchSize state.ExpBuff  //sample from experience
-    use states = states.``to``(parms.DQN.Device)
-    use nextStates = nextStates.``to``(parms.DQN.Device)
+    use states = states.``to``(device)
+    use nextStates = nextStates.``to``(device)
     let td_est = DQN.td_estimate states actions parms.DQN.Model.Online   //online qvals of state-action pairs
     let td_tgt = DQN.td_target rewards nextStates dones parms.DQN   //discounted qvals of opt-action next states
     let loss = parms.LossFn.forward(td_est,td_tgt)
@@ -47,13 +48,11 @@ let loadModel parms (device:torch.Device) =
         {parms with DQN = dqn})
 
 let private syncModel parms s = 
-    DQNModel.sync parms.DQN.Model parms.DQN.Device
+    DQNModel.sync parms.DQN.Model
     let fn = root @@ "models" @@ $"model_{parms.RunId}_{s.Epoch}_{s.Step.Num}.bin"
     ensureDirForFilePath fn
     DQNModel.save fn parms.DQN.Model 
     if verbosity.IsLow then printfn "Synced"
-
-
 
 let rec policy parms = 
     {

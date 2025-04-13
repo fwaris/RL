@@ -17,7 +17,6 @@ let trainMarkets =
         if endIdx <= i then failwith $"Invalid index {i}"
         {Market = Data.pricesTrain; StartIndex=i; EndIndex=endIdx})
 
-
 let parms1 id (lr,layers)  = 
     let emsize = 64
     let dropout = 0.1
@@ -52,12 +51,12 @@ let parms1 id (lr,layers)  =
             )
         mdl
     let model = DQNModel.create createModel
-    let exp = {Decay=0.9995; Min=0.01; WarupSteps=5000}
-    let DQN = DQN.create model 0.99999f exp ACTIONS device
+    let exp = {Decay=0.9995; Min=0.01; WarupSteps=WARMUP}
+    let DQN = DQN.create model 0.99999f exp ACTIONS
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 10000
         BatchSize = 32
-        Epochs = 1000}
+        Epochs = EPOCHS}
 
 let lrs = [0.001,3L]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)

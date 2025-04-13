@@ -4,6 +4,12 @@ open System.IO
 open MathNet.Numerics
 open TsData
 open Types
+open System.Numerics
+open TorchSharp
+open System.Runtime.Intrinsics.Arm
+open TorchSharp
+open MathNet.Numerics
+open Plotly.NET
 
 let avgPrice bar = 0.5 * (bar.High + bar.Low)        
 
@@ -12,6 +18,17 @@ let isNaN (c:float) = Double.IsNaN c || Double.IsInfinity c
 let clipSlope (x:float) = 
     tanh (x/5.0)
     //max -5.0 (min 5.0 x) //clip slope to [-5,5]
+
+let getSlope (pts:float list) =
+    let ys = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(pts).Normalize(1.0)
+    let xs = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([0 .. pts.Length]).Normalize(1.0)
+    let struct(_,slope) = LinearRegression.SimpleRegression.Fit(Seq.zip xs ys) 
+    clipSlope slope
+
+let ftTrans (pts:float list) =
+    let pts = pts |> List.map (fun x -> Complex(x,0)) |> List.toArray
+    MathNet.Numerics.IntegralTransforms.Fourier.Forward(pts)
+    pts
 
 let loadData() = 
     let data =
@@ -29,27 +46,34 @@ let loadData() =
                     Volume = float xs.[6]
                 }
             d)
+        |> Seq.filter (fun x -> x.High > 0. && x.Low > 0. && x.Open > 0. && x.Close > 0.)
         |> Seq.toList
+
     let pd = data |> List.windowed TREND_WINDOW_BARS //|> List.truncate (100000 * 4)
     let pds =
-        pd
+        pd        
         |> List.mapi (fun i xs ->
             let x = List.last xs
             let y = xs.[xs.Length - 2]
-            let pts1 = xs |> List.map avgPrice
-            let ys1N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(pts1).Normalize(1.0)
-            let xs1N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([0 .. pts1.Length]).Normalize(1.0)
-            let pts2 = xs |> List.skip (xs.Length/2) |> List.map avgPrice
-            let ys2N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(pts2).Normalize(1.0)
-            let xs2N = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([0 .. pts2.Length]).Normalize(1.0)
-            let struct(_,s1) = LinearRegression.SimpleRegression.Fit(Seq.zip xs1N ys1N) 
-            let struct(_,s2) = LinearRegression.SimpleRegression.Fit(Seq.zip xs2N ys2N)
-            let cs1 = clipSlope s1
-            let cs2 = clipSlope s2
+            let pts = xs |> List.map avgPrice
+            let priceReturns = pts |> List.pairwise |> List.map (fun (a,b) -> (b-a) / a)
+            let nrets = LinearAlgebra.CreateVector.DenseOfEnumerable(priceReturns).Normalize(1.0)
+            use d_pts = torch.tensor(nrets.ToArray(), dtype=torch.float)            
+            use ptsFFt = torch.fft.rfft(d_pts, norm=FFTNormType.Forward)
+            use ptsFFtR = ptsFFt.real
+            let t_ptsFFT = Fun.Tensor.getData<float32>(ptsFFtR)
+            let ptsMed = pts |> List.skip (xs.Length / 3 * 1)
+            let ptsShort = pts |> List.skip (xs.Length / 3 * 2 )
+            let slope = getSlope pts
+            let slopeMed = getSlope ptsMed
+            let slopeShort = getSlope ptsShort
             let d =
                 {
-                    TrendLong = cs1
-                    TrendShort = cs2
+                    Freq1 = float t_ptsFFT.[0]
+                    Freq2 = float t_ptsFFT.[1]
+                    TrendLong = slope
+                    TrendMed = slopeMed
+                    TrendShort = slopeShort
 
                     NOpen = (y.Open - x.Open) / x.Open 
                     NHigh = (y.High - x.High) / x.High 
@@ -84,7 +108,7 @@ let loadData() =
     let xl = pds |> List.last
     pds |> List.map snd
 
-let dataRaw = loadData() //|> List.truncate (EPISODE_LENGTH * 10)
+let dataRaw = loadData() |> List.skip (EPISODE_LENGTH * 10) |> List.take (EPISODE_LENGTH * 7)
 let TRAIN_SIZE = float dataRaw.Length * TRAIN_FRAC |> int
 let dataTrain = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
 let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray
@@ -115,3 +139,11 @@ let logger = MailboxProcessor.Start(fun inbox ->
     })
 
 
+let trainMarkets =
+    let episodes = dataTrain.Length / EPISODE_LENGTH    
+    let idxs = [0 .. episodes-1] |> List.map (fun i -> i * EPISODE_LENGTH)
+    idxs
+    |> List.map(fun i -> 
+        let endIdx = i + EPISODE_LENGTH - 1
+        if endIdx <= i then failwith $"Invalid index {i}"
+        {Market = pricesTrain; StartIndex=i; EndIndex=endIdx})

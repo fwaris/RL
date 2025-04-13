@@ -175,7 +175,7 @@ let plotGain folder =
     // ag1 |> Seq.map _.Gain  |> Seq.indexed |> Chart.Line |> Chart.withTitle $"Gain ep: {ep}"
     // |> Chart.show
 
-let plotActionsByMarket folder = 
+let plotLastEpicGainByMarket folder = 
     let ag1 = lastEpoch folder
     let ep = ag1 |> Seq.tryHead |> Option.map _.Episode |> Option.defaultValue 0
     printfn $"Data length :{ag1.Length}"    
@@ -196,7 +196,50 @@ let plotActionsByMarket folder =
     |> Chart.withTitle $"Gain by market slice. Ep {ep}<br>{folder}"
     |> Chart.show
 
-let grainTrendByMarket folder = 
+let plotLastEpicActionsByNMarkets n folder = 
+    let ag1 = lastEpoch folder
+    let ep = ag1 |> Seq.tryHead |> Option.map _.Episode |> Option.defaultValue 0
+    printfn $"Data length :{ag1.Length}"    
+    ag1 
+    |> Array.groupBy _.ParmId
+    |> Array.collect(fun (p,xs) ->
+        xs 
+        |> Array.groupBy _.Market
+        |> Array.take n
+        |> Array.collect(fun (m,ys) -> 
+            [|
+                ys 
+                |> Array.sortBy _.Step
+                |> Array.indexed 
+                |> Array.filter (fun (i,x) -> x.Action = 0)
+                |> Array.map (fun (i,x) -> i,x.Price)
+                |> Chart.Point
+                |> Chart.withMarkerStyle (Symbol=StyleParam.MarkerSymbol.ArrowUp, Size=10)
+                |> Chart.withTraceInfo $"Buy Market {m}"
+                ys 
+                |> Array.sortBy _.Step
+                |> Array.indexed 
+                |> Array.filter (fun (i,x) -> x.Action = 1)
+                |> Array.map (fun (i,x) -> i,x.Price)
+                |> Chart.Point
+                |> Chart.withMarkerStyle (Symbol=StyleParam.MarkerSymbol.ArrowDown, Size=10)
+                |> Chart.withTraceInfo $"Sell Market {m}"                
+                ys 
+                |> Array.sortBy _.Step
+                |> Array.map _.Price
+                |> Array.indexed                 
+                |> Chart.Line 
+                |> Chart.withTraceInfo $"Price Market {m}"
+            |]
+        ))
+    |> Chart.combine 
+    |> Chart.withLegendStyle(Visible=false)
+    |> Chart.withTitle $"Action vs Price 2 Markets {ep}<br>{folder}"
+    |> Chart.withSize(1000.,800.)
+    |> Chart.show
+
+
+let plotGrainTrendByMarket folder = 
     let ag1 = logE folder
     printfn $"Data length :{ag1.Length}"    
     ag1 
@@ -219,7 +262,7 @@ let grainTrendByMarket folder =
 
 
 let test2() =
-    let folder = model1
+    let folder = model2
     plotGain folder
 
     genChart folder 1 (fun x->float x.Stock)
@@ -250,10 +293,11 @@ let testPlots folder =
 
 (*
 plotGain()
-System.GC.Collect()
-plotActionsByMarket model1
-grainTrendByMarket model1
-plotActionsByMarket model2
-grainTrendByMarket model2
+plotGrainTrendByMarket model1
+plotLastEpicGainByMarket model1
+plotLastEpicActionsBy2Markets model2
+plotLastEpicActionsByNMarkets 4 model1
+plotGrainTrendByMarket model2
+plotLastEpicGainByMarket model2
+plotLastEpicActionsBy2Markets model2
 *)
-

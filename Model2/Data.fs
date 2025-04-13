@@ -90,7 +90,7 @@ let loadData() =
     let xl = pds |> List.last
     pds |> List.map snd
 
-let dataRaw = loadData() //|> List.truncate (EPISODE_LENGTH * 10)
+let dataRaw = loadData() |> List.skip (EPISODE_LENGTH * 10) |> List.take (EPISODE_LENGTH * 3)
 let TRAIN_SIZE = float dataRaw.Length * TRAIN_FRAC |> int
 let dataTrain = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
 let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray

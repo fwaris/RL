@@ -9,14 +9,15 @@ open DQN
 open RL
 
 let ( @@ ) a b = Path.Combine(a,b)
-
-let TREND_WINDOW_BARS = 40
+let EPISODE_LENGTH = 288*2 //* 5
+let EPOCHS = 1000
+let WARMUP = 5000
+let TREND_WINDOW_BARS = 60
 let REWARD_HORIZON_BARS = 10
-let LOOKBACK =30L
+let LOOKBACK = int64 (TREND_WINDOW_BARS / 3) // 30L
 let TX_COST_CNTRCT = 0.5
 let MAX_TRADE_SIZE = 1.
 let INITIAL_CASH = 5000.0
-let EPISODE_LENGTH = 336 //* 5
 let INPUT_DIM = 9L
 let TRAIN_FRAC = 0.7
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
@@ -76,6 +77,10 @@ type AgentStats = {
 }
     with static member Default = {Actions = Map.empty;}
 
+type AgentBookEntry = {
+    Cash : float
+    Stock : float    
+}
 //keep track of the information we need to run RL in here
 type AgentState =
     {
@@ -95,17 +100,18 @@ type AgentState =
         CurrentLoss      : float
         Epoch            : int
         Stats            : AgentStats
+        AgentBook        : AgentBookEntry list
     }
     with 
         ///reset for new episode
         static member ResetForMarket x = 
             let a = 
                 {x with 
-                    //Step            = {x.Step with Num=0} //keep current exploration rate; just update step number
                     TimeStep        = 0
                     CashOnHand      = x.InitialCash
                     Stock           = 0
-                    CurrentState           = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
+                    AgentBook       = []
+                    CurrentState    = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                     PrevState       = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                 }            
             // if verbosity.IsLow then 
@@ -126,7 +132,7 @@ type AgentState =
             {
                 TimeStep         = 0
                 AgentId          = agentId
-                CurrentState            = torch.zeros([|LOOKBACK;INPUT_DIM|],dtype=Nullable torch.float32)
+                CurrentState     = torch.zeros([|LOOKBACK;INPUT_DIM|],dtype=Nullable torch.float32)
                 PrevState        = torch.zeros([|LOOKBACK;INPUT_DIM|],dtype=Nullable torch.float32)
                 Step             = {ExplorationRate = initExpRate; Num=0}
                 Stock            = 0
@@ -140,6 +146,7 @@ type AgentState =
                 Epoch            = 0
                 CurrentLoss      = 0.0
                 Stats            = AgentStats.Default
+                AgentBook        = []
             }
 
 type NBar =

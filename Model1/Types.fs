@@ -9,23 +9,24 @@ open DQN
 open RL
 
 let ( @@ ) a b = Path.Combine(a,b)
-
-let TREND_WINDOW_BARS = 20
+let EPISODE_LENGTH = 288/2 // 288 5 min. bars  = 24 hours
+let WARMUP = 100000
+let EPOCHS = 1000
+let TREND_WINDOW_BARS = 60
 let REWARD_HORIZON_BARS = 10
-let LOOKBACK = 10L
+let LOOKBACK = int64 (TREND_WINDOW_BARS / 2) // 30L
 let TX_COST_CNTRCT = 0.5
-let INITIAL_CASH = 100000.0
-let MAX_TRADE_SIZE = 25.
-let EPISODE_LENGTH = 336 //* 5
-let INPUT_DIM = 6L
+let MAX_TRADE_SIZE = 1.
+let INITIAL_CASH = 5000.0
+let INPUT_DIM = 11L
 let TRAIN_FRAC = 0.7
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
-let device = if torch.cuda_is_available() then torch.CUDA else torch.CPU
+let torch_device = if torch.cuda_is_available() then torch.CUDA else torch.CPU
 let data_dir = System.Environment.GetEnvironmentVariable("DATA_DRIVE")
 let root = data_dir @@ @"s\tradestation\model1"
 let inputDir = data_dir @@ @"s\tradestation"
 let INPUT_FILE = inputDir @@ "mes_hist_td2.csv"
-
+//let INPUT_FILE = inputDir @@ "mes_hist_td.csv"
 let ensureDirForFilePath (file:string) = 
     let dir = Path.GetDirectoryName(file)
     if dir |> Directory.Exists |> not then Directory.CreateDirectory(dir) |> ignore
@@ -41,6 +42,28 @@ type LoggingLevel = Q | L | M | H
 
 let mutable verbosity = LoggingLevel.Q
 
+type TuneParms =  
+    {
+        GoodBuyInterReward      : float
+        BadBuyInterPenalty       : float
+        ImpossibleBuyPenalty    : float
+        GoodSellInterReward     : float
+        BadSellInterPenalty      : float
+        ImpossibleSellPenalty   : float
+        NonInvestmentPenalty    : float
+    }
+    with 
+        static member Default = 
+                        {
+                            GoodBuyInterReward = 0.01
+                            BadBuyInterPenalty = -0.001
+                            ImpossibleBuyPenalty = -0.05
+                            GoodSellInterReward = 0.01
+                            BadSellInterPenalty = - 0.001
+                            ImpossibleSellPenalty = -0.05
+                            NonInvestmentPenalty = -0.0101
+                        }
+
 type Parms =
     {
         LearnRate        : float
@@ -53,6 +76,8 @@ type Parms =
         BatchSize        : int
         Epochs           : int
         RunId            : int
+        LogSteps         : bool
+        TuneParms        : TuneParms
     }
     with 
         static member Default modelFn ddqn lr id = 
@@ -68,7 +93,8 @@ type Parms =
                 BatchSize       = 32
                 Epochs          = 6
                 RunId           = id
-                
+                LogSteps        = true
+                TuneParms       = TuneParms.Default
             }
 
 type AgentStats = {
@@ -76,12 +102,16 @@ type AgentStats = {
 }
     with static member Default = {Actions = Map.empty;}
 
+type AgentBookEntry = {
+    Cash : float
+    Stock : float    
+}
 //keep track of the information we need to run RL in here
 type AgentState =
     {
         AgentId          : int
         TimeStep         : int
-        State            : torch.Tensor
+        CurrentState     : torch.Tensor
         PrevState        : torch.Tensor
         Step             : Step
         InitialCash      : float
@@ -95,17 +125,18 @@ type AgentState =
         CurrentLoss      : float
         Epoch            : int
         Stats            : AgentStats
+        AgentBook        : AgentBookEntry list
     }
     with 
         ///reset for new episode
         static member ResetForMarket x = 
             let a = 
                 {x with 
-                    //Step            = {x.Step with Num=0} //keep current exploration rate; just update step number
                     TimeStep        = 0
                     CashOnHand      = x.InitialCash
                     Stock           = 0
-                    State           = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
+                    AgentBook       = []
+                    CurrentState    = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                     PrevState       = torch.zeros([|x.LookBack;INPUT_DIM|],dtype=Nullable torch.float32)
                 }            
             // if verbosity.IsLow then 
@@ -117,16 +148,16 @@ type AgentState =
                 { AgentState.ResetForMarket x with 
                     Stats = AgentStats.Default
                 }
-            if verbosity.IsLow then 
-                printfn  $"Reset episode called {x.AgentId} exp. rate = {x.Step.ExplorationRate} step = {a.Step.Num}"
+            //if verbosity.isHigh then 
+            //    printfn  $"Reset market called {x.AgentId} exp. rate = {x.Step.ExplorationRate} step = {a.Step.Num}"
             a
 
         static member Default agentId initExpRate initialCash = 
-            let expBuff = Experience.createStratifiedSampled (int 3e5) 2
+            let expBuff = Experience.createStratifiedSampled (int 50e5) 5
             {
                 TimeStep         = 0
                 AgentId          = agentId
-                State            = torch.zeros([|LOOKBACK;INPUT_DIM|],dtype=Nullable torch.float32)
+                CurrentState     = torch.zeros([|LOOKBACK;INPUT_DIM|],dtype=Nullable torch.float32)
                 PrevState        = torch.zeros([|LOOKBACK;INPUT_DIM|],dtype=Nullable torch.float32)
                 Step             = {ExplorationRate = initExpRate; Num=0}
                 Stock            = 0
@@ -137,14 +168,18 @@ type AgentState =
                 ExpBuff          = expBuff
                 S_reward         = -1.0
                 S_gain           = -1.0
-                Epoch          = 0
+                Epoch            = 0
                 CurrentLoss      = 0.0
                 Stats            = AgentStats.Default
+                AgentBook        = []
             }
 
 type NBar =
     {
+        Freq1 : float
+        Freq2 : float
         TrendShort : float
+        TrendMed : float
         TrendLong : float
         NOpen  : float 
         NHigh  : float

@@ -19,7 +19,7 @@ let trainMarkets =
 
 
 let parms1 id (lr,layers)  = 
-    let emsize = 8
+    let emsize = 64
     let dropout = 0.1
     let max_seq = LOOKBACK
     let nheads = 1
@@ -27,38 +27,36 @@ let parms1 id (lr,layers)  =
 
     let createModel() = 
         let proj = torch.nn.Linear(INPUT_DIM,emsize)
-        //let pos_encoder = PositionalEncoder.create dropout emsize max_seq
         let pos_emb = torch.nn.EmbeddingBag(LOOKBACK,emsize)
         let encoder_layer = torch.nn.TransformerEncoderLayer(emsize,nheads,emsize,dropout)
-        let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)        
-        let sqrtEmbSz = (sqrt (float emsize)).ToScalar()
+        let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)                
         let projOut = torch.nn.Linear(emsize,ACTIONS)
-        let activation = torch.nn.Tanh()
-        let initRange = 0.1
         let mdl = 
-            F [] [proj; pos_emb; transformer_encoder; projOut]  (fun t -> //B x S x 5
-                use p = proj.forward(t) // B x S x emsize                
+            F [] [proj; pos_emb; transformer_encoder; projOut]  (fun inp -> //B x S x 5
+                use p = proj.forward(inp) // B x S x emsize                
                 let batchSize::seqLen::_ = p.size() |> Seq.toList
-                use pos = torch.arange(seqLen,device=p.device).unsqueeze(1)
-                use emb = pos_emb.call(pos)
-                use pemb = p + emb
-                use pB2 = pemb.permute(1,0,2) //batch second - S x B x emsize                
+                use pos = torch.arange(seqLen,device=inp.device).unsqueeze(1)
+                use pos_emb = pos_emb.call(pos)
+                use projWithPos = p + pos_emb
+                use pB2 = projWithPos.permute(1,0,2) //batch second - S x B x emsize                
                 use enc = transformer_encoder.call(pB2) //S x B x emsize
                 use encB = enc.permute(1,0,2)  //batch first  // B x S x emsize
                 use dec = encB.[``:``,LAST,``:``]    //keep last value as output to compare with target - B x emsize
-                use pout = projOut.forward(dec) //B x ACTIONS
-                let act = activation.forward pout
+                let pout = projOut.forward(dec) //B x ACTIONS
+                //let act = activation.forward pout
                 //let t_act = Tensor.getDataNested<float32> act
-                act
+                pout
             )
         mdl
-    let model = DQNModel.create createModel
-    let exp = {Decay=0.9995; Min=0.01; WarupSteps=5000}
-    let DQN = DQN.create model 0.99999f exp ACTIONS device
+    let model = DQNModel.create createModel    
+    let exp = {Decay=0.9995; Min=0.01; WarupSteps=WARMUP}
+    let DQN = DQN.create model 0.99999f exp ACTIONS
     {Parms.Default createModel DQN lr id with 
-        SyncEverySteps = 10000
-        BatchSize = 10
-        Epochs = 1000}
+        SyncEverySteps = 3000
+        BatchSize = 32
+        Epochs = EPOCHS}
 
-let lrs = [0.00001,1L]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
+let lrs = [0.001,2L]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
 let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
+
+
