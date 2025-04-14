@@ -21,7 +21,7 @@ let startReRun parms =
     }
 
 let restartJobs = 
-    Model.parms 
+    Model.parms     
     |> List.map (fun p -> 
         let o2 = p.DQN.Model.Online.Module.``to`` device        
         let tgt2 = p.DQN.Model.Target.Module.``to`` device

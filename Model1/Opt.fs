@@ -56,8 +56,8 @@ let optLogger = MailboxProcessor.Start(fun inbox ->
 let runOpt parms = 
     async {
         try 
-            parms.DQN.Model.Online.Module.``to``(torch_device) |> ignore
-            parms.DQN.Model.Target.Module.``to``(torch_device) |> ignore
+            parms.DQN.Model.Online.Module.``to``(device) |> ignore
+            parms.DQN.Model.Target.Module.``to``(device) |> ignore
             let plcy = Policy.policy parms
             let agent = Train.trainEpisodes parms plcy Data.trainMarkets
             let testGain,testDist = Test.evalModelTT parms.DQN.Model.Online (Test.testMarket())

@@ -31,13 +31,6 @@ module DQNModel =
         models.Target.Module.load_state_dict(models.Online.Module.state_dict())
         |> ignore
 
-    let sync models =
-        //let device = device models.Online
-        // let s1 = models.Online.Module.state_dict() |> Seq.map(fun kv -> kv.Key,kv.Value.cpu()) |> dict |> Collections.Generic.Dictionary
-        // let tgtMdl = models.Target.Module.cpu()
-        //let struct(a,b) = models.Target.Module.load_state_dict(models.Online.Module.state_dict())
-        ()
-
     let save (file:string) (ddqn:DDQNModel)  = ddqn.Online.Module.save(file) |> ignore
 
     let load (fmodel:unit -> IModel) (file:string) =
@@ -112,7 +105,7 @@ module DQN =
 
     let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) ddqn =
         use t = torch.no_grad()                              //turn off gradient calculation
-        let device = DQNModel.device ddqn.Model.Online
+        let device = DQNModel.device ddqn.Model
         use q_online = ddqn.Model.Online.forward(next_state) //online model estimate of value (from next state)
         use best_action = q_online.argmax(1L)                //optimum value action from online
 
