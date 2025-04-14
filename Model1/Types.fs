@@ -47,7 +47,7 @@ type Parms =
         CreateModel      : unit -> IModel                   //need model creation function so that we can load weights from file
         DQN              : DQN
         LossFn           : Loss<torch.Tensor,torch.Tensor,torch.Tensor>
-        Opt              : torch.optim.Optimizer
+        Opt              : Lazy<torch.optim.Optimizer>
         LearnEverySteps  : int
         SyncEverySteps   : int
         BatchSize        : int
@@ -56,19 +56,18 @@ type Parms =
     }
     with 
         static member Default modelFn ddqn lr id = 
-            let mps = ddqn.Model.Online.Module.parameters()
+            let mps = lazy(ddqn.Model.Online.Module.parameters())
             {
                 LearnRate       = lr
                 CreateModel     = modelFn
                 DQN             = ddqn
                 LossFn          = torch.nn.SmoothL1Loss()
-                Opt             = torch.optim.Adam(mps, lr=lr,weight_decay=0.00001)
+                Opt             = lazy(torch.optim.Adam(mps.Value, lr=lr,weight_decay=0.00001) :> _) //optimizer should be created after model is moved to target device
                 LearnEverySteps = 3
                 SyncEverySteps  = 1000
                 BatchSize       = 32
                 Epochs          = 6
                 RunId           = id
-                
             }
 
 type AgentStats = {

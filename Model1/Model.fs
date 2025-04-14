@@ -54,7 +54,7 @@ let parms1 id (lr,layers)  =
         mdl
     let model = DQNModel.create createModel
     let exp = {Decay=0.9995; Min=0.01; WarupSteps=5000}
-    let DQN = DQN.create model 0.99999f exp ACTIONS device
+    let DQN = DQN.create model 0.99999f exp ACTIONS
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 10000
         BatchSize = 10

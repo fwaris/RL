@@ -8,16 +8,17 @@ open RL
 open Types
 
 let private updateQOnline parms state = 
+    let device = DQNModel.device parms.DQN.Model
     let states,nextStates,rewards,actions,dones = Experience.recall parms.BatchSize state.ExpBuff  //sample from experience
-    use states = states.``to``(parms.DQN.Device)
-    use nextStates = nextStates.``to``(parms.DQN.Device)
+    use states = states.``to``(device)
+    use nextStates = nextStates.``to``(device)
     let td_est = DQN.td_estimate states actions parms.DQN.Model.Online   //online qvals of state-action pairs
     let td_tgt = DQN.td_target rewards nextStates dones parms.DQN   //discounted qvals of opt-action next states
     let loss = parms.LossFn.forward(td_est,td_tgt)
     let avgLoss = loss.mean().ToDouble()
-    parms.Opt.zero_grad()
+    parms.Opt.Value.zero_grad()
     loss.backward()
-    parms.Opt.step() |> ignore
+    parms.Opt.Value.step() |> ignore
     if verbosity.IsLow && state.Step.Num % 1000 = 0 then 
         printfn $"Step {state.Step.Num} / {state.Epoch}"
         printfn $"Actions"
@@ -35,19 +36,17 @@ let private updateQOnline parms state =
         ()
     {state with CurrentLoss = avgLoss}
 
-let loadModel parms (device:torch.Device) =
+let loadModel parms =
     let dir = root @@ "models_restart"
     ensureDir dir
     Directory.GetFiles(dir,$"model_{parms.RunId}*") |> Seq.sortByDescending (fun f -> (FileInfo f).LastWriteTime) |> Seq.tryHead
     |> Option.map(fun fn ->
         let mdl  = DQN.DQNModel.load parms.CreateModel fn                        
-        mdl.Online.Module.``to``(device) |> ignore
-        mdl.Target.Module.``to``(device) |> ignore
         let dqn = {parms.DQN with Model = mdl; }
         {parms with DQN = dqn})
 
 let private syncModel parms s = 
-    DQNModel.sync parms.DQN.Model parms.DQN.Device
+    DQNModel.sync parms.DQN.Model
     let fn = root @@ "models" @@ $"model_{parms.RunId}_{s.Epoch}_{s.Step.Num}.bin"
     ensureDirForFilePath fn
     DQNModel.save fn parms.DQN.Model 
