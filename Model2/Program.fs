@@ -1,6 +1,7 @@
 ﻿module Program
 open System
 open TorchSharp
+open TorchSharp.Fun
 open Types
 
 let NUM_MKT_SLICES = Data.TRAIN_SIZE / EPISODE_LENGTH
@@ -30,10 +31,10 @@ let startReRun parms =
 
 let restartJobs = 
     Model.parms 
-    |> List.map(fun p -> Policy.loadModel p device |> Option.defaultValue p) 
+    |> List.map(fun p -> Policy.loadModel p |> Option.defaultValue p) 
     |> List.map (fun p -> 
-        p.DQN.Model.Online.Module.``to`` device |> ignore
-        p.DQN.Model.Target.Module.``to`` device |> ignore
+        let o2 = p.DQN.Model.Online.Module.``to`` device        
+        let tgt2 = p.DQN.Model.Target.Module.``to`` device
         p
     )
     |> List.map startReRun

@@ -12,30 +12,24 @@ type DDQNModel = {Target : IModel;  Online : IModel}
 
 type Exploration = {Decay:float; Min:float; WarupSteps:int} with static member Default = {Decay = 0.999; Min=0.01; WarupSteps = 1000}
 type Step = {Num:int; ExplorationRate:float}
-type DQN = {Model:DDQNModel; Gamma:float32; Exploration:Exploration; Actions:int;}
+type DQN = {Model:DDQNModel; Gamma:float32; Exploration:Exploration; Actions:int; }
 
 module DQNModel =
-    let device (model:IModel) = 
-        let dvc = 
-            model.Module.state_dict() 
-            |> Seq.tryHead
-            |> Option.map (fun kv -> kv.Value.device)
-            |> Option.defaultWith (fun () -> failwith "unable to get device")
-        printfn $"device: {dvc}"
-        dvc
+    let device (models:DDQNModel) = 
+        models.Online.Module.parameters() 
+        |> Seq.tryHead 
+        |> Option.map _.device
+        |> Option.defaultWith (fun _ -> failwith "unable to get torch device")
 
     let create (fmodel: unit -> IModel) = 
         let tgt = fmodel()
         let onln = fmodel()
         tgt.Module.parameters() |> Seq.iter (fun p -> p.requires_grad <- false)
         {Target=tgt; Online=onln}
-
-    let sync_ models =
-        let device = device models.Online
-        let s1 = models.Online.Module.state_dict() |> Seq.map(fun kv -> kv.Key,kv.Value.cpu()) |> dict |> Collections.Generic.Dictionary
-        let tgtMdl = models.Target.Module.cpu()
-        tgtMdl.load_state_dict(s1) |> ignore        
-        tgtMdl.``to``(device) |> ignore
+        
+    let sync models =
+        models.Target.Module.load_state_dict(models.Online.Module.state_dict())
+        |> ignore
 
     let sync models =
         //let device = device models.Online
@@ -76,7 +70,7 @@ module DQN =
             ExplorationRate = expRate
         }
 
-    let create model gamma exploration actions  =
+    let create model gamma exploration actions =
         {
             Model = model
             Exploration = exploration
@@ -89,7 +83,7 @@ module DQN =
             if rand() < step.ExplorationRate then //explore
                 randint ddqn.Actions,true
             else
-                let device = DQNModel.device ddqn.Model.Online
+                let device = DQNModel.device ddqn.Model
                 use state = state.``to``(device)  //exploit
                 use state = state.unsqueeze(0)
                 use action_values = ddqn.Model.Online.forward(state)
@@ -127,7 +121,7 @@ module DQN =
         use q_target      = ddqn.Model.Target.forward(next_state) //target model estimates of value (from next state)
         use q_target_best = q_target.index(idx)                   //value of best action according to target model 
                                                                   //where the 'best action' is determined by the online model
-
+        let device = DQNModel.device ddqn.Model
         use d_reward = torch.tensor(reward).``to``(device)  //reward to device (cpu/gpu)
         use d_isDone = torch.tensor(isDone).``to``(device)  //was episode done?
         use d_isDoneF = d_isDone.float()                         //convert boolean to float32

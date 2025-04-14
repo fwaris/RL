@@ -8,17 +8,17 @@ open RL
 open Types
 
 let private updateQOnline parms state = 
-    let device = DQNModel.device parms.DQN.Model.Online
+    let device = DQNModel.device parms.DQN.Model
     let states,nextStates,rewards,actions,dones = Experience.recall parms.BatchSize state.ExpBuff  //sample from experience
-    use states = states.``to`` device
-    use nextStates = nextStates.``to`` device
+    use states = states.``to``(device)
+    use nextStates = nextStates.``to``(device)
     let td_est = DQN.td_estimate states actions parms.DQN.Model.Online   //online qvals of state-action pairs
     let td_tgt = DQN.td_target rewards nextStates dones parms.DQN   //discounted qvals of opt-action next states
     let loss = parms.LossFn.forward(td_est,td_tgt)
     let avgLoss = loss.mean().ToDouble()
-    parms.Opt.zero_grad()
+    parms.Opt.Value.zero_grad()
     loss.backward()
-    parms.Opt.step() |> ignore
+    parms.Opt.Value.step() |> ignore
     if verbosity.IsLow && state.Step.Num % 1000 = 0 then 
         printfn $"Step {state.Step.Num} / {state.Epoch}"
         printfn $"Actions"
