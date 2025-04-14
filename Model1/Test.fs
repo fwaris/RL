@@ -22,9 +22,11 @@ let trainMarket() =
     {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}
 
 let runAgent (policy:IModel) (market:MarketSlice) (s:AgentState) = 
+    let device = policy.Module.parameters() |> Seq.tryHead |> Option.map _.device |> Option.defaultValue torch.CPU
     let s' = Agent.getObservations () market s
     use state = s'.CurrentState.unsqueeze(0)
-    use actionVals  = policy.forward(state)
+    use state' = state.``to``(device)
+    use actionVals  = policy.forward(state')
     let action = actionVals.argmax(1L).ToInt32()
     let s'' = Agent.doAction () market s' action
     s'',action

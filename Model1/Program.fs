@@ -35,6 +35,6 @@ let run() =
     restartJobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
 
 verbosity <- LoggingLevel.L
-run()
-//Opt.optimize()
+//run()
+Opt.optimize()
 

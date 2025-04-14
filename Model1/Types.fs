@@ -11,7 +11,7 @@ open RL
 let ( @@ ) a b = Path.Combine(a,b)
 let EPISODE_LENGTH = 288/2 // 288 5 min. bars  = 24 hours
 let WARMUP = 100000
-let EPOCHS = 1000
+let EPOCHS = 100
 let TREND_WINDOW_BARS = 60
 let REWARD_HORIZON_BARS = 10
 let LOOKBACK = int64 (TREND_WINDOW_BARS / 2) // 30L
@@ -77,6 +77,7 @@ type Parms =
         Epochs           : int
         RunId            : int
         LogSteps         : bool
+        SaveModels       : bool
         TuneParms        : TuneParms
     }
     with 
@@ -94,6 +95,7 @@ type Parms =
                 Epochs          = 6
                 RunId           = id
                 LogSteps        = true
+                SaveModels      = true
                 TuneParms       = TuneParms.Default
             }
 

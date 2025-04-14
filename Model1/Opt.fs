@@ -42,7 +42,7 @@ let optLogger = MailboxProcessor.Start(fun inbox ->
     async {
         while true do
             let! (gain:float, actDist:List<int*int>, tp:TuneParms) = inbox.Receive()
-            let line = $"""{gain},"%A{actDist}",{tp.GoodBuyInterReward},{tp.BadBuyInterPenalty},{tp.ImpossibleBuyPenalty},{tp.GoodSellInterReward}{tp.BadSellInterPenalty}{tp.ImpossibleSellPenalty}{tp.NonInvestmentPenalty}"""
+            let line = $"""{gain},"%A{actDist}",{tp.GoodBuyInterReward},{tp.BadBuyInterPenalty},{tp.ImpossibleBuyPenalty},{tp.GoodSellInterReward},{tp.BadSellInterPenalty},{tp.ImpossibleSellPenalty},{tp.NonInvestmentPenalty}"""
             try               
                 if File.Exists OPT_LOG |> not then
                     let header = $"""gain,actDist,GoodBuyInterReward,BadBuyInterPenalty,ImpossibleBuyPenalty,GoodSellInterReward,BadSellInterPenalty,ImpossibleSellPenalty,NonInvestmentPenalty"""
@@ -70,8 +70,13 @@ let runOpt parms =
             return -0.9999
     }
 
-let fopt baseParms (parms:float[]) =
+let mutable _id = 0
+let nextId () = System.Threading.Interlocked.Increment &_id
+
+let fopt (parms:float[]) =
     async {
+        let baseParms = Model.parms1 (nextId()) (0.001, 3L)                   //every fitness evaluation needs separate optimizer and model
+        let baseParms = {baseParms with LogSteps=false; SaveModels=false}
         let tp = toTParms parms
         let optParms = {baseParms with TuneParms = tp}
         let! gain = runOpt optParms
@@ -80,8 +85,7 @@ let fopt baseParms (parms:float[]) =
 
 let optimize() =
     clearLog()
-    let baseParms = {(Model.parms |> List.head) with LogSteps=false}
-    let fitness ps = fopt baseParms ps |> Async.RunSynchronously
-    let mutable step = CALib.API.initCA(caparms,fitness , Maximize)
+    let fitness ps = fopt ps |> Async.RunSynchronously
+    let mutable step = CALib.API.initCA(caparms, fitness , Maximize)
     for i in 0 .. 15000 do 
         step <- CALib.API.Step step
