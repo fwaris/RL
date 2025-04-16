@@ -10,7 +10,7 @@ open RL
 
 let ( @@ ) a b = Path.Combine(a,b)
 let EPISODE_LENGTH = 288/2 // 288 5 min. bars  = 24 hours
-let WARMUP = 100000
+let WARMUP = 5000
 let EPOCHS = 100
 let TREND_WINDOW_BARS = 60
 let REWARD_HORIZON_BARS = 10
@@ -51,17 +51,19 @@ type TuneParms =
         BadSellInterPenalty      : float
         ImpossibleSellPenalty   : float
         NonInvestmentPenalty    : float
+        Layers                  : int64
     }
     with 
-        static member Default = 
+        static member Default = //0,0,-0.5700000000000001,0.6,0,0,0
                         {
-                            GoodBuyInterReward = 0.01
-                            BadBuyInterPenalty = -0.001
-                            ImpossibleBuyPenalty = -0.05
-                            GoodSellInterReward = 0.01
-                            BadSellInterPenalty = - 0.001
-                            ImpossibleSellPenalty = -0.05
-                            NonInvestmentPenalty = -0.0101
+                            GoodBuyInterReward = 0.00
+                            BadBuyInterPenalty = -0.000
+                            ImpossibleBuyPenalty = -0.057
+                            GoodSellInterReward = 0.6
+                            BadSellInterPenalty = - 0.00
+                            ImpossibleSellPenalty = -0.0
+                            NonInvestmentPenalty = -0.0
+                            Layers = 2L
                         }
 
 type Parms =
