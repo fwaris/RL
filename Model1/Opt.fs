@@ -65,9 +65,9 @@ let runOpt parms =
             parms.DQN.Model.Online.Module.``to``(device) |> ignore
             parms.DQN.Model.Target.Module.``to``(device) |> ignore
             let plcy = Policy.policy parms
-            let data = Data.loadData parms.TuneParms
-            let trainMarkets = Data.trainMarkets data
-            let testMarket = Data.testMarket data
+            let dTrain,dTest = Data.testTrain parms.TuneParms            
+            let trainMarkets = Data.episodeLengthMarketSlices dTrain
+            let testMarket = Data.singleMarketSlice dTest
             let agent = Train.trainEpisodes parms plcy trainMarkets
             let testGain,testDist = Test.evalModelTT parms.TuneParms parms.DQN.Model.Online testMarket
             printfn $"Gain; {testGain}; Test dist: {testDist}"

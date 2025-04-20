@@ -13,14 +13,6 @@ let interimModel = root @@ "test_DQN.bin"
 let saveInterim parms =    
     DQN.DQNModel.save interimModel parms.DQN.Model
 
-let testMarket tp = 
-    let tm = {prices = Data.dataTest tp}
-    {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}
-
-let trainMarket tp = 
-    let tm = {prices = Data.dataTrain tp}
-    {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}
-
 let runAgent (policy:IModel) (market:MarketSlice) (s:AgentState) = 
     let device = policy.Module.parameters() |> Seq.tryHead |> Option.map _.device |> Option.defaultValue torch.CPU
     let s' = Agent.getObservations () market s
@@ -49,13 +41,12 @@ let evalModelTT tp (policy:IModel) (market:MarketSlice) =
     let actions,gain = loop [] sInit
     gain,actions
 
-
 let evalModel parms (name:string) (model:IModel) =
     try
         model.Module.eval()
-        let data = Data.loadData parms.TuneParms
-        let testMarket =  testMarket data
-        let trainMarket = trainMarket data
+        let dTrain,dTest = Data.testTrain parms.TuneParms
+        let testMarket =  Data.singleMarketSlice dTrain
+        let trainMarket = Data.singleMarketSlice dTest
         let gainTest,testDist = evalModelTT parms.TuneParms model testMarket 
         let gainTrain,trainDist = evalModelTT parms.TuneParms model trainMarket
         printfn $"Emodel: {parms.RunId} {name}, Annual Gain -  Test: %0.3f{gainTest}, Train: %0.3f{gainTrain}"

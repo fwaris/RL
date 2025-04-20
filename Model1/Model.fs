@@ -6,18 +6,6 @@ open DQN
 open SeqUtils
 open Types
 
-let NUM_MKT_SLICES tp = (Data.trainSize tp) / EPISODE_LENGTH
-
-let trainMarkets tp =
-    let episodes = (Data.dataTrain tp).Length / EPISODE_LENGTH    
-    let idxs = [0 .. episodes-1] |> List.map (fun i -> i * EPISODE_LENGTH)
-    idxs
-    |> List.map(fun i -> 
-        let endIdx = i + EPISODE_LENGTH - 1
-        if endIdx <= i then failwith $"Invalid index {i}"
-        {Market = (Data.pricesTrain tp); StartIndex=i; EndIndex=endIdx})
-
-
 let parms1 id (lr,tp:TuneParms) = 
     let emsize = 64
     let dropout = 0.1
@@ -56,7 +44,22 @@ let parms1 id (lr,tp:TuneParms) =
         Epochs = EPOCHS
         TuneParms = tp}
 
-let parmSpace = [0.001,TuneParms.Default]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
+let tp = //0.34,-0.84,-0.57,0.98,-0.16,0,0,10
+         //a.GoodBuyInterReward, a.BadBuyInterPenalty, a.ImpossibleBuyPenalty, a.GoodSellInterReward, a.BadSellInterPenalty, a.ImpossibleSellPenalty, a.NonInvestmentPenalty, a.Layers
+    {
+        GoodBuyInterReward = 0.34
+        BadBuyInterPenalty = -0.84
+        ImpossibleBuyPenalty = -0.057
+        GoodSellInterReward = 0.98
+        BadSellInterPenalty = -0.16
+        ImpossibleSellPenalty = 0.0
+        NonInvestmentPenalty = 0.0
+        Layers = 10L
+        Lookback = 30L // LOOKBACK
+        TrendWindowBars = 60//TREND_WINDOW_BARS
+    }   
+
+let parmSpace = [0.001,tp]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
 let parms = parmSpace |> List.mapi (fun i ps -> parms1 i ps)
 
 

@@ -30,7 +30,7 @@ let ftTrans (pts:float list) =
     MathNet.Numerics.IntegralTransforms.Fourier.Forward(pts)
     pts
 
-let loadData tp = 
+let private loadData tp = 
     let data =
         File.ReadLines INPUT_FILE
         |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not)
@@ -53,8 +53,8 @@ let loadData tp =
     let pds tp =
         pd tp   
         |> List.mapi (fun i xs ->
-            let x = List.last xs
-            let y = xs.[xs.Length - 2]
+            let currBar = List.last xs
+            let prevBar = xs.[xs.Length - 2]
             let pts = xs |> List.map avgPrice
             let priceReturns = pts |> List.pairwise |> List.map (fun (a,b) -> (b-a) / a)
             let nrets = LinearAlgebra.CreateVector.DenseOfEnumerable(priceReturns).Normalize(1.0)
@@ -75,11 +75,11 @@ let loadData tp =
                     TrendMed = slopeMed
                     TrendShort = slopeShort
 
-                    NOpen = (y.Open - x.Open) / x.Open 
-                    NHigh = (y.High - x.High) / x.High 
-                    NLow =  (y.Low - x.Low) / x.Low 
-                    NClose = (y.Close - x.Close) / x.Close 
-                    NVolume = (y.Volume - x.Volume) / x.Close
+                    NOpen = (currBar.Open - prevBar.Open)/ prevBar.Open 
+                    NHigh = (currBar.High - prevBar.High) / prevBar.High 
+                    NLow =  (currBar.Low - prevBar.Low) / prevBar.Low 
+                    NClose = (currBar.Close - prevBar.Close) / prevBar.Close 
+                    NVolume = (prevBar.Volume - currBar.Volume) / prevBar.Volume 
 
                     //NOpen = exp(y.Open  / x.Open) 
                     //NHigh = exp(y.High /  x.High) 
@@ -99,21 +99,22 @@ let loadData tp =
                     //NLow =  (y.Low/x.Low)   //|> max -18. //- 1.0
                     //NClose = (y.Close/x.Close) //|> max -18.// - 1.0
                     //NVolume = (y.Volume/x.Volume) //|> max -18. //- 1.0
-                    Bar  = y
+                    Bar  = prevBar
                 }
             if isNaN d.NOpen ||isNaN d.NHigh || isNaN d.NLow || isNaN d.NClose || isNaN d.NVolume then
                 failwith "nan in data"
-            (x,y),d
+            (currBar,prevBar),d
         )    
     pds tp |> List.map snd
 
-let dataRaw tp = loadData tp |> List.skip (EPISODE_LENGTH * 10) |> List.take (EPISODE_LENGTH * 7)
-let trainSize (xs:NBar list) = float xs.Length * TRAIN_FRAC |> int
-let dataTrain (xs:NBar list) = xs|> Seq.truncate (trainSize xs) |> Seq.toArray
-let dataTest (xs:NBar list) = xs |> Seq.skip (trainSize xs) |> Seq.toArray
-let pricesTrain xs = {prices = dataTrain xs}
-let pricesTest xs = {prices = dataTest xs}
-    
+let numMarketSlices (xs:_[]) = xs.Length / EPISODE_LENGTH
+
+let testTrain tp = 
+    let dataSet = loadData tp |> List.skip (EPISODE_LENGTH * 10) |> List.take (EPISODE_LENGTH * 7)
+    let trainSize  = float dataSet.Length * TRAIN_FRAC |> int
+    let dataTrain = dataSet |> Seq.truncate trainSize |> Seq.toArray
+    let dataTest = dataSet |> Seq.skip trainSize |> Seq.toArray
+    dataTrain, dataTest
 let resetLogs() =
     let logDir = root @@ "logs"
     if Directory.Exists logDir |> not then 
@@ -138,15 +139,14 @@ let logger = MailboxProcessor.Start(fun inbox ->
     })
 
 
-let trainMarkets xs =
-    let episodes = (dataTrain xs).Length / EPISODE_LENGTH    
+let episodeLengthMarketSlices (trainData:NBar[]) =
+    let episodes = trainData.Length / EPISODE_LENGTH    
     let idxs = [0 .. episodes-1] |> List.map (fun i -> i * EPISODE_LENGTH)
     idxs
     |> List.map(fun i -> 
         let endIdx = i + EPISODE_LENGTH - 1
         if endIdx <= i then failwith $"Invalid index {i}"
-        {Market = pricesTrain xs; StartIndex=i; EndIndex=endIdx})
+        {Market = {prices=trainData}; StartIndex=i; EndIndex=endIdx})
 
-let testMarket xs = 
-    let ps = pricesTest xs
-    {Market = ps; StartIndex=0; EndIndex=ps.prices.Length-1}
+let singleMarketSlice (bars:NBar[]) = 
+    {Market = {prices = bars}; StartIndex=0; EndIndex=bars.Length-1}
