@@ -30,7 +30,7 @@ let ftTrans (pts:float list) =
     MathNet.Numerics.IntegralTransforms.Fourier.Forward(pts)
     pts
 
-let loadData() = 
+let loadData tp = 
     let data =
         File.ReadLines INPUT_FILE
         |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not)
@@ -49,9 +49,9 @@ let loadData() =
         |> Seq.filter (fun x -> x.High > 0. && x.Low > 0. && x.Open > 0. && x.Close > 0.)
         |> Seq.toList
 
-    let pd = data |> List.windowed TREND_WINDOW_BARS //|> List.truncate (100000 * 4)
-    let pds =
-        pd        
+    let pd (tp:TuneParms) = data |> List.windowed tp.TrendWindowBars 
+    let pds tp =
+        pd tp   
         |> List.mapi (fun i xs ->
             let x = List.last xs
             let y = xs.[xs.Length - 2]
@@ -104,16 +104,15 @@ let loadData() =
             if isNaN d.NOpen ||isNaN d.NHigh || isNaN d.NLow || isNaN d.NClose || isNaN d.NVolume then
                 failwith "nan in data"
             (x,y),d
-        )
-    let xl = pds |> List.last
-    pds |> List.map snd
+        )    
+    pds tp |> List.map snd
 
-let dataRaw = loadData() |> List.skip (EPISODE_LENGTH * 10) |> List.take (EPISODE_LENGTH * 7)
-let TRAIN_SIZE = float dataRaw.Length * TRAIN_FRAC |> int
-let dataTrain = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
-let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray
-let pricesTrain = {prices = dataTrain}
-let pricesTest = {prices = dataTest}
+let dataRaw tp = loadData tp |> List.skip (EPISODE_LENGTH * 10) |> List.take (EPISODE_LENGTH * 7)
+let trainSize (xs:NBar list) = float xs.Length * TRAIN_FRAC |> int
+let dataTrain (xs:NBar list) = xs|> Seq.truncate (trainSize xs) |> Seq.toArray
+let dataTest (xs:NBar list) = xs |> Seq.skip (trainSize xs) |> Seq.toArray
+let pricesTrain xs = {prices = dataTrain xs}
+let pricesTest xs = {prices = dataTest xs}
     
 let resetLogs() =
     let logDir = root @@ "logs"
@@ -139,11 +138,15 @@ let logger = MailboxProcessor.Start(fun inbox ->
     })
 
 
-let trainMarkets =
-    let episodes = dataTrain.Length / EPISODE_LENGTH    
+let trainMarkets xs =
+    let episodes = (dataTrain xs).Length / EPISODE_LENGTH    
     let idxs = [0 .. episodes-1] |> List.map (fun i -> i * EPISODE_LENGTH)
     idxs
     |> List.map(fun i -> 
         let endIdx = i + EPISODE_LENGTH - 1
         if endIdx <= i then failwith $"Invalid index {i}"
-        {Market = pricesTrain; StartIndex=i; EndIndex=endIdx})
+        {Market = pricesTrain xs; StartIndex=i; EndIndex=endIdx})
+
+let testMarket xs = 
+    let ps = pricesTest xs
+    {Market = ps; StartIndex=0; EndIndex=ps.prices.Length-1}

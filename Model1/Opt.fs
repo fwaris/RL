@@ -17,7 +17,8 @@ let toVal = function
 
 let basis = 0.01
 let toTParms (ps:float[]) =
-    {
+    let trendWindowBars = (int ps.[5]) * 20
+    {TuneParms.Default with
         GoodBuyInterReward = ps.[0]  * basis
         BadBuyInterPenalty = ps.[1] * basis
         ImpossibleBuyPenalty = -0.57 //ps.[2] * basis
@@ -26,28 +27,31 @@ let toTParms (ps:float[]) =
         ImpossibleSellPenalty = 0.0 // ps.[5] * basis
         NonInvestmentPenalty = 0.0 //ps.[6] * basis
         Layers = int64 ps.[4]
+        TrendWindowBars  = trendWindowBars
+        Lookback = int64 (trendWindowBars/3)
     }
 
 let caparms = 
     [|                        
-        I(1,0,100) //GoodBuyInterReward = 0.01
-        I(-1,-100,0) //BadBuyInterPenalty = -0.001
+        I(10,0,20) //GoodBuyInterReward = 0.01
+        I(-75,-100,-50) //BadBuyInterPenalty = -0.001
         //I(-5,-100,0) //ImpossibleBuyPenalty = -0.05
-        I(1,0,100) //GoodSellInterReward = 0.01
-        I(-1,-100,0) //BadSellInterPenalty = - 0.001
+        I(10,0,20) //GoodSellInterReward = 0.01
+        I(-24,-90,-16) //BadSellInterPenalty = - 0.001
         //I(-1,-100,0) //ImpossibleSellPenalty = -0.05
         //I(-1,-100,0) //NonInvestmentPenalty = -0.0101                        
-        I(1,1,20) //NonInvestmentPenalty = -0.0101                        
+        I(5,5,10) //layers
+        I(3,1,5)  // trend 
     |]
 
 let optLogger = MailboxProcessor.Start(fun inbox -> 
     async {
         while true do
             let! (gain:float, actDist:List<int*int>, tp:TuneParms) = inbox.Receive()
-            let line = $"""{gain},"%A{actDist}",{tp.GoodBuyInterReward},{tp.BadBuyInterPenalty},{tp.ImpossibleBuyPenalty},{tp.GoodSellInterReward},{tp.BadSellInterPenalty},{tp.ImpossibleSellPenalty},{tp.NonInvestmentPenalty},{tp.Layers}"""
+            let line = $"""{gain},"%A{actDist}",{tp.GoodBuyInterReward},{tp.BadBuyInterPenalty},{tp.ImpossibleBuyPenalty},{tp.GoodSellInterReward},{tp.BadSellInterPenalty},{tp.ImpossibleSellPenalty},{tp.NonInvestmentPenalty},{tp.Layers},{tp.TrendWindowBars},{tp.Lookback}"""
             try               
                 if File.Exists OPT_LOG |> not then
-                    let header = $"""gain,actDist,GoodBuyInterReward,BadBuyInterPenalty,ImpossibleBuyPenalty,GoodSellInterReward,BadSellInterPenalty,ImpossibleSellPenalty,NonInvestmentPenalty,Layers"""
+                    let header = $"""gain,actDist,GoodBuyInterReward,BadBuyInterPenalty,ImpossibleBuyPenalty,GoodSellInterReward,BadSellInterPenalty,ImpossibleSellPenalty,NonInvestmentPenalty,Layers,TendWindowBars,Lookback"""
                     File.AppendAllLines(OPT_LOG,[header;line])
                 else
                     File.AppendAllLines(OPT_LOG,[line])
@@ -61,8 +65,11 @@ let runOpt parms =
             parms.DQN.Model.Online.Module.``to``(device) |> ignore
             parms.DQN.Model.Target.Module.``to``(device) |> ignore
             let plcy = Policy.policy parms
-            let agent = Train.trainEpisodes parms plcy Data.trainMarkets
-            let testGain,testDist = Test.evalModelTT parms.DQN.Model.Online (Test.testMarket())
+            let data = Data.loadData parms.TuneParms
+            let trainMarkets = Data.trainMarkets data
+            let testMarket = Data.testMarket data
+            let agent = Train.trainEpisodes parms plcy trainMarkets
+            let testGain,testDist = Test.evalModelTT parms.TuneParms parms.DQN.Model.Online testMarket
             printfn $"Gain; {testGain}; Test dist: {testDist}"
             optLogger.Post (testGain,testDist,parms.TuneParms)
             DQN.DQNModel.dispose parms.DQN.Model
@@ -85,7 +92,7 @@ let nextId () = System.Threading.Interlocked.Increment &_id
 let fopt (parms:float[]) =
     async {
         let tp = toTParms parms
-        let baseParms = Model.parms1 (nextId()) (0.001, tp.Layers )                   //every fitness evaluation needs separate optimizer and model
+        let baseParms = Model.parms1 (nextId()) (0.001, tp )                   //every fitness evaluation needs separate optimizer and model
         let baseParms = {baseParms with LogSteps=false; SaveModels=false}
         let optParms = {baseParms with TuneParms = tp}
         let! gain = runOpt optParms

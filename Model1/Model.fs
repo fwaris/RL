@@ -6,28 +6,27 @@ open DQN
 open SeqUtils
 open Types
 
-let NUM_MKT_SLICES = Data.TRAIN_SIZE / EPISODE_LENGTH
+let NUM_MKT_SLICES tp = (Data.trainSize tp) / EPISODE_LENGTH
 
-let trainMarkets =
-    let episodes = Data.dataTrain.Length / EPISODE_LENGTH    
+let trainMarkets tp =
+    let episodes = (Data.dataTrain tp).Length / EPISODE_LENGTH    
     let idxs = [0 .. episodes-1] |> List.map (fun i -> i * EPISODE_LENGTH)
     idxs
     |> List.map(fun i -> 
         let endIdx = i + EPISODE_LENGTH - 1
         if endIdx <= i then failwith $"Invalid index {i}"
-        {Market = Data.pricesTrain; StartIndex=i; EndIndex=endIdx})
+        {Market = (Data.pricesTrain tp); StartIndex=i; EndIndex=endIdx})
 
 
-let parms1 id (lr,layers)  = 
+let parms1 id (lr,tp:TuneParms) = 
     let emsize = 64
     let dropout = 0.1
-    let max_seq = LOOKBACK
     let nheads = 1
-    let nlayers = layers
+    let nlayers = tp.Layers
 
     let createModel() = 
         let proj = torch.nn.Linear(INPUT_DIM,emsize)
-        let pos_emb = torch.nn.EmbeddingBag(LOOKBACK,emsize)
+        let pos_emb = torch.nn.EmbeddingBag(tp.Lookback,emsize)
         let encoder_layer = torch.nn.TransformerEncoderLayer(emsize,nheads,emsize,dropout)
         let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)                
         let projOut = torch.nn.Linear(emsize,ACTIONS)
@@ -54,9 +53,10 @@ let parms1 id (lr,layers)  =
     {Parms.Default createModel DQN lr id with 
         SyncEverySteps = 3000
         BatchSize = 32
-        Epochs = EPOCHS}
+        Epochs = EPOCHS
+        TuneParms = tp}
 
-let lrs = [0.001,2L]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
-let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
+let parmSpace = [0.001,TuneParms.Default]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
+let parms = parmSpace |> List.mapi (fun i ps -> parms1 i ps)
 
 

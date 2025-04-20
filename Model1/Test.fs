@@ -13,12 +13,12 @@ let interimModel = root @@ "test_DQN.bin"
 let saveInterim parms =    
     DQN.DQNModel.save interimModel parms.DQN.Model
 
-let testMarket() = 
-    let tm = {prices = Data.dataTest}
+let testMarket tp = 
+    let tm = {prices = Data.dataTest tp}
     {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}
 
-let trainMarket() = 
-    let tm = {prices = Data.dataTrain}
+let trainMarket tp = 
+    let tm = {prices = Data.dataTrain tp}
     {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}
 
 let runAgent (policy:IModel) (market:MarketSlice) (s:AgentState) = 
@@ -31,8 +31,8 @@ let runAgent (policy:IModel) (market:MarketSlice) (s:AgentState) =
     let s'' = Agent.doAction () market s' action
     s'',action
 
-let evalModelTT (policy:IModel) (market:MarketSlice) =
-    let sInit = AgentState.Default -1 0.0 INITIAL_CASH 
+let evalModelTT tp (policy:IModel) (market:MarketSlice) =
+    let sInit = AgentState.Default -1 0.0 INITIAL_CASH tp
     let rec loop actions s = 
         if market.IsDone (s.TimeStep + 1) then 
             let lastBar = market.LastBar
@@ -53,10 +53,11 @@ let evalModelTT (policy:IModel) (market:MarketSlice) =
 let evalModel parms (name:string) (model:IModel) =
     try
         model.Module.eval()
-        let testMarket =  testMarket() 
-        let trainMarket = trainMarket()
-        let gainTest,testDist = evalModelTT model testMarket 
-        let gainTrain,trainDist = evalModelTT model trainMarket
+        let data = Data.loadData parms.TuneParms
+        let testMarket =  testMarket data
+        let trainMarket = trainMarket data
+        let gainTest,testDist = evalModelTT parms.TuneParms model testMarket 
+        let gainTrain,trainDist = evalModelTT parms.TuneParms model trainMarket
         printfn $"Emodel: {parms.RunId} {name}, Annual Gain -  Test: %0.3f{gainTest}, Train: %0.3f{gainTrain}"
         printfn $"Test dist: {testDist}; Train dist: {trainDist}"
         name,gainTest,gainTrain,testDist

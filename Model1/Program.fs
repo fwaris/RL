@@ -4,18 +4,21 @@ open System
 open TorchSharp
 open Types
 
-let NUM_MKT_SLICES = Data.TRAIN_SIZE / EPISODE_LENGTH
+let NUM_MKT_SLICES tp = (Data.trainSize tp) / EPISODE_LENGTH
 
-printfn $"Running with {NUM_MKT_SLICES} market slices each of length {EPISODE_LENGTH} *  ; [left over {Data.TRAIN_SIZE % int NUM_MKT_SLICES}]"
+//printfn $"Running with {NUM_MKT_SLICES} market slices each of length {EPISODE_LENGTH} *  ; [left over {(Data.TRAIN_SIZE tp) % int NUM_MKT_SLICES}]"
 
 let mutable _ps = Unchecked.defaultof<_>
 
-let startReRun parms = 
+let startReRun parms =     
     async {
         try 
+            let data = Data.loadData parms.TuneParms
+            let trainMarkets = Data.trainMarkets data
             let plcy = Policy.policy parms
-            let agent = Train.trainEpisodes parms plcy Data.trainMarkets
+            let agent = Train.trainEpisodes parms plcy trainMarkets
             _ps <- agent
+            Test.evalModels parms
         with ex -> 
             printfn "%A" (ex.Message,ex.StackTrace)
     }

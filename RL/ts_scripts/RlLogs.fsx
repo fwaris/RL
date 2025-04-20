@@ -295,9 +295,9 @@ let testPlots folder =
 plotGain()
 plotGrainTrendByMarket model1
 plotLastEpicGainByMarket model1
-plotLastEpicActionsBy2Markets model2
 plotLastEpicActionsByNMarkets 4 model1
-plotGrainTrendByMarket model2
+plotLastEpicActionsBy2Markets model2
+plotGrainTrendByMarket model1
 plotLastEpicGainByMarket model2
 plotLastEpicActionsBy2Markets model2
 *)
