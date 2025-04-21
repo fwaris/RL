@@ -4,6 +4,12 @@ open System.IO
 open MathNet.Numerics
 open TsData
 open Types
+open System.Numerics
+open TorchSharp
+open TorchSharp
+open MathNet.Numerics.LinearAlgebra
+open Plotly.NET
+open Plotly.NET.StyleParam
 
 let avgPrice bar = 0.5 * (bar.High + bar.Low)        
 
@@ -13,14 +19,26 @@ let clipSlope (x:float) =
     tanh (x/5.0)
     //max -5.0 (min 5.0 x) //clip slope to [-5,5]
 
-let getSlope (pts:float list) =
-    let ys = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(pts).Normalize(1.0)
-    let xs = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([0 .. pts.Length]).Normalize(1.0)
+let inline scaleN vs =
+    let vs = Seq.map float vs
+    let vmin = Seq.min vs 
+    let vmax = Seq.max vs
+    let range = vmax - vmin
+    vs |> Seq.map(fun x -> (x - vmin) / range)
+
+let getSlope (pts:float list) =    
+    let spts = scaleN pts
+    let ys = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(spts)
+    let xs = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([1 .. pts.Length] |> scaleN)
     let struct(_,slope) = LinearRegression.SimpleRegression.Fit(Seq.zip xs ys) 
     clipSlope slope
 
+let ftTrans (pts:float list) =
+    let pts = pts |> List.map (fun x -> Complex(x,0)) |> List.toArray
+    MathNet.Numerics.IntegralTransforms.Fourier.Forward(pts)
+    pts
 
-let loadData() = 
+let private loadData tp = 
     let data =
         File.ReadLines INPUT_FILE
         |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not)
@@ -39,29 +57,38 @@ let loadData() =
         |> Seq.filter (fun x -> x.High > 0. && x.Low > 0. && x.Open > 0. && x.Close > 0.)
         |> Seq.toList
 
-    let pd = data |> List.windowed TREND_WINDOW_BARS //|> List.truncate (100000 * 4)
-    let pds =
-        pd        
+    let pd (tp:TuneParms) = data |> List.windowed tp.TrendWindowBars 
+    let pds tp =
+        pd tp   
         |> List.mapi (fun i xs ->
-            let x = List.last xs
-            let y = xs.[xs.Length - 2]
-            let pts = xs |> List.map avgPrice
-            let ptsMed = pts |> List.skip (xs.Length / 3 * 1)
-            let ptsShort = pts |> List.skip (xs.Length / 3 * 2 )
-            let slope = getSlope pts
-            let slopeMed = getSlope ptsMed
-            let slopeShort = getSlope ptsShort
+            let currBar = List.last xs
+            let prevBar = xs.[xs.Length - 2]
+            let avgPrices = xs |> List.map avgPrice
+            let priceReturns = avgPrices |> List.pairwise |> List.map (fun (a,b) -> (b-a) / a)
+            let nrets = LinearAlgebra.CreateVector.DenseOfEnumerable(scaleN priceReturns)
+            use d_pts = torch.tensor(nrets.ToArray(), dtype=torch.float)
+            use ptsFFt = torch.fft.rfft(d_pts, norm=FFTNormType.Forward)
+            use ptsFFtR = ptsFFt.real
+            let t_ptsFFT = Fun.Tensor.getData<float32>(ptsFFtR)
+            let avgPricesMed = avgPrices |> List.skip (xs.Length / 3 * 1)
+            let avgPricesShort = avgPrices |> List.skip (xs.Length / 3 * 2 )
+            let slope = getSlope avgPrices
+            let slopeMed = getSlope avgPricesMed
+            let slopeShort = getSlope avgPricesShort
+            let stats = priceReturns |> scaleN |> Statistics.DescriptiveStatistics            
             let d =
                 {
+                    Freq1 = float t_ptsFFT.[0]
+                    Freq2 = float stats.StandardDeviation
                     TrendLong = slope
                     TrendMed = slopeMed
                     TrendShort = slopeShort
 
-                    NOpen = (y.Open - x.Open) / x.Open 
-                    NHigh = (y.High - x.High) / x.High 
-                    NLow =  (y.Low - x.Low) / x.Low 
-                    NClose = (y.Close - x.Close) / x.Close 
-                    NVolume = (y.Volume - x.Volume) / x.Close
+                    NOpen = (currBar.Open - prevBar.Open)/ prevBar.Open 
+                    NHigh = (currBar.High - prevBar.High) / prevBar.High 
+                    NLow =  (currBar.Low - prevBar.Low) / prevBar.Low 
+                    NClose = (currBar.Close - prevBar.Close) / prevBar.Close 
+                    NVolume = (prevBar.Volume - currBar.Volume) / prevBar.Volume 
 
                     //NOpen = exp(y.Open  / x.Open) 
                     //NHigh = exp(y.High /  x.High) 
@@ -81,22 +108,22 @@ let loadData() =
                     //NLow =  (y.Low/x.Low)   //|> max -18. //- 1.0
                     //NClose = (y.Close/x.Close) //|> max -18.// - 1.0
                     //NVolume = (y.Volume/x.Volume) //|> max -18. //- 1.0
-                    Bar  = y
+                    Bar  = prevBar
                 }
             if isNaN d.NOpen ||isNaN d.NHigh || isNaN d.NLow || isNaN d.NClose || isNaN d.NVolume then
                 failwith "nan in data"
-            (x,y),d
-        )
-    let xl = pds |> List.last
-    pds |> List.map snd
+            (currBar,prevBar),d
+        )    
+    pds tp |> List.map snd
 
-let dataRaw = loadData() |> List.skip (EPISODE_LENGTH * 10) |> List.take (EPISODE_LENGTH * 3)
-let TRAIN_SIZE = float dataRaw.Length * TRAIN_FRAC |> int
-let dataTrain = dataRaw |> Seq.truncate TRAIN_SIZE |> Seq.toArray
-let dataTest = dataRaw |> Seq.skip TRAIN_SIZE |> Seq.toArray
-let pricesTrain = {prices = dataTrain}
-let pricesTest = {prices = dataTest}
-    
+let numMarketSlices (xs:_[]) = xs.Length / EPISODE_LENGTH
+
+let testTrain tp = 
+    let dataSet = loadData tp |> List.skip (EPISODE_LENGTH * 10) |> List.take (EPISODE_LENGTH * 7)
+    let trainSize  = float dataSet.Length * TRAIN_FRAC |> int
+    let dataTrain = dataSet |> Seq.truncate trainSize |> Seq.toArray
+    let dataTest = dataSet |> Seq.skip trainSize |> Seq.toArray
+    dataTrain, dataTest
 let resetLogs() =
     let logDir = root @@ "logs"
     if Directory.Exists logDir |> not then 
@@ -121,3 +148,14 @@ let logger = MailboxProcessor.Start(fun inbox ->
     })
 
 
+let episodeLengthMarketSlices (trainData:NBar[]) =
+    let episodes = trainData.Length / EPISODE_LENGTH    
+    let idxs = [0 .. episodes-1] |> List.map (fun i -> i * EPISODE_LENGTH)
+    idxs
+    |> List.map(fun i -> 
+        let endIdx = i + EPISODE_LENGTH - 1
+        if endIdx <= i then failwith $"Invalid index {i}"
+        {Market = {prices=trainData}; StartIndex=i; EndIndex=endIdx})
+
+let singleMarketSlice (bars:NBar[]) = 
+    {Market = {prices = bars}; StartIndex=0; EndIndex=bars.Length-1}

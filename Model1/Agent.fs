@@ -4,7 +4,6 @@ open Experience
 open Types
 open TorchSharp
 open RL
-open System.Security.Cryptography
 
 let bar (env:MarketSlice) t = env.Bar t    
 
@@ -33,14 +32,14 @@ let sell (env:MarketSlice) (s:AgentState) =
         {s with CashOnHand=coh; Stock=remStock; TradeSize = -stockToSell}
     | None -> s 
 
-let doAction _ env s act =
-    let book = {Cash = s.CashOnHand; Stock = s.Stock}
+let doAction _ (env:MarketSlice) s act =
+    let book = {Cash = s.CashOnHand; Stock = s.Stock; NBar=env.Bar s.TimeStep; Action=act}
     let s = 
         match act with
         | 0 -> buy env s
         | 1 -> sell env s
         | _ -> s                //hold
-    let agentBook = if act < 2 then book::s.AgentBook else s.AgentBook //track changes in positions
+    let agentBook =  book::s.AgentBook //track changes in positions
     {s with TimeStep = s.TimeStep + 1; AgentBook = agentBook}
 
 let skipHead = torch.TensorIndex.Slice(1)

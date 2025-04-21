@@ -1,37 +1,26 @@
 ﻿module Program
+open TorchSharp
 open System
 open TorchSharp
-open TorchSharp.Fun
 open Types
-
-let NUM_MKT_SLICES = Data.TRAIN_SIZE / EPISODE_LENGTH
-
-let trainMarkets =
-    let episodes = Data.dataTrain.Length / EPISODE_LENGTH    
-    let idxs = [0 .. episodes-1] |> List.map (fun i -> i * EPISODE_LENGTH)
-    idxs
-    |> List.map(fun i -> 
-        let endIdx = i + EPISODE_LENGTH - 1
-        if endIdx <= i then failwith $"Invalid index {i}"
-        {Market = Data.pricesTrain; StartIndex=i; EndIndex=endIdx})
-
-printfn $"Running with {NUM_MKT_SLICES} market slices each of length {EPISODE_LENGTH} *  ; [left over {Data.TRAIN_SIZE % int NUM_MKT_SLICES}]"
 
 let mutable _ps = Unchecked.defaultof<_>
 
-let startReRun parms = 
+let startReRun parms =     
     async {
         try 
+            let dTrain,dTest = Data.testTrain parms.TuneParms            
+            let trainMarkets = Data.episodeLengthMarketSlices dTrain
             let plcy = Policy.policy parms
             let agent = Train.trainEpisodes parms plcy trainMarkets
             _ps <- agent
+            Test.evalModels parms
         with ex -> 
             printfn "%A" (ex.Message,ex.StackTrace)
     }
 
 let restartJobs = 
-    Model.parms 
-    |> List.map(fun p -> Policy.loadModel p |> Option.defaultValue p) 
+    Model.parms     
     |> List.map (fun p -> 
         let o2 = p.DQN.Model.Online.Module.``to`` device        
         let tgt2 = p.DQN.Model.Target.Module.``to`` device
@@ -45,5 +34,6 @@ let run() =
     restartJobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
 
 verbosity <- LoggingLevel.L
-run()
+//run()
+Opt.optimize()
 

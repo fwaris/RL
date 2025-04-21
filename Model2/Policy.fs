@@ -49,8 +49,11 @@ let private syncModel parms s =
     DQNModel.sync parms.DQN.Model
     let fn = root @@ "models" @@ $"model_{parms.RunId}_{s.Epoch}_{s.Step.Num}.bin"
     ensureDirForFilePath fn
-    DQNModel.save fn parms.DQN.Model 
+    if parms.SaveModels then
+        DQNModel.save fn parms.DQN.Model 
     if verbosity.IsLow then printfn "Synced"
+
+
 
 let rec policy parms = 
     {

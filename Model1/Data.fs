@@ -6,10 +6,10 @@ open TsData
 open Types
 open System.Numerics
 open TorchSharp
-open System.Runtime.Intrinsics.Arm
 open TorchSharp
-open MathNet.Numerics
+open MathNet.Numerics.LinearAlgebra
 open Plotly.NET
+open Plotly.NET.StyleParam
 
 let avgPrice bar = 0.5 * (bar.High + bar.Low)        
 
@@ -19,9 +19,17 @@ let clipSlope (x:float) =
     tanh (x/5.0)
     //max -5.0 (min 5.0 x) //clip slope to [-5,5]
 
-let getSlope (pts:float list) =
-    let ys = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(pts).Normalize(1.0)
-    let xs = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([0 .. pts.Length]).Normalize(1.0)
+let inline scaleN vs =
+    let vs = Seq.map float vs
+    let vmin = Seq.min vs 
+    let vmax = Seq.max vs
+    let range = vmax - vmin
+    vs |> Seq.map(fun x -> (x - vmin) / range)
+
+let getSlope (pts:float list) =    
+    let spts = scaleN pts
+    let ys = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(spts)
+    let xs = LinearAlgebra.Double.Vector.Build.DenseOfEnumerable([1 .. pts.Length] |> scaleN)
     let struct(_,slope) = LinearRegression.SimpleRegression.Fit(Seq.zip xs ys) 
     clipSlope slope
 
@@ -55,22 +63,23 @@ let private loadData tp =
         |> List.mapi (fun i xs ->
             let currBar = List.last xs
             let prevBar = xs.[xs.Length - 2]
-            let pts = xs |> List.map avgPrice
-            let priceReturns = pts |> List.pairwise |> List.map (fun (a,b) -> (b-a) / a)
-            let nrets = LinearAlgebra.CreateVector.DenseOfEnumerable(priceReturns).Normalize(1.0)
-            use d_pts = torch.tensor(nrets.ToArray(), dtype=torch.float)            
+            let avgPrices = xs |> List.map avgPrice
+            let priceReturns = avgPrices |> List.pairwise |> List.map (fun (a,b) -> (b-a) / a)
+            let nrets = LinearAlgebra.CreateVector.DenseOfEnumerable(scaleN priceReturns)
+            use d_pts = torch.tensor(nrets.ToArray(), dtype=torch.float)
             use ptsFFt = torch.fft.rfft(d_pts, norm=FFTNormType.Forward)
             use ptsFFtR = ptsFFt.real
             let t_ptsFFT = Fun.Tensor.getData<float32>(ptsFFtR)
-            let ptsMed = pts |> List.skip (xs.Length / 3 * 1)
-            let ptsShort = pts |> List.skip (xs.Length / 3 * 2 )
-            let slope = getSlope pts
-            let slopeMed = getSlope ptsMed
-            let slopeShort = getSlope ptsShort
+            let avgPricesMed = avgPrices |> List.skip (xs.Length / 3 * 1)
+            let avgPricesShort = avgPrices |> List.skip (xs.Length / 3 * 2 )
+            let slope = getSlope avgPrices
+            let slopeMed = getSlope avgPricesMed
+            let slopeShort = getSlope avgPricesShort
+            let stats = priceReturns |> scaleN |> Statistics.DescriptiveStatistics            
             let d =
                 {
                     Freq1 = float t_ptsFFT.[0]
-                    Freq2 = float t_ptsFFT.[1]
+                    Freq2 = float stats.StandardDeviation
                     TrendLong = slope
                     TrendMed = slopeMed
                     TrendShort = slopeShort

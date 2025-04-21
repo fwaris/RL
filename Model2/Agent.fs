@@ -32,14 +32,14 @@ let sell (env:MarketSlice) (s:AgentState) =
         {s with CashOnHand=coh; Stock=remStock; TradeSize = -stockToSell}
     | None -> s 
 
-let doAction _ env s act =
-    let book = {Cash = s.CashOnHand; Stock = s.Stock}
+let doAction _ (env:MarketSlice) s act =
+    let book = {Cash = s.CashOnHand; Stock = s.Stock; NBar=env.Bar s.TimeStep; Action=act}
     let s = 
         match act with
         | 0 -> buy env s
         | 1 -> sell env s
         | _ -> s                //hold
-    let agentBook = if act < 2 then book::s.AgentBook else s.AgentBook //track changes in positions
+    let agentBook =  book::s.AgentBook //track changes in positions
     {s with TimeStep = s.TimeStep + 1; AgentBook = agentBook}
 
 let skipHead = torch.TensorIndex.Slice(1)
@@ -49,11 +49,14 @@ let canSell s = s.Stock > 0
 let couldBuy s = s.AgentBook |> List.tryHead |> Option.map (fun b -> b.Stock > s.Stock) |> Option.defaultValue false
 let couldSell s = s.AgentBook |> List.tryHead |> Option.map (fun b -> b.Stock > s.Stock) |> Option.defaultValue false
 
+let hasBetterPriceForBuy currentPrice futurePrices = futurePrices |> List.exists (fun p -> p > currentPrice + TX_COST_CNTRCT)
+let hasBetterPriceForSell currentPrice futurePrices = futurePrices |> List.exists (fun p -> p < currentPrice -  TX_COST_CNTRCT)
+
 let getObservations _ (env:MarketSlice) (s:AgentState) =         
     let b =  bar env s.TimeStep |> Option.defaultWith (fun () -> failwith "bar not found")
     let avgP = Data.avgPrice b.Bar
     let buySell = torch.tensor([|canBuy avgP s; canSell s|],dtype=torch.float32)
-    let t1 = torch.tensor([|b.TrendLong;b.TrendMed;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
+    let t1 = torch.tensor([|b.Freq1;b.Freq2;b.TrendLong;b.TrendMed;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
     let t1 = torch.hstack(buySell,t1)
     let ts = torch.vstack([|s.CurrentState;t1|])
     let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // LOOKBACK * INPUT_DIM
@@ -69,23 +72,27 @@ let computeRewards1 parms env s action =
         if verbosity.isHigh then
             printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
         let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
-        Data.logger.Post (s.Epoch,parms.RunId,logLine)
+        if parms.LogSteps then
+            Data.logger.Post (s.Epoch,parms.RunId,logLine)
         let experience = {NextState = s.CurrentState; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
         let experienceBuff = Experience.append experience s.ExpBuff  
         {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward
     | _ -> (s,false,0.0)
 
 let computeRewards parms env s action =         
-    match bar env s.TimeStep with 
-    | Some cBar ->
+    match bar env (s.TimeStep-1) , bar env s.TimeStep with 
+    | Some pBar,Some cBar ->
+        let tp = parms.TuneParms
         let avgP = Data.avgPrice  cBar.Bar
+        let prevP = Data.avgPrice pBar.Bar
+        let futurePrices = [s.TimeStep .. s.TimeStep + REWARD_HORIZON_BARS] |> List.choose (bar env) |> List.map _.Bar |> List.map Data.avgPrice
         let interReward = 
             match action with 
-            | 0 when couldBuy s  -> 0.00
-            | 0                  -> -1.0
-            | 1 when couldSell s -> 0.00
-            | 1                  -> -1.0
-            | _                  -> if s.Stock <= 0 then -0.001 else 0.0 //if (s.CashOnHand / s.InitialCash) >= 1.0 then  +0.001 else -0.001
+            | 0 when couldBuy s  -> if hasBetterPriceForBuy prevP futurePrices then tp.GoodBuyInterReward else tp.BadBuyInterPenalty 
+            | 0                  -> tp.ImpossibleBuyPenalty
+            | 1 when couldSell s -> if hasBetterPriceForSell prevP futurePrices then tp.GoodSellInterReward else tp.BadSellInterPenalty
+            | 1                  -> tp.ImpossibleSellPenalty
+            | _                  -> if s.Stock <= 0 then tp.NonInvestmentPenalty else 0.0 //if (s.CashOnHand / s.InitialCash) >= 1.0 then  +0.001 else -0.001
         let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
         let isDone   = env.IsDone (s.TimeStep + 1)
         let reward  = 
@@ -101,7 +108,7 @@ let computeRewards parms env s action =
         let experience = {NextState = s.CurrentState; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
         let experienceBuff = Experience.append experience s.ExpBuff  
         {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward
-    | None -> (s,false,0.0)
+    | _ -> (s,false,0.0)
        
 let agent  = 
     {

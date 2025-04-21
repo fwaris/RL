@@ -13,20 +13,18 @@ let interimModel = root @@ "test_DQN.bin"
 let saveInterim parms =    
     DQN.DQNModel.save interimModel parms.DQN.Model
 
-let testMarket() = {prices = Data.dataTest}
-let trainMarket() = {prices = Data.dataTrain}
-
-
 let runAgent (policy:IModel) (market:MarketSlice) (s:AgentState) = 
+    let device = policy.Module.parameters() |> Seq.tryHead |> Option.map _.device |> Option.defaultValue torch.CPU
     let s' = Agent.getObservations () market s
     use state = s'.CurrentState.unsqueeze(0)
-    use actionVals  = policy.forward(state)
+    use state' = state.``to``(device)
+    use actionVals  = policy.forward(state')
     let action = actionVals.argmax(1L).ToInt32()
     let s'' = Agent.doAction () market s' action
     s'',action
 
-let evalModelTT (policy:IModel) (market:MarketSlice) =
-    let sInit = AgentState.Default -1 0.0 INITIAL_CASH 
+let evalModelTT tp (policy:IModel) (market:MarketSlice) =
+    let sInit = AgentState.Default -1 0.0 INITIAL_CASH tp
     let rec loop actions s = 
         if market.IsDone (s.TimeStep + 1) then 
             let lastBar = market.LastBar
@@ -35,26 +33,25 @@ let evalModelTT (policy:IModel) (market:MarketSlice) =
             let gain = (equity - s.InitialCash) / s.InitialCash
             let years = (market.LastBar.Bar.Time - (market.Market.prices.[0].Bar.Time)).TotalDays / 365.0
             let annualizedGain = gain / years
-            actions,annualizedGain
+            let actDist = actions |> List.countBy id |> List.sortBy fst
+            actDist,annualizedGain,s
         else
             let s'',action = runAgent policy market s
             loop (action::actions) s''
-    let actions,gain = loop [] sInit
-    gain,actions
-
+    let actions,gain,lastAgentState = loop [] sInit
+    gain,actions,lastAgentState
 
 let evalModel parms (name:string) (model:IModel) =
     try
         model.Module.eval()
-        let testMarket = let tm = testMarket() in {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}
-        let trainMarket = let tm = trainMarket() in {Market=tm; StartIndex=0; EndIndex=tm.prices.Length-1}            
-        let gainTest,actTest = evalModelTT model testMarket 
-        let gainTrain,actTrain = evalModelTT model trainMarket
-        let testDist = actTest |> List.countBy id |> List.sortBy fst
-        let trainDist = actTrain |> List.countBy id |> List.sortBy fst
+        let dTrain,dTest = Data.testTrain parms.TuneParms
+        let testMarket =  Data.singleMarketSlice dTrain
+        let trainMarket = Data.singleMarketSlice dTest
+        let gainTest,testDist,testAgentState = evalModelTT parms.TuneParms model testMarket 
+        let gainTrain,trainDist,_ = evalModelTT parms.TuneParms model trainMarket
         printfn $"Emodel: {parms.RunId} {name}, Annual Gain -  Test: %0.3f{gainTest}, Train: %0.3f{gainTrain}"
         printfn $"Test dist: {testDist}; Train dist: {trainDist}"
-        name,gainTest,gainTrain,testDist
+        name,gainTest,gainTrain,testDist,testAgentState
     finally
         model.Module.train()
     
@@ -81,9 +78,26 @@ let evalModels parms =
         |> Seq.map (evalModelFile parms)
         |> Seq.toArray
     evals
-    |> Seq.iter (fun (n,gainTst,gainTrain,dist) -> 
+    |> Seq.iter (fun (n,gainTst,gainTrain,dist,agentState) -> 
         let dist = dist |> List.map (fun (a,b) -> string a, b)
         dist |> Chart.Column |> Chart.withTitle $"Test action dist {n}, gain: %0.3f{gainTst}" |> Chart.show
+        let actions = agentState.AgentBook |> List.rev |> List.choose (fun x -> x.NBar |> Option.map (fun b-> b,x.Action))
+        [
+            actions |> List.map (fun (b,a) -> b.Bar.Time,Data.avgPrice b.Bar) |> Chart.Line
+            actions 
+            |> List.filter (fun (b,a) -> a=0) 
+            |> List.map (fun (b,a) -> b.Bar.Time, Data.avgPrice b.Bar) 
+            |> Chart.Point 
+            |> Chart.withMarkerStyle (Symbol=StyleParam.MarkerSymbol.ArrowBarUp)
+            actions 
+            |> List.filter (fun (b,a) -> a=1) 
+            |> List.map (fun (b,a) -> b.Bar.Time, Data.avgPrice b.Bar) 
+            |> Chart.Point 
+            |> Chart.withMarkerStyle (Symbol=StyleParam.MarkerSymbol.ArrowBarDown)
+        ]
+        |> Chart.combine
+        |> Chart.withSize(1000.,700)
+        |> Chart.show
     )
     (*
     evals

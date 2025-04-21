@@ -6,33 +6,18 @@ open DQN
 open SeqUtils
 open Types
 
-let NUM_MKT_SLICES = Data.TRAIN_SIZE / EPISODE_LENGTH
-
-let trainMarkets =
-    let episodes = Data.dataTrain.Length / EPISODE_LENGTH    
-    let idxs = [0 .. episodes-1] |> List.map (fun i -> i * EPISODE_LENGTH)
-    idxs
-    |> List.map(fun i -> 
-        let endIdx = i + EPISODE_LENGTH - 1
-        if endIdx <= i then failwith $"Invalid index {i}"
-        {Market = Data.pricesTrain; StartIndex=i; EndIndex=endIdx})
-
-let parms1 id (lr,layers)  = 
+let parms1 id (lr,tp:TuneParms) = 
     let emsize = 64
     let dropout = 0.1
-    let max_seq = LOOKBACK
     let nheads = 1
-    let nlayers = layers
+    let nlayers = tp.Layers
 
     let createModel() = 
         let proj = torch.nn.Linear(INPUT_DIM,emsize)
-        let pos_emb = torch.nn.EmbeddingBag(LOOKBACK,emsize)
+        let pos_emb = torch.nn.EmbeddingBag(tp.Lookback,emsize)
         let encoder_layer = torch.nn.TransformerEncoderLayer(emsize,nheads,emsize,dropout)
-        let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)        
-        let sqrtEmbSz = (sqrt (float emsize)).ToScalar()
+        let transformer_encoder = torch.nn.TransformerEncoder(encoder_layer,nlayers)                
         let projOut = torch.nn.Linear(emsize,ACTIONS)
-        //et activation = torch.nn.Tanh()
-        let initRange = 0.1
         let mdl = 
             F [] [proj; pos_emb; transformer_encoder; projOut]  (fun inp -> //B x S x 5
                 use p = proj.forward(inp) // B x S x emsize                
@@ -50,13 +35,31 @@ let parms1 id (lr,layers)  =
                 pout
             )
         mdl
-    let model = DQNModel.create createModel
+    let model = DQNModel.create createModel    
     let exp = {Decay=0.9995; Min=0.01; WarupSteps=WARMUP}
     let DQN = DQN.create model 0.99999f exp ACTIONS
     {Parms.Default createModel DQN lr id with 
-        SyncEverySteps = 10000
+        SyncEverySteps = 3000
         BatchSize = 32
-        Epochs = EPOCHS}
+        Epochs = EPOCHS
+        TuneParms = tp}
 
-let lrs = [0.001,3L]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
-let parms = lrs |> List.mapi (fun i lr -> parms1 i lr)
+let tp = //0.17,-0.8300000000000001,-0.57,0.05,-0.66,0,0,9,80,26
+         //GoodBuyInterReward,BadBuyInterPenalty,ImpossibleBuyPenalty,GoodSellInterReward,BadSellInterPenalty,ImpossibleSellPenalty,NonInvestmentPenalty,Layers,TendWindowBars,Lookback
+    {
+        GoodBuyInterReward = 0.17
+        BadBuyInterPenalty = -0.83
+        ImpossibleBuyPenalty = -0.057
+        GoodSellInterReward = 0.05
+        BadSellInterPenalty = -0.66
+        ImpossibleSellPenalty = 0.0
+        NonInvestmentPenalty = 0.0
+        Layers = 9L
+        Lookback = 26L // LOOKBACK
+        TrendWindowBars = 80//TREND_WINDOW_BARS
+    }   
+
+let parmSpace = [0.001,tp]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
+let parms = parmSpace |> List.mapi (fun i ps -> parms1 i ps)
+
+
