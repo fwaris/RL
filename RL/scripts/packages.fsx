@@ -8,6 +8,7 @@
 #r "nuget: TorchSharp.Fun"
 #r "nuget: FsPickler"
 #r "nuget: Plotly.NET"
+#r "nuget: FSharp.Data"
 
 #load "../SeqUtils.fs"
 #load "../FsMsgPackRpc.fs"
