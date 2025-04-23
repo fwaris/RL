@@ -103,7 +103,7 @@ let fopt (parms:float[]) =
 let optimize() =
     clearLog()
     let fitness ps = fopt ps |> Async.RunSynchronously    
-    let mutable step = CALib.API.initCA(caparms, fitness , Maximize)
+    let mutable step = CALib.API.initCA(caparms, fitness , Maximize, useDE=true)
     for i in 0 .. 15000 do 
         //step <- CALib.API.Step step
         step <- CALib.API.Step(step, maxParallelism=5)
