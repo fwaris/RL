@@ -105,5 +105,8 @@ let optimize() =
     let fitness ps = fopt ps |> Async.RunSynchronously    
     let mutable step = CALib.API.initCA(caparms, fitness , Maximize, popSize=36)
     for i in 0 .. 15000 do 
-        step <- CALib.API.Step step
-        //step <- CALib.API.Step(step, maxParallelism=5)
+        printfn $"************************************************
+        CA STEP {i}
+        ************************************************"
+        //step <- CALib.API.Step step
+        step <- CALib.API.Step(step, maxParallelism=1)
