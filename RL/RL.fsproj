@@ -46,6 +46,6 @@
     <ProjectReference Include="..\..\TorchSharp.Fun\TorchSharp.Fun\TorchSharp.Fun.fsproj" />
   </ItemGroup>-->
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="9.0.201" />
+    <PackageReference Update="FSharp.Core" Version="9.0.202" />
   </ItemGroup>
 </Project>
