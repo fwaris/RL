@@ -27,7 +27,7 @@ let private updateQOnline parms state =
         |> Seq.chunkBySize 5
         |> Seq.iter (fun xs ->
             xs |> Seq.iter (fun (a,v) -> printf $"{a} %0.3f{v} "); printfn "")
-    if true (*avgLoss |> Double.IsNaN*) then 
+    if false (*avgLoss |> Double.IsNaN*) then 
         let t_states = Tensor.getDataNested<float32> states
         let t_nextStates = Tensor.getDataNested<float32> nextStates
         let t_td_est = Tensor.getDataNested<float32> td_est

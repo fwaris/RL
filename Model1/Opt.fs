@@ -109,4 +109,4 @@ let optimize() =
         CA STEP {i}
         ************************************************"
         //step <- CALib.API.Step step
-        step <- CALib.API.Step(step, maxParallelism=1)
+        step <- CALib.API.Step(step, maxParallelism=5)
