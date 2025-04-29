@@ -33,15 +33,15 @@ let toTParms (ps:float[]) =
 
 let caparms = 
     [|                        
-        I(10,0,100) //GoodBuyInterReward = 0.01
-        I(-5,-100,-0) //BadBuyInterPenalty = -0.001
-        I(-50,-100,-0) //ImpossibleBuyPenalty = -0.05
-        I(10,0,100) //GoodSellInterReward = 0.01
+        I(80,60,100) //GoodBuyInterReward = 0.01
+        I(-5,-30,-0) //BadBuyInterPenalty = -0.001
+        I(-60,-100,-60) //ImpossibleBuyPenalty = -0.05
+        I(80,60,100) //GoodSellInterReward = 0.01
         I(-50,-100,-0) //BadSellInterPenalty = - 0.001
-        I(-50,-100,0) //ImpossibleSellPenalty = -0.05
-        I(-1,-100,0) //NonInvestmentPenalty = -0.0101                        
-        I(5,5,10) //Layers
-        I(3,2,6)  // TrendWindowBars 
+        I(-60,-100,-60) //ImpossibleSellPenalty = -0.05
+        I(-1,-10,0) //NonInvestmentPenalty = -0.0101                        
+        I(5,1,5) //Layers
+        I(3,1,3)  // TrendWindowBars 
     |]
 
 let optLogger = MailboxProcessor.Start(fun inbox -> 
@@ -105,8 +105,9 @@ let optimize() =
     let fitness ps = fopt ps |> Async.RunSynchronously    
     let mutable step = CALib.API.initCA(caparms, fitness , Maximize, popSize=36)
     for i in 0 .. 15000 do 
-        printfn $"************************************************
-        CA STEP {i}
-        ************************************************"
+        printfn $"
+************************************************
+CA STEP {i}
+************************************************"
         //step <- CALib.API.Step step
         step <- CALib.API.Step(step, maxParallelism=5)
