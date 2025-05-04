@@ -9,8 +9,7 @@
     <None Include="ts_scripts\ModelEval.fsx" />
     <None Include="ts_scripts\sandbox.fsx" />
     <None Include="ts_scripts\loganalsyis.fsx" />
-    <None Include="ts_scripts\ts.fsx" />
-    <None Include="ts_scripts\ts_par.fsx" />
+    <None Include="ts_scripts\OptLogAnalysis.fsx" />
     <None Include="ts_scripts\ts_lang.fsx" />
     <None Include="scripts\PairwiseRepo.fsx" />
     <None Include="scripts\DataRan.fsx" />
@@ -21,6 +20,7 @@
     <None Include="scripts\model_tests.fsx" />
     <None Include="scripts\random_agent.fsx" />
     <None Include="scripts\airsimRL.fsx" />
+    <None Include="scratchpage.fsx" />
     <Compile Include="SeqUtils.fs" />
     <Compile Include="FsMsgPackRpc.fs" />
     <Compile Include="AirSimCar.fs" />
@@ -28,6 +28,8 @@
     <Compile Include="RL.fs" />
     <Compile Include="Experience.fs" />
     <Compile Include="DQN.fs" />
+    <Compile Include="VExperience.fs" />
+    <Compile Include="VDQN.fs" />
     <Compile Include="TsData.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -17,31 +17,31 @@ let toVal = function
 
 let basis = 0.01
 let toTParms (ps:float[]) =
-    let trendWindowBars = (int ps.[8]) * 20
+    let trendWindowBars = (int ps.[5]) * 20
     {TuneParms.Default with
         GoodBuyInterReward = ps.[0]  * basis
         BadBuyInterPenalty = ps.[1] * basis
-        ImpossibleBuyPenalty = ps.[2] * basis
-        GoodSellInterReward = ps.[3] * basis
-        BadSellInterPenalty = ps.[4] * basis
-        ImpossibleSellPenalty = ps.[5] * basis
-        NonInvestmentPenalty = ps.[6] * basis
-        Layers = int64 ps.[7]
+        ImpossibleBuyPenalty = -0.57 //ps.[2] * basis
+        GoodSellInterReward = ps.[2] * basis
+        BadSellInterPenalty = ps.[3] * basis
+        ImpossibleSellPenalty = 0.0 // ps.[5] * basis
+        NonInvestmentPenalty = 0.0 //ps.[6] * basis
+        Layers = int64 ps.[4]
         TrendWindowBars  = trendWindowBars
         Lookback = int64 (trendWindowBars/3)
     }
 
 let caparms = 
     [|                        
-        I(80,60,100) //GoodBuyInterReward = 0.01
-        I(-5,-30,-0) //BadBuyInterPenalty = -0.001
-        I(-60,-100,-60) //ImpossibleBuyPenalty = -0.05
-        I(80,60,100) //GoodSellInterReward = 0.01
-        I(-50,-100,-0) //BadSellInterPenalty = - 0.001
-        I(-60,-100,-60) //ImpossibleSellPenalty = -0.05
-        I(-1,-10,0) //NonInvestmentPenalty = -0.0101                        
-        I(5,1,5) //Layers
-        I(3,1,3)  // TrendWindowBars 
+        I(10,0,20) //GoodBuyInterReward = 0.01
+        I(-75,-100,-50) //BadBuyInterPenalty = -0.001
+        //I(-5,-100,0) //ImpossibleBuyPenalty = -0.05
+        I(10,0,20) //GoodSellInterReward = 0.01
+        I(-24,-90,-16) //BadSellInterPenalty = - 0.001
+        //I(-1,-100,0) //ImpossibleSellPenalty = -0.05
+        //I(-1,-100,0) //NonInvestmentPenalty = -0.0101                        
+        I(5,5,10) //layers
+        I(3,1,5)  // trend 
     |]
 
 let optLogger = MailboxProcessor.Start(fun inbox -> 
@@ -69,7 +69,7 @@ let runOpt parms =
             let trainMarkets = Data.episodeLengthMarketSlices dTrain
             let testMarket = Data.singleMarketSlice dTest
             let agent = Train.trainEpisodes parms plcy trainMarkets
-            let testGain,testDist = Test.evalModelTT parms.TuneParms parms.DQN.Model.Online testMarket
+            let testGain,testDist,agentState = Test.evalModelTT parms.TuneParms parms.DQN.Model.Online testMarket
             printfn $"Gain; {testGain}; Test dist: {testDist}"
             optLogger.Post (testGain,testDist,parms.TuneParms)
             DQN.DQNModel.dispose parms.DQN.Model
@@ -103,11 +103,7 @@ let fopt (parms:float[]) =
 let optimize() =
     clearLog()
     let fitness ps = fopt ps |> Async.RunSynchronously    
-    let mutable step = CALib.API.initCA(caparms, fitness , Maximize, popSize=36, beliefSpace = CALib.BeliefSpace.Hybrid)
+    let mutable step = CALib.API.initCA(caparms, fitness , Maximize)
     for i in 0 .. 15000 do 
-        printfn $"
-************************************************
-CA STEP {i}
-************************************************"
         //step <- CALib.API.Step step
-        step <- CALib.API.Step(step, maxParallelism=5)
+        step <- CALib.API.Step(step, maxParallelism=1)
