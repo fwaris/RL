@@ -30,12 +30,12 @@ let scatter (title:string) (f1:T_Log.Row->float) (f2:T_Log.Row->float) (xs:T_Log
 
 let t_log = T_Log.Load(INPUT_FILE).Rows |> Seq.toList
 
-hist2d "Gain vs Layers" (fun x -> float x.Gain) (fun x -> float x.Layers) t_log
-hist2d "Gain vs TrendWindowBars" (fun x -> float x.Gain) (fun x -> float x.TendWindowBars) t_log
-hist2d "Gain vs GoodBuyReward" (fun x -> float x.Gain) (fun x -> float x.GoodBuyInterReward) t_log
-hist2d "Gain vs GoodSellReward" (fun x -> float x.Gain) (fun x -> float x.GoodSellInterReward) t_log
-hist2d "Gain vs BadBuyIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadBuyInterPenalty) t_log
-hist2d "Gain vs BadSellIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadSellInterPenalty) t_log
+// hist2d "Gain vs Layers" (fun x -> float x.Gain) (fun x -> float x.Layers) t_log
+// hist2d "Gain vs TrendWindowBars" (fun x -> float x.Gain) (fun x -> float x.TendWindowBars) t_log
+// hist2d "Gain vs GoodBuyReward" (fun x -> float x.Gain) (fun x -> float x.GoodBuyInterReward) t_log
+// hist2d "Gain vs GoodSellReward" (fun x -> float x.Gain) (fun x -> float x.GoodSellInterReward) t_log
+// hist2d "Gain vs BadBuyIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadBuyInterPenalty) t_log
+// hist2d "Gain vs BadSellIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadSellInterPenalty) t_log
 
 scatter "Gain vs Layers" (fun x -> float x.Gain) (fun x -> float x.Layers) t_log
 scatter "Gain vs TrendWindowBars" (fun x -> float x.Gain) (fun x -> float x.TendWindowBars) t_log

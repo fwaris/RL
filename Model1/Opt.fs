@@ -3,10 +3,27 @@ open CA
 open System.IO
 open Types
 open TorchSharp
+open System.Text.RegularExpressions
 
-let OPT_LOG = root @@ "opt.csv"
+let (|FileNumber|_|) (inp:string) = 
+    let m = Regex.Match(inp,"opt_(\d+)\.csv")
+    printfn $"{inp} - {if m.Success then m.NextMatch().Groups[1].Value else System.String.Empty}"
+    if m.Success then m.Groups.[1].Value |> Some else None
 
-let clearLog () = if File.Exists OPT_LOG then File.Delete OPT_LOG
+let logFileName (folder:string) =
+    Directory.GetFiles(folder,"opt*.csv")
+    |> Array.choose(function FileNumber n -> Some n | _ -> None)
+    |> Array.map int
+    |> Array.sortDescending
+    |> Array.tryHead
+    |> Option.map (fun n -> $"opt_{n+1}.csv")
+    |> Option.defaultValue $"opt.csv"
+
+
+
+let OPT_LOG = lazy(root @@ (logFileName root))
+
+//let clearLog () = if File.Exists OPT_LOG.Value then File.Delete OPT_LOG.Value
 
 let toFloat basis low hi value =    
     (float hi - float low) / (float low) * basis * (float value)
@@ -50,11 +67,11 @@ let optLogger = MailboxProcessor.Start(fun inbox ->
             let! (gain:float, actDist:List<int*int>, tp:TuneParms) = inbox.Receive()
             let line = $"""{gain},"%A{actDist}",{tp.GoodBuyInterReward},{tp.BadBuyInterPenalty},{tp.ImpossibleBuyPenalty},{tp.GoodSellInterReward},{tp.BadSellInterPenalty},{tp.ImpossibleSellPenalty},{tp.NonInvestmentPenalty},{tp.Layers},{tp.TrendWindowBars},{tp.Lookback}"""
             try               
-                if File.Exists OPT_LOG |> not then
+                if File.Exists OPT_LOG.Value |> not then
                     let header = $"""gain,actDist,GoodBuyInterReward,BadBuyInterPenalty,ImpossibleBuyPenalty,GoodSellInterReward,BadSellInterPenalty,ImpossibleSellPenalty,NonInvestmentPenalty,Layers,TendWindowBars,Lookback"""
-                    File.AppendAllLines(OPT_LOG,[header;line])
+                    File.AppendAllLines(OPT_LOG.Value,[header;line])
                 else
-                    File.AppendAllLines(OPT_LOG,[line])
+                    File.AppendAllLines(OPT_LOG.Value,[line])
             with ex -> 
                 printfn $"logger: {ex.Message}"
     })
@@ -101,7 +118,7 @@ let fopt (parms:float[]) =
     }
 
 let optimize() =
-    clearLog()
+    //clearLog() //add new files for each run
     let fitness ps = fopt ps |> Async.RunSynchronously    
     let mutable step = CALib.API.initCA(caparms, fitness , Maximize, popSize=36, beliefSpace = CALib.BeliefSpace.Hybrid)
     for i in 0 .. 15000 do 
