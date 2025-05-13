@@ -1,4 +1,5 @@
 module Opt
+open System
 open CA
 open System.IO
 open Types
@@ -18,8 +19,6 @@ let logFileName (folder:string) =
     |> Array.tryHead
     |> Option.map (fun n -> $"opt_{n+1}.csv")
     |> Option.defaultValue $"opt.csv"
-
-
 
 let OPT_LOG = lazy(root @@ (logFileName root))
 
@@ -117,14 +116,21 @@ let fopt (parms:float[]) =
         return gain
     }
 
+let appendStepNumber (step:TimeStep<_>) = 
+    let fn = root @@ "steps.Text"
+    let line = $"{DateTime.Now}{step.Count},{step.Best.Head.MFitness},{step.Best.Head.MParms}"
+    File.AppendAllText(fn,line)
+
 let optimize() =
     //clearLog() //add new files for each run
     let fitness ps = fopt ps |> Async.RunSynchronously    
     let mutable step = CALib.API.initCA(caparms, fitness , Maximize, popSize=36, beliefSpace = CALib.BeliefSpace.Hybrid)
-    for i in 0 .. 15000 do 
+    for i in 0 .. 15000 do         
         printfn $"
 ************************************************
 CA STEP {i}
 ************************************************"
         //step <- CALib.API.Step step
         step <- CALib.API.Step(step, maxParallelism=5)
+        appendStepNumber step
+
