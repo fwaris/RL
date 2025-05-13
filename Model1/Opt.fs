@@ -117,9 +117,9 @@ let fopt (parms:float[]) =
     }
 
 let appendStepNumber (step:TimeStep<_>) = 
-    let fn = root @@ "steps.Text"
-    let line = $"{DateTime.Now}{step.Count},{step.Best.Head.MFitness},{step.Best.Head.MParms}"
-    File.AppendAllText(fn,line)
+    let fn = root @@ "stepsLog.txt"
+    let line = $"{DateTime.Now},{step.Count},{step.Best.Head.MFitness},%A{step.Best.Head.MParms}"
+    File.AppendAllLines(fn,[line])
 
 let optimize() =
     //clearLog() //add new files for each run
