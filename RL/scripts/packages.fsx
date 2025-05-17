@@ -9,6 +9,7 @@
 #r "nuget: FsPickler"
 #r "nuget: Plotly.NET"
 #r "nuget: FSharp.Data"
+#r "nuget: CAOpt"
 
 #load "../SeqUtils.fs"
 #load "../FsMsgPackRpc.fs"

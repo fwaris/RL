@@ -4,6 +4,8 @@ open System.IO
 open Plotly.NET
 open FSharp.Data
 open System.Text.RegularExpressions
+open OpenCvSharp
+open MachineLearning
 
 let dataDrive = Environment.GetEnvironmentVariable("DATA_DRIVE")
 
@@ -46,6 +48,32 @@ let scatter (title:string) (f1:T_Log.Row->float) (f2:T_Log.Row->float) (xs:T_Log
     |> fun (xs,ys) -> Chart.Point(xs,ys) 
     |> Chart.withTitle title
     |> Chart.show
+
+let toVec (r:T_Log.Row) = 
+    [|
+        float r.Layers
+        r.Lookback
+        r.TendWindowBars 
+        float r.GoodBuyInterReward
+        float r.GoodSellInterReward
+        float r.BadBuyInterPenalty
+        float r.BadSellInterPenalty
+        float r.ImpossibleBuyPenalty
+        float r.ImpossibleSellPenalty
+        float r.NonInvestmentPenalty
+    |]
+
+open MachineLearning
+let pickTopSolutions() =
+    let hiGains = t_log |> List.filter(fun x-> float x.Gain > 0.0) 
+    let vecs = hiGains |> List.map toVec    
+    let cfact xs k =  KMeansClustering.randomCentroids Probability.RNG.Value xs k |> List.map (fun (x:float[])->x,[])
+    let cdist (x,_) y = KMeansClustering.euclidean x y
+    let cavg (c,_) xs = (KMeansClustering.avgCentroid c xs),xs
+    let centroids,_ = KMeansClustering.kmeans cdist cfact cavg vecs 5
+    for c,_ in centroids do
+        printfn "%A" c
+    ()
 
 
 // hist2d "Gain vs Layers" (fun x -> float x.Gain) (fun x -> float x.Layers) t_log

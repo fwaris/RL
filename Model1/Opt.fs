@@ -33,7 +33,7 @@ let toVal = function
 
 let basis = 0.01
 let toTParms (ps:float[]) =
-    let trendWindowBars = (int ps.[8]) * 20
+    let trendWindowBars = (int ps.[8]) * 10
     {TuneParms.Default with
         GoodBuyInterReward = ps.[0]  * basis
         BadBuyInterPenalty = ps.[1] * basis
