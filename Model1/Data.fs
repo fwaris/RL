@@ -119,7 +119,9 @@ let private loadData tp =
 let numMarketSlices (xs:_[]) = xs.Length / EPISODE_LENGTH
 
 let testTrain tp = 
-    let dataSet = loadData tp |> List.skip (EPISODE_LENGTH * 10) |> List.take (EPISODE_LENGTH * 7)
+    let dataSet = loadData tp
+    let dataSet = tp.SkipBars |> Option.map (fun skip -> dataSet |> List.skip skip) |> Option.defaultValue dataSet
+    let dataSet = tp.TakeBars |> Option.map (fun take -> dataSet |> List.take take) |> Option.defaultValue dataSet    
     let trainSize  = float dataSet.Length * TRAIN_FRAC |> int
     let dataTrain = dataSet |> Seq.truncate trainSize |> Seq.toArray
     let dataTest = dataSet |> Seq.skip trainSize |> Seq.toArray

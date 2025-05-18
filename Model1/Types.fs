@@ -80,6 +80,8 @@ type TuneParms =
         Layers                  : int64
         Lookback                : int64
         TrendWindowBars         : int
+        SkipBars                : int option
+        TakeBars                : int option
     }
     with 
         (*
@@ -110,6 +112,8 @@ type TuneParms =
                             Layers = 10L
                             Lookback = 30L // LOOKBACK
                             TrendWindowBars = 60//TREND_WINDOW_BARS
+                            SkipBars = Some (EPISODE_LENGTH * 10)
+                            TakeBars = Some (EPISODE_LENGTH * 200)
                         }                        
 
 type Parms =

@@ -45,6 +45,8 @@ let toTParms (ps:float[]) =
         Layers = int64 ps.[7]
         TrendWindowBars  = trendWindowBars
         Lookback = int64 (trendWindowBars/3)
+        SkipBars = Some (EPISODE_LENGTH * 10)
+        TakeBars = Some (EPISODE_LENGTH * 7)
     }
 
 let caparms = 

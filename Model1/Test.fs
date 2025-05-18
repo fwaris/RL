@@ -80,7 +80,7 @@ let evalModels parms =
     evals
     |> Seq.iter (fun (n,gainTst,gainTrain,dist) -> 
         let dist = dist |> List.map (fun (a,b) -> string a, b)
-        dist |> Chart.Column |> Chart.withTitle $"Test action dist {n}, gain: %0.3f{gainTst}" |> Chart.show
+        dist |> Chart.Column |> Chart.withTitle $"Test action dist {n},<br>gain: %0.3f{gainTst}" |> Chart.show
     )
     (*
     evals

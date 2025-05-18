@@ -46,7 +46,7 @@ let parms1 id (lr,tp:TuneParms) =
 
 let tp = //0.34,-0.84,-0.57,0.98,-0.16,0,0,10
          //a.GoodBuyInterReward, a.BadBuyInterPenalty, a.ImpossibleBuyPenalty, a.GoodSellInterReward, a.BadSellInterPenalty, a.ImpossibleSellPenalty, a.NonInvestmentPenalty, a.Layers
-    {
+    { TuneParms.Default with        
         GoodBuyInterReward = 0.34
         BadBuyInterPenalty = -0.84
         ImpossibleBuyPenalty = -0.057
