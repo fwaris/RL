@@ -181,7 +181,8 @@ let plotLastEpicGainByMarket folder =
     printfn $"Data length :{ag1.Length}"    
     ag1 
     |> Array.groupBy _.ParmId
-    |> Array.collect(fun (p,xs) ->
+    |> Array.iter(fun (p,xs) ->
+        let lastStep = xs |> Array.sortBy _.Step |> Array.last        
         xs 
         |> Array.groupBy _.Market
         |> Array.map(fun (m,ys) -> 
@@ -191,10 +192,11 @@ let plotLastEpicGainByMarket folder =
             |> Array.indexed 
             |> Chart.Line 
             |> Chart.withTraceInfo $"Market {m}"
-        ))
-    |> Chart.combine 
-    |> Chart.withTitle $"Gain by market slice. Ep {ep}<br>{folder}"
-    |> Chart.show
+        )
+        |> Chart.combine 
+        |> Chart.withTitle $"Gain by market slice. ParmId:{p}<br>Gain:{lastStep.Gain} {folder}"
+        |> Chart.show
+    )
 
 let plotLastEpicActionsByNMarkets n folder = 
     let ag1 = lastEpoch folder
@@ -202,7 +204,8 @@ let plotLastEpicActionsByNMarkets n folder =
     printfn $"Data length :{ag1.Length}"    
     ag1 
     |> Array.groupBy _.ParmId
-    |> Array.collect(fun (p,xs) ->
+    |> Array.iter(fun (p,xs) ->
+        let lastStep = xs |> Array.sortBy _.Step |> Array.last        
         xs 
         |> Array.groupBy _.Market
         |> Array.take n
@@ -231,12 +234,13 @@ let plotLastEpicActionsByNMarkets n folder =
                 |> Chart.Line 
                 |> Chart.withTraceInfo $"Price Market {m}"
             |]
-        ))
-    |> Chart.combine 
-    |> Chart.withLegendStyle(Visible=false)
-    |> Chart.withTitle $"Action vs Price 2 Markets {ep}<br>{folder}"
-    |> Chart.withSize(1000.,800.)
-    |> Chart.show
+        )
+        |> Chart.combine 
+        |> Chart.withLegendStyle(Visible=false)
+        |> Chart.withTitle $"Action vs Price {n} Markets - ParmId:{p}<br>Gain:{lastStep.Gain} {folder}"
+        |> Chart.withSize(1000.,800.)
+        |> Chart.show
+    )
 
 
 let plotGrainTrendByMarket folder = 
@@ -295,7 +299,7 @@ let testPlots folder =
 plotGain()
 plotGrainTrendByMarket model1
 plotLastEpicGainByMarket model1
-plotLastEpicActionsByNMarkets 4 model1
+plotLastEpicActionsByNMarkets 10 model1
 plotLastEpicActionsBy2Markets model2
 plotGrainTrendByMarket model1
 plotLastEpicGainByMarket model2

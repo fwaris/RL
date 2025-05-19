@@ -7,6 +7,7 @@ open System.Text.RegularExpressions
 open OpenCvSharp
 open MachineLearning
 
+
 let dataDrive = Environment.GetEnvironmentVariable("DATA_DRIVE")
 
 let (|FileNumber|_|) (inp:string) = 
@@ -63,14 +64,13 @@ let toVec (r:T_Log.Row) =
         float r.NonInvestmentPenalty
     |]
 
-open MachineLearning
 let pickTopSolutions() =
     let hiGains = t_log |> List.filter(fun x-> float x.Gain > 0.0) 
     let vecs = hiGains |> List.map toVec    
     let cfact xs k =  KMeansClustering.randomCentroids Probability.RNG.Value xs k |> List.map (fun (x:float[])->x,[])
     let cdist (x,_) y = KMeansClustering.euclidean x y
     let cavg (c,_) xs = (KMeansClustering.avgCentroid c xs),xs
-    let centroids,_ = KMeansClustering.kmeans cdist cfact cavg vecs 5
+    let centroids,_ = KMeansClustering.kmeans cdist cfact cavg vecs 10
     for c,_ in centroids do
         printfn "%A" c
     ()
