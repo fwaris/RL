@@ -70,7 +70,7 @@ let pickTopSolutions() =
     let cfact xs k =  KMeansClustering.randomCentroids Probability.RNG.Value xs k |> List.map (fun (x:float[])->x,[])
     let cdist (x,_) y = KMeansClustering.euclidean x y
     let cavg (c,_) xs = (KMeansClustering.avgCentroid c xs),xs
-    let centroids,_ = KMeansClustering.kmeans cdist cfact cavg vecs 10
+    let centroids,_ = KMeansClustering.kmeans cdist cfact cavg vecs 5
     for c,_ in centroids do
         printfn "%A" c
     ()
@@ -93,4 +93,4 @@ scatter "Gain vs ImpossibleBuyPenalty" (fun x -> float x.Gain) (fun x -> float x
 scatter "Gain vs ImpossibleSellPenalty" (fun x -> float x.Gain) (fun x -> float x.ImpossibleSellPenalty) t_log
 scatter "Gain vs NonInvestmentPenalty" (fun x -> float x.Gain) (fun x -> float x.NonInvestmentPenalty) t_log
 
-
+pickTopSolutions()

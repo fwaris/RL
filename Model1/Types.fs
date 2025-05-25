@@ -209,7 +209,7 @@ type AgentState =
             a
 
         static member Default agentId initExpRate initialCash tp = 
-            let expBuff = Experience.createStratifiedSampled (int 50e5) 5
+            let expBuff = Experience.createStratifiedSampled (int 50e3) 5
             {
                 TimeStep         = 0
                 AgentId          = agentId
