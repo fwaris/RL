@@ -10,6 +10,7 @@
 #r "nuget: Plotly.NET"
 #r "nuget: FSharp.Data"
 #r "nuget: CAOpt"
+#r "nuget: Microsoft.Diagnostics.NETCore.Client"
 
 #load "../SeqUtils.fs"
 #load "../FsMsgPackRpc.fs"

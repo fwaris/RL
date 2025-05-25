@@ -19,8 +19,11 @@ let createStratifiedSampled maxExperincePerStrata minSamplesPerStrata =
 let private appendExperience max exp (ls:RandomAccessList<Experience>) = 
     let ls = RandomAccessList.cons exp ls
     if ls.Length > max * 2 then
-        //trim list
-        ls |> RandomAccessList.toSeq |> Seq.take max |> RandomAccessList.ofSeq
+        let keep = ls |> RandomAccessList.toSeq |> Seq.take max |> RandomAccessList.ofSeq
+        let drop = ls |> RandomAccessList.toSeq |> Seq.skip max
+        drop |> Seq.iter (fun r -> r.State.Dispose(); r.NextState.Dispose())
+        System.GC.Collect()
+        keep
     else
         ls
 

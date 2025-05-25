@@ -64,6 +64,19 @@ let toVec (r:T_Log.Row) =
         float r.NonInvestmentPenalty
     |]
 
+open Microsoft.Diagnostics.NETCore.Client
+open System.Diagnostics
+let (@@) (a:string) (b:string) = Path.Combine(a,b)
+let dumpMemory() =
+    Process.GetProcesses() |> Seq.iter (fun p -> printfn $"{p.ProcessName}, {p.Id}")
+    let processId = 
+        Process.GetProcessesByName("Model1") 
+        |> Seq.tryHead 
+        |> Option.map _.Id 
+        |> Option.defaultWith (fun _ -> failwith "process not found")
+    let client = new DiagnosticsClient(processId)
+    client.WriteDump(DumpType.Normal, model1 @@ "mem.dmp", logDumpGeneration=true)        
+
 let pickTopSolutions() =
     let hiGains = t_log |> List.filter(fun x-> float x.Gain > 0.0) 
     let vecs = hiGains |> List.map toVec    
@@ -94,3 +107,4 @@ scatter "Gain vs ImpossibleSellPenalty" (fun x -> float x.Gain) (fun x -> float 
 scatter "Gain vs NonInvestmentPenalty" (fun x -> float x.Gain) (fun x -> float x.NonInvestmentPenalty) t_log
 
 pickTopSolutions()
+dumpMemory()
