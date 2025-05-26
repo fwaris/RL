@@ -35,5 +35,6 @@ let run() =
 
 verbosity <- LoggingLevel.L
 //run()
+printfn $"*** Server GC = {System.Runtime.GCSettings.IsServerGC}"
 Opt.optimize()
 

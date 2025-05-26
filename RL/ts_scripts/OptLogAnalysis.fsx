@@ -106,5 +106,7 @@ scatter "Gain vs ImpossibleBuyPenalty" (fun x -> float x.Gain) (fun x -> float x
 scatter "Gain vs ImpossibleSellPenalty" (fun x -> float x.Gain) (fun x -> float x.ImpossibleSellPenalty) t_log
 scatter "Gain vs NonInvestmentPenalty" (fun x -> float x.Gain) (fun x -> float x.NonInvestmentPenalty) t_log
 
+(*
 pickTopSolutions()
 dumpMemory()
+*)
