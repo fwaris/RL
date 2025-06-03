@@ -80,7 +80,8 @@ module DQN =
                 use state = state.``to``(device)  //exploit
                 use state = state.unsqueeze(0)
                 use action_values = ddqn.Model.Online.forward(state)
-                action_values.argmax().ToInt32(),false
+                use maxQAct = action_values.argmax()
+                maxQAct.ToInt32(),false
         actionIdx
 
     let actionIdx (actions:torch.Tensor) = 
@@ -105,7 +106,6 @@ module DQN =
 
     let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) ddqn =
         use t = torch.no_grad()                              //turn off gradient calculation
-        let device = DQNModel.device ddqn.Model
         use q_online = ddqn.Model.Online.forward(next_state) //online model estimate of value (from next state)
         use best_action = q_online.argmax(1L)                //optimum value action from online
 
@@ -115,13 +115,12 @@ module DQN =
         use q_target_best = q_target.index(idx)                   //value of best action according to target model 
                                                                   //where the 'best action' is determined by the online model
         let device = DQNModel.device ddqn.Model
-        use d_reward = torch.tensor(reward).``to``(device)  //reward to device (cpu/gpu)
-        use d_isDone = torch.tensor(isDone).``to``(device)  //was episode done?
+        use d_reward' = torch.tensor(reward)
+        use d_reward = d_reward'.``to``(device)  //reward to device (cpu/gpu)
+        use d_isDone' = torch.tensor(isDone)
+        use d_isDone = d_isDone'.``to``(device)  //was episode done?
         use d_isDoneF = d_isDone.float()                         //convert boolean to float32
         use ret = d_reward + (1.0f.ToScalar() -  d_isDoneF) * ddqn.Gamma.ToScalar() * q_target_best //reward + discounted value
-                                                                                                    //this is the 'q-value' of the
-                                                                                                    //next-state, best-action pair
-                                                                                                    //according to the target model
 
         if false then //set to true to debug
             let t_d_isDoneF = Tensor.getDataNested<float32> d_isDoneF

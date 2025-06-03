@@ -55,11 +55,12 @@ let hasBetterPriceForSell currentPrice futurePrices = futurePrices |> List.exist
 let getObservations _ (env:MarketSlice) (s:AgentState) =         
     let b =  bar env s.TimeStep |> Option.defaultWith (fun () -> failwith "bar not found")
     let avgP = Data.avgPrice b.Bar
-    let buySell = torch.tensor([|canBuy avgP s; canSell s|],dtype=torch.float32)
-    let t1 = torch.tensor([|b.Freq1;b.Freq2;b.TrendLong;b.TrendMed;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
-    let t1 = torch.hstack(buySell,t1)
-    let ts = torch.vstack([|s.CurrentState;t1|])
+    use buySell = torch.tensor([|canBuy avgP s; canSell s|],dtype=torch.float32)
+    use t1 = torch.tensor([|b.Freq1;b.Freq2;b.TrendLong;b.TrendMed;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
+    use t1 = torch.hstack(buySell,t1)
+    use ts = torch.vstack([|s.CurrentState;t1|])
     let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // LOOKBACK * INPUT_DIM
+    s.PrevState.Dispose()
     {s with CurrentState = ts2; PrevState = s.CurrentState}
         
 let computeRewards1 parms env s action =         
@@ -74,7 +75,7 @@ let computeRewards1 parms env s action =
         let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
         if parms.LogSteps then
             Data.logger.Post (s.Epoch,parms.RunId,logLine)
-        let experience = {NextState = s.CurrentState; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
+        let experience = {NextState = ShapedArray.FromTensor s.CurrentState; Action=action; State = Experience.ShapedArray.FromTensor s.PrevState; Reward=float32 reward; Done=isDone }
         let experienceBuff = Experience.append experience s.ExpBuff  
         {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward
     | _ -> (s,false,0.0)
@@ -106,7 +107,7 @@ let computeRewards parms env s action =
         let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
         if parms.LogSteps then
             Data.logger.Post (s.Epoch,parms.RunId,logLine)
-        let experience = {NextState = s.CurrentState; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
+        let experience = {NextState = ShapedArray.FromTensor s.CurrentState; Action=action; State = ShapedArray.FromTensor s.PrevState; Reward=float32 reward; Done=isDone }
         let experienceBuff = Experience.append experience s.ExpBuff  
         {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward
     | _ -> (s,false,0.0)

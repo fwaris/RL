@@ -51,7 +51,6 @@ let couldSell s = s.AgentBook |> List.tryHead |> Option.map (fun b -> b.Stock > 
 
 let hasBetterPriceForBuy currentPrice futurePrices = futurePrices |> List.exists (fun p -> p > currentPrice + TX_COST_CNTRCT)
 let hasBetterPriceForSell currentPrice futurePrices = futurePrices |> List.exists (fun p -> p < currentPrice -  TX_COST_CNTRCT)
-
 let getObservations _ (env:MarketSlice) (s:AgentState) =         
     let b =  bar env s.TimeStep |> Option.defaultWith (fun () -> failwith "bar not found")
     let avgP = Data.avgPrice b.Bar
@@ -74,7 +73,7 @@ let computeRewards1 parms env s action =
         let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
         if parms.LogSteps then
             Data.logger.Post (s.Epoch,parms.RunId,logLine)
-        let experience = {NextState = s.CurrentState; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
+        let experience = {NextState = ShapedArray.FromTensor s.CurrentState; Action=action; State = ShapedArray.FromTensor s.PrevState; Reward=float32 reward; Done=isDone }
         let experienceBuff = Experience.append experience s.ExpBuff  
         {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward
     | _ -> (s,false,0.0)
@@ -105,7 +104,7 @@ let computeRewards parms env s action =
             printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
         let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
         Data.logger.Post (s.Epoch,parms.RunId,logLine)
-        let experience = {NextState = s.CurrentState; Action=action; State = s.PrevState; Reward=float32 reward; Done=isDone }
+        let experience = {NextState = ShapedArray.FromTensor s.CurrentState; Action=action; State = ShapedArray.FromTensor s.PrevState; Reward=float32 reward; Done=isDone }
         let experienceBuff = Experience.append experience s.ExpBuff  
         {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward
     | _ -> (s,false,0.0)

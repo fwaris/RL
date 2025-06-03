@@ -9,7 +9,7 @@ open Types
 
 let private updateQOnline parms state = 
     let device = DQNModel.device parms.DQN.Model
-    let states,nextStates,rewards,actions,dones = Experience.recall parms.BatchSize state.ExpBuff  //sample from experience
+    let states,nextStates,rewards,actions,dones = Experience.recall device parms.BatchSize state.ExpBuff  //sample from experience
     use states = states.``to``(device)
     use nextStates = nextStates.``to``(device)
     let td_est = DQN.td_estimate states actions parms.DQN.Model.Online   //online qvals of state-action pairs
@@ -52,8 +52,6 @@ let private syncModel parms s =
     if parms.SaveModels then
         DQNModel.save fn parms.DQN.Model 
     if verbosity.IsLow then printfn "Synced"
-
-
 
 let rec policy parms = 
     {

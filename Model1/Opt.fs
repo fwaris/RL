@@ -92,6 +92,8 @@ let runOpt parms =
             optLogger.Post (testGain,testDist,parms.TuneParms)
             DQN.DQNModel.dispose parms.DQN.Model
             parms.Opt.Value.Dispose()
+            agent.CurrentState.Dispose()
+            agent.PrevState.Dispose()
             let adjGain = 
                 if testGain > 0.0 then testGain
                 elif testGain = 0.0 then 

@@ -6,7 +6,31 @@ open FSharp.Collections.ParallelSeq
 open TorchSharp
 open TorchSharp.Fun
 
-type Experience = {State:torch.Tensor; NextState:torch.Tensor; Action:int; Reward:float32; Done:bool}
+type ShapedArray = {Shape:int64[]; Data:float32[]}
+    with 
+        static member FromTensor (tensor:torch.Tensor) =
+            let shape = 
+                if tensor.shape.Length > 1 then tensor.shape 
+                else Array.append [|-1|] tensor.shape
+            {
+                Shape = shape
+                Data = Tensor.getData<float32> tensor
+            }
+        member this.CanAppend(shape:int64[]) = 
+            this.Shape = shape || 
+            (this.Shape.Length > 1 && shape.Length > 1 
+             && this.Shape[1..] = shape.[1..])        
+        member this.ToTensor(device) = torch.tensor(this.Data,device=device).reshape(this.Shape)        
+        member this.Append (sa) = 
+            if not( this.CanAppend sa.Shape) then  failwith "incompatile shapes"
+            let shape = if this.Shape.Length = 1 then this.Shape else this.Shape.[1..]
+            let shape = Array.append [|-1L|] shape
+            {
+                Shape=shape
+                Data=Array.append this.Data sa.Data
+            }
+    
+type Experience = {State:ShapedArray; NextState:ShapedArray; Action:int; Reward:float32; Done:bool}
 type ExperienceBufferUniform = {Buffer:RandomAccessList<Experience>; Max:int}
 type ExperienceBufferStratified = {BufferMap:Map<int,RandomAccessList<Experience>>; Max:int; MinSamplesPerStrata:int}
 type ExperienceBuffer = UniformSampled of ExperienceBufferUniform | StratifiedSampled of ExperienceBufferStratified
@@ -17,15 +41,11 @@ let createStratifiedSampled maxExperincePerStrata minSamplesPerStrata =
         StratifiedSampled {BufferMap=Map.empty; Max=maxExperincePerStrata; MinSamplesPerStrata=minSamplesPerStrata}
         
 let private appendExperience max exp (ls:RandomAccessList<Experience>) = 
-    let ls = RandomAccessList.cons exp ls
-    if ls.Length > max * 2 then
-        let keep = ls |> RandomAccessList.toSeq |> Seq.take max |> RandomAccessList.ofSeq
-        let drop = ls |> RandomAccessList.toSeq |> Seq.skip max
-        drop |> Seq.iter (fun r -> r.State.Dispose(); r.NextState.Dispose())
-        System.GC.Collect()
-        keep
+    if ls.Length < max then 
+        RandomAccessList.cons exp ls
     else
-        ls
+        let idx = torch.randint(ls.Length, [|1|],dtype=torch.int32) |> Tensor.getData<int> |> Array.nth 0
+        RandomAccessList.update idx exp ls
 
 let append exp = function
     | UniformSampled buff -> UniformSampled {buff with Buffer = appendExperience buff.Max exp buff.Buffer}
@@ -38,9 +58,8 @@ let private sampleExperience max n (expBuff:RandomAccessList<Experience>) =
     if expBuff.Length <= n then 
         Seq.toArray expBuff 
     else 
-        let maxLen = min max  expBuff.Length //temporarily buffer may be longer than max
-        let idx = torch.randperm(int64 maxLen,dtype=torch.int) |> Tensor.getData<int> 
-        [|for i in 0..n-1 -> expBuff.[idx.[i]]|]
+        let idxs = torch.randint(expBuff.Length,[|n|],dtype=torch.int32) |> Tensor.getData<int>
+        idxs |> Array.map (fun i -> expBuff.[i])        
 
 let sample n = function 
     | UniformSampled buff -> sampleExperience buff.Max n buff.Buffer
@@ -62,10 +81,10 @@ let sample n = function
         let expSamples = Array.append expSamples1 expSamples2 |> Array.randomShuffle
         expSamples
 
-let recall n buff =
+let recall device n buff =
     let exps = sample n buff
-    let states     = exps |> Array.map (fun x->x.State.unsqueeze(0L)) |> torch.vstack        
-    let nextStates = exps |> Array.map (fun x->x.NextState.unsqueeze(0L)) |> torch.vstack
+    let states     = exps |> Array.map (fun x->x.State.ToTensor(device).unsqueeze(0L)) |> torch.vstack        
+    let nextStates = exps |> Array.map (fun x->x.NextState.ToTensor(device).unsqueeze(0L)) |> torch.vstack
     let actions    = exps |> Array.map (fun x->x.Action)
     let rewards    = exps |> Array.map (fun x -> x.Reward)
     let dones      = exps |> Array.map (fun x->x.Done)
@@ -78,8 +97,8 @@ type Tser = int * int option * int64[]      * Map<int,List<float32[]*float32[]*i
 let private exportExperience (expBuff:RandomAccessList<Experience>) = 
     expBuff
     |> Seq.map (fun x-> 
-            x.State.data<float32>().ToArray(),
-            x.NextState.data<float32>().ToArray(),
+            x.State.Data,
+            x.NextState.Data,
             x.Action,
             x.Reward,
             x.Done)
@@ -95,8 +114,8 @@ let private importExperience (shape:int64[]) (exps:List<float32[]*float32[]*int*
             let tnst = torch.zeros(shape,dtype=Nullable torch.float32)
             tnst.bytes <- bnst
             {
-                State       = tst
-                NextState   = tnst
+                State       = {Shape=shape; Data=st}
+                NextState   = {Shape=shape; Data=st}
                 Action      = act
                 Reward      = rwd
                 Done        = dn
@@ -112,9 +131,9 @@ let save path buff =
     if Map.isEmpty data then failwithf "empty buffer cannot be saved as tensor shape is unknown"
     let shape,maxExp,minSamples = 
         match buff with 
-        | UniformSampled buff -> (Seq.head buff.Buffer).State.shape, buff.Max, None
+        | UniformSampled buff -> (Seq.head buff.Buffer).State.Shape, buff.Max, None
         | StratifiedSampled buff -> 
-            (buff.BufferMap |> Map.toSeq |> Seq.head |> snd |> Seq.head).State.shape, 
+            (buff.BufferMap |> Map.toSeq |> Seq.head |> snd |> Seq.head).State.Shape, 
             buff.Max, 
             Some buff.MinSamplesPerStrata
     let ser = MBrace.FsPickler.BinarySerializer()
