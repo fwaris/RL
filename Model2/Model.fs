@@ -44,22 +44,47 @@ let parms1 id (lr,tp:TuneParms) =
         Epochs = EPOCHS
         TuneParms = tp}
 
-let tp = //0.17,-0.8300000000000001,-0.57,0.05,-0.66,0,0,9,80,26
-         //GoodBuyInterReward,BadBuyInterPenalty,ImpossibleBuyPenalty,GoodSellInterReward,BadSellInterPenalty,ImpossibleSellPenalty,NonInvestmentPenalty,Layers,TendWindowBars,Lookback
-    {
-        GoodBuyInterReward = 0.17
-        BadBuyInterPenalty = -0.83
+let tp = //0.34,-0.84,-0.57,0.98,-0.16,0,0,10
+         //a.GoodBuyInterReward, a.BadBuyInterPenalty, a.ImpossibleBuyPenalty, a.GoodSellInterReward, a.BadSellInterPenalty, a.ImpossibleSellPenalty, a.NonInvestmentPenalty, a.Layers
+    { TuneParms.Default with        
+        GoodBuyInterReward = 0.34
+        BadBuyInterPenalty = -0.84
         ImpossibleBuyPenalty = -0.057
-        GoodSellInterReward = 0.05
-        BadSellInterPenalty = -0.66
+        GoodSellInterReward = 0.98
+        BadSellInterPenalty = -0.16
         ImpossibleSellPenalty = 0.0
         NonInvestmentPenalty = 0.0
-        Layers = 9L
-        Lookback = 26L // LOOKBACK
-        TrendWindowBars = 80//TREND_WINDOW_BARS
+        Layers = 10L
+        Lookback = 30L // LOOKBACK
+        TrendWindowBars = 60//TREND_WINDOW_BARS
     }   
 
+let caSols = 
+    [
+        [|1.0; 3.0; 10.0; 1.0; 0.98; -0.2775; -0.995; -0.8375; -0.745; 0.0|]
+        [|1.0; 3.0; 10.0; 0.7766666667; 1.0; 0.0; -0.83; -0.8333333333; -0.66; 0.0|]
+        [|1.0; 6.0; 20.0; 0.8033333333; 0.9733333333; -0.1716666667; -0.7641666667;
+        -0.9108333333; -0.8391666667; -0.001666666667|]
+        [|2.0; 3.0; 10.0; 1.0; 1.0; -0.25; -0.99; -0.92; -0.93; -0.01|]
+        [|3.5; 3.0; 10.0; 0.635; 1.0; -0.105; -0.655; -0.825; -0.6; 0.0|]
+    ]
+    |> List.map (fun v -> 
+        {TuneParms.Default with 
+            Layers = int v.[0]
+            Lookback = int v.[1]
+            TrendWindowBars = int v.[2]
+            GoodBuyInterReward = v.[3]
+            GoodSellInterReward = v.[4]
+            BadBuyInterPenalty = v.[5]
+            BadSellInterPenalty = v.[6]
+            ImpossibleBuyPenalty = v.[7]
+            ImpossibleSellPenalty = v.[8]
+            NonInvestmentPenalty = v.[9]    
+        }
+    )
+
 let parmSpace = [0.001,tp]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
-let parms = parmSpace |> List.mapi (fun i ps -> parms1 i ps)
+//let parms = parmSpace |> List.mapi (fun i ps -> parms1 i ps)
+let parms = caSols |> List.mapi (fun i p -> parms1 i (0.001,p))
 
 

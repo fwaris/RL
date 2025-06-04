@@ -110,3 +110,8 @@ scatter "Gain vs NonInvestmentPenalty" (fun x -> float x.Gain) (fun x -> float x
 pickTopSolutions()
 dumpMemory()
 *)
+
+t_log |> List.rev |> List.take 10 |> List.rev
+|> List.map (fun x -> $"Gn:{x.Gain}, {x.ActDist}, Lb: {x.Lookback}, Lrs: {x.Layers}, Gbr: {x.GoodBuyInterReward}, Gbs: {x.GoodSellInterReward}, Ibp: {x.ImpossibleBuyPenalty}, Isp: {x.ImpossibleSellPenalty}")
+|> List.iter (printfn "%s")
+

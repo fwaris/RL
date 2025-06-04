@@ -11,11 +11,11 @@ open RL
 let ( @@ ) a b = Path.Combine(a,b)
 let EPISODE_LENGTH = 288/2 // 288 5 min. bars  = 24 hours
 let WARMUP = 5000
-let EPOCHS = 40
+let EPOCHS = 50
 let TREND_WINDOW_BARS_DFLT = 60
 let REWARD_HORIZON_BARS = 10
 let LOOKBACK_DFLT = int64 (TREND_WINDOW_BARS_DFLT / 2) // 30L
-let TX_COST_CNTRCT = 0.5
+let TX_COST_CNTRCT = 1.0
 let MAX_TRADE_SIZE = 1.
 let INITIAL_CASH = 5000.0
 let INPUT_DIM = 11L
@@ -23,7 +23,7 @@ let TRAIN_FRAC = 0.7
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
 let device = if torch.cuda_is_available() then torch.CUDA else torch.CPU
 let data_dir = System.Environment.GetEnvironmentVariable("DATA_DRIVE")
-let root = data_dir @@ @"s\tradestation\model2"
+let root = data_dir @@ @"s\tradestation\model1"
 let inputDir = data_dir @@ @"s\tradestation"
 let INPUT_FILE = inputDir @@ "mes_hist_td2.csv"
 //let INPUT_FILE = inputDir @@ "mes_hist_td.csv"
@@ -80,6 +80,8 @@ type TuneParms =
         Layers                  : int64
         Lookback                : int64
         TrendWindowBars         : int
+        SkipBars                : int option
+        TakeBars                : int option
     }
     with 
         (*
@@ -110,6 +112,8 @@ type TuneParms =
                             Layers = 10L
                             Lookback = 30L // LOOKBACK
                             TrendWindowBars = 60//TREND_WINDOW_BARS
+                            SkipBars = Some (EPISODE_LENGTH * 10)
+                            TakeBars = Some (EPISODE_LENGTH * 200)
                         }                        
 
 type Parms =
@@ -205,7 +209,7 @@ type AgentState =
             a
 
         static member Default agentId initExpRate initialCash tp = 
-            let expBuff = Experience.createStratifiedSampled (int 50e5) 5
+            let expBuff = Experience.createStratifiedSampled (int 50e3) 5
             {
                 TimeStep         = 0
                 AgentId          = agentId

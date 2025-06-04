@@ -51,33 +51,18 @@ let couldSell s = s.AgentBook |> List.tryHead |> Option.map (fun b -> b.Stock > 
 
 let hasBetterPriceForBuy currentPrice futurePrices = futurePrices |> List.exists (fun p -> p > currentPrice + TX_COST_CNTRCT)
 let hasBetterPriceForSell currentPrice futurePrices = futurePrices |> List.exists (fun p -> p < currentPrice -  TX_COST_CNTRCT)
+
 let getObservations _ (env:MarketSlice) (s:AgentState) =         
     let b =  bar env s.TimeStep |> Option.defaultWith (fun () -> failwith "bar not found")
     let avgP = Data.avgPrice b.Bar
-    let buySell = torch.tensor([|canBuy avgP s; canSell s|],dtype=torch.float32)
-    let t1 = torch.tensor([|b.Freq1;b.Freq2;b.TrendLong;b.TrendMed;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
-    let t1 = torch.hstack(buySell,t1)
-    let ts = torch.vstack([|s.CurrentState;t1|])
+    use buySell = torch.tensor([|canBuy avgP s; canSell s|],dtype=torch.float32)
+    use t1 = torch.tensor([|b.Freq1;b.Freq2;b.TrendLong;b.TrendMed;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
+    use t1 = torch.hstack(buySell,t1)
+    use ts = torch.vstack([|s.CurrentState;t1|])
     let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // LOOKBACK * INPUT_DIM
+    s.PrevState.Dispose()
     {s with CurrentState = ts2; PrevState = s.CurrentState}
         
-let computeRewards1 parms env s action =         
-    match bar env s.TimeStep with 
-    | Some cBar ->
-        let avgP     = Data.avgPrice  cBar.Bar
-        let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash
-        let isDone   = env.IsDone (s.TimeStep + 1)
-        let reward = if isDone then sGain else 0.0
-        if verbosity.isHigh then
-            printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
-        let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
-        if parms.LogSteps then
-            Data.logger.Post (s.Epoch,parms.RunId,logLine)
-        let experience = {NextState = ShapedArray.FromTensor s.CurrentState; Action=action; State = ShapedArray.FromTensor s.PrevState; Reward=float32 reward; Done=isDone }
-        let experienceBuff = Experience.append experience s.ExpBuff  
-        {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward
-    | _ -> (s,false,0.0)
-
 let computeRewards parms env s action =         
     match bar env (s.TimeStep-1) , bar env s.TimeStep with 
     | Some pBar,Some cBar ->
@@ -103,8 +88,11 @@ let computeRewards parms env s action =
         if verbosity.isHigh then
             printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
         let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
-        Data.logger.Post (s.Epoch,parms.RunId,logLine)
-        let experience = {NextState = ShapedArray.FromTensor s.CurrentState; Action=action; State = ShapedArray.FromTensor s.PrevState; Reward=float32 reward; Done=isDone }
+        if parms.LogSteps then
+            Data.logger.Post (s.Epoch,parms.RunId,logLine)
+        let expNextState = s.CurrentState.cpu()
+        let exptCurrentState = s.PrevState.cpu()
+        let experience = {NextState = expNextState; Action=action; State = exptCurrentState; Reward=float32 reward; Done=isDone }
         let experienceBuff = Experience.append experience s.ExpBuff  
         {s with ExpBuff = experienceBuff; S_reward=reward; S_gain = sGain;},isDone,reward
     | _ -> (s,false,0.0)

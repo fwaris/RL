@@ -34,12 +34,12 @@ let evalModelTT tp (policy:IModel) (market:MarketSlice) =
             let years = (market.LastBar.Bar.Time - (market.Market.prices.[0].Bar.Time)).TotalDays / 365.0
             let annualizedGain = gain / years
             let actDist = actions |> List.countBy id |> List.sortBy fst
-            actDist,annualizedGain,s
+            actDist,annualizedGain
         else
             let s'',action = runAgent policy market s
             loop (action::actions) s''
-    let actions,gain,lastAgentState = loop [] sInit
-    gain,actions,lastAgentState
+    let actions,gain = loop [] sInit
+    gain,actions
 
 let evalModel parms (name:string) (model:IModel) =
     try
@@ -47,11 +47,11 @@ let evalModel parms (name:string) (model:IModel) =
         let dTrain,dTest = Data.testTrain parms.TuneParms
         let testMarket =  Data.singleMarketSlice dTrain
         let trainMarket = Data.singleMarketSlice dTest
-        let gainTest,testDist,testAgentState = evalModelTT parms.TuneParms model testMarket 
-        let gainTrain,trainDist,_ = evalModelTT parms.TuneParms model trainMarket
+        let gainTest,testDist = evalModelTT parms.TuneParms model testMarket 
+        let gainTrain,trainDist = evalModelTT parms.TuneParms model trainMarket
         printfn $"Emodel: {parms.RunId} {name}, Annual Gain -  Test: %0.3f{gainTest}, Train: %0.3f{gainTrain}"
         printfn $"Test dist: {testDist}; Train dist: {trainDist}"
-        name,gainTest,gainTrain,testDist,testAgentState
+        name,gainTest,gainTrain,testDist
     finally
         model.Module.train()
     
@@ -78,26 +78,9 @@ let evalModels parms =
         |> Seq.map (evalModelFile parms)
         |> Seq.toArray
     evals
-    |> Seq.iter (fun (n,gainTst,gainTrain,dist,agentState) -> 
+    |> Seq.iter (fun (n,gainTst,gainTrain,dist) -> 
         let dist = dist |> List.map (fun (a,b) -> string a, b)
-        dist |> Chart.Column |> Chart.withTitle $"Test action dist {n}, gain: %0.3f{gainTst}" |> Chart.show
-        let actions = agentState.AgentBook |> List.rev |> List.choose (fun x -> x.NBar |> Option.map (fun b-> b,x.Action))
-        [
-            actions |> List.map (fun (b,a) -> b.Bar.Time,Data.avgPrice b.Bar) |> Chart.Line
-            actions 
-            |> List.filter (fun (b,a) -> a=0) 
-            |> List.map (fun (b,a) -> b.Bar.Time, Data.avgPrice b.Bar) 
-            |> Chart.Point 
-            |> Chart.withMarkerStyle (Symbol=StyleParam.MarkerSymbol.ArrowBarUp)
-            actions 
-            |> List.filter (fun (b,a) -> a=1) 
-            |> List.map (fun (b,a) -> b.Bar.Time, Data.avgPrice b.Bar) 
-            |> Chart.Point 
-            |> Chart.withMarkerStyle (Symbol=StyleParam.MarkerSymbol.ArrowBarDown)
-        ]
-        |> Chart.combine
-        |> Chart.withSize(1000.,700)
-        |> Chart.show
+        dist |> Chart.Column |> Chart.withTitle $"Test action dist {n},<br>gain: %0.3f{gainTst}" |> Chart.show
     )
     (*
     evals

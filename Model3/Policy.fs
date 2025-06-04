@@ -8,31 +8,65 @@ open FsCgp.CgpBase
 open FsCgp.CgpRun
 open System.Threading
 open VDQN
+open TorchSharp
+open System.Numerics
 
 let softmax (xs:float[]) =
     let exps = xs |> Array.map exp
     let sumExp = Array.sum exps
     exps |> Array.map (fun v -> v / sumExp)
 
+let isAllZero (tensor: torch.Tensor) : bool =
+    tensor.eq(0.f.ToScalar()).all().ToBoolean()
+
 let funcs =
   [|
-    (fun (xs:float[]) -> xs.[0]),2, "x"
-    (fun (xs:float[]) -> xs.[1]),2, "y"
-    (fun (xs:float[]) -> xs.[0] + xs.[1]),2,"add"
-    (fun (xs:float[]) -> xs.[0] - xs.[1]),2,"subtract"
-    (fun (xs:float[]) -> xs.[0] * xs.[1]),2,"multiply"
-    (fun (xs:float[]) -> if xs.[1] = 0.0 then 0.0 else xs.[0] / xs.[1]),2,"division"
-    (fun (xs:float[]) -> max xs.[0] xs.[1]),2,"max"
-    (fun (xs:float[]) -> min xs.[0] xs.[1]),2,"min"
-    (fun (xs:float[]) -> sin xs.[0]),1,"sin"
-    (fun (xs:float[]) -> cos xs.[0]),1,"cos"
-    (fun (xs:float[]) -> tan xs.[0]),1,"tan"
-    (fun (xs:float[]) -> tanh xs.[0]),1,"tanh"
-    (fun (xs:float[]) -> log xs.[0]),1,"log"
-    (fun (xs:float[]) -> 1.0 / 1.0 / (1.0 + exp (-xs.[0]))),1,"sigmoid"
+    (fun (xs:torch.Tensor[]) -> xs.[0]),2, "x"
+    (fun (xs:torch.Tensor[]) -> xs.[1]),2, "y"
+    (fun (xs:torch.Tensor[]) -> xs.[0] + xs.[1]),2,"add"
+    (fun (xs:torch.Tensor[]) -> xs.[0] - xs.[1]),2,"subtract"
+    (fun (xs:torch.Tensor[]) -> xs.[0] * xs.[1]),2,"multiply"
+    (fun (xs:torch.Tensor[]) -> if isAllZero xs.[1] then xs.[1] else xs.[0] / xs.[1]),2,"division"
+    (fun (xs:torch.Tensor[]) -> xs.[0].max(xs.[1])),2,"max"
+    (fun (xs:torch.Tensor[]) -> xs.[0].min(xs.[1])),2,"min"
+    (fun (xs:torch.Tensor[]) -> xs.[0].sin()),1,"sin"
+    (fun (xs:torch.Tensor[]) -> xs.[0].cos()),1,"cos"
+    (fun (xs:torch.Tensor[]) -> xs.[0].tan()),1,"tan"
+    (fun (xs:torch.Tensor[]) -> xs.[0].tanh()),1,"tanh"
+    (fun (xs:torch.Tensor[]) -> xs.[0].log()),1,"log"
+    (fun (xs:torch.Tensor[]) -> xs.[0].absolute_()),1,"absolute"
+    (fun (xs:torch.Tensor[]) -> xs.[0].sigmoid_()),1,"sigmoid"
+    (fun (xs:torch.Tensor[]) -> xs.[0].silu_()),1,"silu"
+    (fun (xs:torch.Tensor[]) -> xs.[0].bernoulli_()),1,"bernouli"
+    (fun (xs:torch.Tensor[]) -> xs.[0].cholesky_inverse()),1,"cholesky inverse"
   |]
 
 let ft = funcs |> Array.map (fun (f,a,d) -> {F=f;Arity=a;Desc=d})
+
+
+let tensorConst() = 
+  {
+    NumConstants = 1
+    Max = torch.tensor(100.f)
+    ConstGen = fun() -> torch.randint(100,[|1|],dtype=torch.float32)
+    Evolve = fun i -> torch.randn([|1L|]) + i
+  }
+
+(*
+  ///utility function to create ConstSpec for floats
+  let floatConsts numConst maxConst = 
+    {
+      NumConstants = numConst
+      Max = maxConst
+      ConstGen = fun() -> 
+        let sign = if Probability.RNG.Value.NextDouble() > 0.5 then 1.0 else -1.0
+        let v = Probability.RNG.Value.NextDouble() * maxConst
+        v * sign //|> int |> float
+      Evolve = fun i -> 
+        let sign = if Probability.RNG.Value.NextDouble() > 0.5 then 1.0 else -1.0
+        let v = Probability.RNG.Value.NextDouble()
+        i + (sign * v) //|> int |> float
+    }*)
 
 let spec = 
   {
@@ -42,8 +76,9 @@ let spec =
     BackLevel = None
     FunctionTable = ft
     MutationRate = 0.20
-    Constants = floatConsts 1 100.0 |> Some
+    Constants = Some (tensorConst())
   }
+
 
 //points fitting f(x) = x³ - 2x + 10.
 let test_cases =
@@ -81,8 +116,9 @@ let runAsync() =
 
 let showBest() = callGraph cspec currentBest.Value.Genome //|> visualize
 
-let postTests() = fps test_cases //sends (new or updated) data to let the learner dynamically adapt to changing data
-  
+let postTests() = fps test_cases //sends (new or updated) data to let the learner dynamically adapt to changing data  
+
+
 
 let private updateQOnline parms state = 
     let states,nextStates,rewards,actions,dones = VExperience.recall parms.BatchSize state.ExpBuff  //sample from experience    

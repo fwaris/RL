@@ -34,7 +34,7 @@ let run() =
     restartJobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
 
 verbosity <- LoggingLevel.L
-printfn $"*** Server GC = {System.Runtime.GCSettings.IsServerGC}"
 //run()
+printfn $"*** Server GC = {System.Runtime.GCSettings.IsServerGC}"
 Opt.optimize()
 

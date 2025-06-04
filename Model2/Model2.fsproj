@@ -5,9 +5,15 @@
     <TargetFramework>net9.0</TargetFramework>
   </PropertyGroup>
 
-  <ItemGroup><Compile Include="Types.fs" />
-    <Compile Include="Data.fs" />
-    
+  <ItemGroup>
+    <Content Include="Model2.runtimeconfig.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>  
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="Data.fs" />    
     <Compile Include="Agent.fs" />
     <Compile Include="Policy.fs" />
     <Compile Include="Test.fs" />
