@@ -21,7 +21,7 @@ let private appendExperience max newExp (ls:RandomAccessList<Experience>) =
     if ls.Length < max then 
         RandomAccessList.cons newExp ls
     else
-        let idx = torch.randint(ls.Length, [|1|]) |> Tensor.getData<int> |> Array.nth 0
+        let idx = torch.randint(ls.Length, [|1|], dtype=torch.int) |> Tensor.getData<int> |> Array.nth 0
         let prev = ls.[idx]
         prev.NextState.Dispose()
         prev.State.Dispose()

@@ -85,8 +85,9 @@ let computeRewards parms env s action =
                 //if s.Stock = 0 && s.InitialCash = s.CashOnHand then -1.0 else sGain
             else 
                 interReward                
-        if verbosity.isHigh then
-            printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{action}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
+        if verbosity.isHigh || verbosity.IsMed && isDone then
+            let act = if isDone then s.AgentBook |> List.map _.Action |> List.countBy id |> List.sortBy fst |> sprintf "%A" else $"{action}"
+            printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{act}, Exp:{s.Step.ExplorationRate} Gain:{sGain}"
         let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
         if parms.LogSteps then
             Data.logger.Post (s.Epoch,parms.RunId,logLine)

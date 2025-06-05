@@ -3,6 +3,8 @@ open TorchSharp
 open System
 open TorchSharp
 open Types
+open System.ComponentModel
+open System
 
 let mutable _ps = Unchecked.defaultof<_>
 
@@ -31,10 +33,22 @@ let restartJobs =
 let run() =
     Test.clearModels()
     Data.resetLogs()
-    restartJobs |> Async.Parallel |> Async.Ignore |> Async.RunSynchronously
+    restartJobs |> Async.Parallel |> Async.Ignore |> Async.Start
 
 verbosity <- LoggingLevel.L
-//run()
 printfn $"*** Server GC = {System.Runtime.GCSettings.IsServerGC}"
-Opt.optimize()
+run()
+//async{ Opt.optimize() } |> Async.Start
+
+let rec readCommandKey() =
+    let k = System.Console.ReadKey()
+    match k.KeyChar with 
+    | 'q' -> verbosity <- LoggingLevel.Q; readCommandKey()
+    | 'l' -> verbosity <- LoggingLevel.L; readCommandKey()
+    | 'h' -> verbosity <- LoggingLevel.H; readCommandKey()
+    | 'm' -> verbosity <- LoggingLevel.M; readCommandKey()
+    | _ when k.Key = ConsoleKey.Escape -> ()
+    | x -> printfn $"'{x}' not recoqnized - q,l,h,m to set log level and esc to end"; readCommandKey()
+
+readCommandKey()
 
