@@ -5,9 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="Model1.runtimeconfig.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>  
+    <None Include="runtimeconfig.template.json" />
   </ItemGroup>
 
   <ItemGroup>
