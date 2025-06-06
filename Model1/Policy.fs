@@ -19,7 +19,6 @@ let private updateQOnline parms state =
     let avgLoss = u_loss.ToDouble()
     parms.Opt.Value.zero_grad()
     loss.backward()
-    parms.Opt.Value.step() |> ignore
     if verbosity.IsLow && state.Step.Num % 1000 = 0 then 
         printfn $"Step {state.Step.Num} / {state.Epoch}"
         printfn $"Actions"
@@ -30,11 +29,10 @@ let private updateQOnline parms state =
             xs |> Seq.iter (fun (a,v) -> printf $"{a} %0.3f{v} "); printfn "")
     if false (*avgLoss |> Double.IsNaN*) then 
         let t_states = Tensor.getDataNested<float32> states
-        let t_nextStates = Tensor.getDataNested<float32> nextStates
         let t_td_est = Tensor.getDataNested<float32> td_est
         let t_td_tgt = Tensor.getDataNested<float32> td_tgt
-        let i = 1
         ()
+    parms.Opt.Value.step() |> ignore
     {state with CurrentLoss = avgLoss}
 
 let loadModel parms =

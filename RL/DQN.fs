@@ -91,7 +91,9 @@ module DQN =
         |]
 
     let td_estimate (state:torch.Tensor) (actions:int[]) (model:IModel) =
-        use q = model.forward(state)                                   //value of each available actions (when taken from the give state)
+        let s = state.detach_()
+        let s = s.requires_grad_(true)
+        use q = model.forward(s)                                   //value of each available actions (when taken from the give state)
         let idx = actionIdx (torch.tensor(actions,dtype=torch.int64))  //indexes of the actions actually taken by agents (in the given batch)
         let actVals = q.index(idx)                                      //values of the taken actions
 
@@ -103,7 +105,10 @@ module DQN =
             
         actVals
     
-
+    ///Find the best action for the given state from the online model.
+    ///Then find the q-value of that action (for the same state) from the target model.
+    ///Use the target q-value for the discounted reward for model update.
+    ///Since target is lagged, as per DDQN this, stabilizes the q values (otherwise the model can 'chase its own tail')
     let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) ddqn =
         use t = torch.no_grad()                              //turn off gradient calculation
         use q_online = ddqn.Model.Online.forward(next_state) //online model estimate of value (from next state)
