@@ -45,7 +45,7 @@ let reportEpisode parms (agent:AgentState) =
         |> List.sortBy fst
         |> List.map (fun ((a,r),c) -> $"""{if r then $"!{a}" else $"{a}"}:{c}""")
         |> String.concat ","
-    printfn $"ParmId:{parms.RunId}, Id:{agent.AgentId}, Epoch:{agent.Epoch}, Loss:%0.4f{agent.CurrentLoss}, Dist:{actDstStr}, Gain:0.3f{agent.S_gain}"            
+    printfn $"ParmId:{parms.RunId}, Id:{agent.AgentId}, Epoch:{agent.Epoch}, Loss:%0.4f{agent.CurrentLoss}, Dist:{actDstStr}, Gain:%0.3f{agent.S_gain}"            
         
           
 //run agent once across all market slices
