@@ -91,9 +91,7 @@ module DQN =
         |]
 
     let td_estimate (state:torch.Tensor) (actions:int[]) (model:IModel) =
-        let s = state.detach_()
-        let s = s.requires_grad_(true)
-        use q = model.forward(s)                                   //value of each available actions (when taken from the give state)
+        use q = model.forward(state)                                   //value of each available actions (when taken from the give state)
         let idx = actionIdx (torch.tensor(actions,dtype=torch.int64))  //indexes of the actions actually taken by agents (in the given batch)
         let actVals = q.index(idx)                                      //values of the taken actions
 

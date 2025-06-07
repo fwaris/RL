@@ -45,7 +45,7 @@ let reportEpisode parms (agent:AgentState) =
         |> List.sortBy fst
         |> List.map (fun ((a,r),c) -> $"""{if r then $"!{a}" else $"{a}"}:{c}""")
         |> String.concat ","
-    printfn $"run {parms.RunId} {agent.Epoch} done, Loss:{agent.CurrentLoss}; Dist:{actDstStr}"            
+    printfn $"ParmId:{parms.RunId}, Id:{agent.AgentId}, Epoch:{agent.Epoch}, Loss:%0.4f{agent.CurrentLoss}, Dist:{actDstStr}, Gain:0.3f{agent.S_gain}"            
         
           
 //run agent once across all market slices
@@ -54,7 +54,8 @@ let trainEpisode  parms plcy (agent:AgentState) (ms:MarketSlice list) =
     let agent' = (agent,ms) ||> List.fold (fun agent market ->
         let agent' = runAgentOnMarket parms plcy market agent
         AgentState.ResetForMarket agent')
-    reportEpisode parms agent'
+    parms.Scheduler.Value.step()
+    reportEpisode parms agent'    
     agent'
 
 

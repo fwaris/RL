@@ -11,7 +11,7 @@ open RL
 let ( @@ ) a b = Path.Combine(a,b)
 let EPISODE_LENGTH = 288/2 // 288 5 min. bars  = 24 hours
 let WARMUP = 5000
-let EPOCHS = 50
+let EPOCHS = 20
 let TREND_WINDOW_BARS_DFLT = 60
 let REWARD_HORIZON_BARS = 10
 let LOOKBACK_DFLT = int64 (TREND_WINDOW_BARS_DFLT / 2) // 30L
@@ -27,6 +27,14 @@ let root = data_dir @@ @"s\tradestation\model1"
 let inputDir = data_dir @@ @"s\tradestation"
 let INPUT_FILE = inputDir @@ "mes_hist_td2.csv"
 //let INPUT_FILE = inputDir @@ "mes_hist_td.csv"
+
+
+let createOpt lr (mps:Lazy<Modules.Parameter seq>) : Lazy<torch.optim.Optimizer> = lazy(
+    torch.optim.RAdam(mps.Value, lr=lr,weight_decay=0.00001) :> _) 
+
+let createLrSched maxEpochs (opt:Lazy<torch.optim.Optimizer>) = lazy (
+    torch.optim.lr_scheduler.CosineAnnealingLR(opt.Value,T_max=maxEpochs,verbose=true))
+
 let ensureDirForFilePath (file:string) = 
     let dir = Path.GetDirectoryName(file)
     if dir |> Directory.Exists |> not then Directory.CreateDirectory(dir) |> ignore
@@ -123,6 +131,7 @@ type Parms =
         DQN              : DQN
         LossFn           : Loss<torch.Tensor,torch.Tensor,torch.Tensor>
         Opt              : Lazy<torch.optim.Optimizer>
+        Scheduler        : Lazy<torch.optim.lr_scheduler.LRScheduler>
         LearnEverySteps  : int
         SyncEverySteps   : int
         BatchSize        : int
@@ -133,14 +142,17 @@ type Parms =
         TuneParms        : TuneParms
     }
     with 
-        static member Default modelFn ddqn lr id = 
+        static member Default modelFn ddqn baseLearningRate id = 
             let mps = lazy(ddqn.Model.Online.Module.parameters())
+            let opt = createOpt baseLearningRate mps
+            let lr_s = createLrSched (float EPOCHS) opt
             {
-                LearnRate       = lr
+                LearnRate       = baseLearningRate
                 CreateModel     = modelFn
                 DQN             = ddqn
                 LossFn          = torch.nn.SmoothL1Loss()
-                Opt             = lazy(torch.optim.Adam(mps.Value, lr=lr,weight_decay=0.00001) :> _) //optimizer should be created after model is moved to target device
+                Opt             = opt //lazy creation  - optimizer should be created after model is moved to target device
+                Scheduler       = lr_s
                 LearnEverySteps = 3
                 SyncEverySteps  = 1000
                 BatchSize       = 32
