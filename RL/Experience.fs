@@ -47,18 +47,18 @@ let sample n = function
     | StratifiedSampled buff -> 
         let minSamples = buff.MinSamplesPerStrata
         let keys = buff.BufferMap.Keys |> Seq.sort |> Seq.toArray
-        let counts = keys |> Array.map (fun k -> float buff.BufferMap.[k].Length)
-        let samples = 
-            LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(counts).Normalize(1.0).ToArray() 
+        let strataCounts = keys |> Array.map (fun k -> float buff.BufferMap.[k].Length)
+        let samplesPerStrata = //sample count for each strata proportional to each strata's size; where the sum ~= n; ensures some representation of each action type in batch
+            LinearAlgebra.Double.Vector.Build.DenseOfEnumerable(strataCounts).Normalize(1.0).ToArray() 
             |> Array.map (fun x -> int(float n * x))
-        let keyedSamples = Array.zip keys samples |> Array.sortBy snd  //lowest samples first
+        let keyedSamples = Array.zip keys samplesPerStrata |> Array.sortBy snd  //lowest samples first
         let expSamples1,rem =
             (([||],n),keyedSamples |> Array.take (keyedSamples.Length - 1)) 
             ||> Array.fold (fun (acc,rem) (k,p) -> 
                 let p = max minSamples p                
                 let exps = sampleExperience buff.Max p (buff.BufferMap.[k])
                 Array.append acc exps,rem - p)
-        let expSamples2 = sampleExperience buff.Max rem buff.BufferMap.[fst (Array.last keyedSamples)]
+        let expSamples2 = sampleExperience buff.Max rem buff.BufferMap.[fst (Array.last keyedSamples)] //take remaining samples (out of n) from the largest strata
         let expSamples = Array.append expSamples1 expSamples2 |> Array.randomShuffle
         expSamples
 
