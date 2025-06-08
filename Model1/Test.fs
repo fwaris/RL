@@ -7,11 +7,12 @@ open TorchSharp.Fun
 open DQN
 open RL
 open Types
+open System.Text.RegularExpressions
 
 let interimModel = root @@ "test_DQN.bin"
 
-let saveInterim parms =    
-    DQN.DQNModel.save interimModel parms.DQN.Model
+//let saveInterim parms =    
+//    DQN.DQNModel.save interimModel parms.DQN.Model
 
 let runAgent (policy:IModel) (market:MarketSlice) (s:AgentState) = 
     let device = policy.Module.parameters() |> Seq.tryHead |> Option.map _.device |> Option.defaultValue torch.CPU
@@ -55,33 +56,57 @@ let evalModel parms (name:string) (model:IModel) =
     finally
         model.Module.train()
     
-let evalModelFile parms modelFile  =
-    let model = (DQN.DQNModel.load parms.CreateModel modelFile).Online
-    evalModel parms modelFile model
+let extractModelInfo (path: string) =
+    let pattern = @"model_(\d+)_(\d+)_(\d+)\.bin$"
+    let m = Regex.Match(path, pattern)
+    if m.Success then
+        let runId = int m.Groups.[1].Value
+        let epoch = int m.Groups.[2].Value
+        let stepNum = int m.Groups.[3].Value
+        Some (runId, epoch, stepNum)
+    else
+        None
 
-let copyModels() =
-    let dir = root @@ "models_eval" 
-    if Directory.Exists dir |> not then Directory.CreateDirectory dir |> ignore
-    dir |> Directory.GetFiles |> Seq.iter File.Delete        
-    let dirIn = Path.Combine(root,"models")
-    Directory.GetFiles(dirIn,"*.bin")
-    |> Seq.map FileInfo
-    |> Seq.sortByDescending (fun f->f.CreationTime)
-    |> Seq.truncate 1                                 //most recent 50 models
-    |> Seq.map (fun f->f.FullName)
-    |> Seq.iter (fun f->File.Copy(f,Path.Combine(dir,Path.GetFileName(f)),true))
+let getLatestModel parms dir = 
+    Directory.GetFiles(dir,"*.bin") 
+    |> Seq.toList
+    |> List.choose (fun path -> extractModelInfo path |> Option.map(fun (id,epoch,step) -> id,(step,path)))
+    |> List.filter (fun (id,_) -> id = parms.RunId)
+    |> List.sortByDescending (snd>>fst)
+    |> List.map (snd>>snd)
+    |> List.tryHead
+
+let evalModelFile parms =
+    let dir = root @@ "models_eval"
+    match getLatestModel parms dir with 
+    | Some modelFile -> 
+        let model = (DQN.DQNModel.load parms.CreateModel modelFile).Online        
+        let n,gainTst,gainTrain,dist = evalModel parms modelFile model
+        dist |> Chart.Column |> Chart.withTitle $"Id {parms.RunId} Test<br>Gain test: %0.3f{gainTst}" |> Chart.show
+    | None -> printfn $"no model file found for parms id {parms.RunId}"
+
+let private deleteExistingEval parms dir =
+    Directory.GetFiles(dir,"*.bin")
+    |> Seq.choose (fun path -> extractModelInfo path |> Option.map (fun (id,_,_) -> id,path))
+    |> Seq.toList
+    |> List.filter (fun (id,path) -> parms.RunId = id)
+    |> List.iter (fun (_,path) -> File.Delete path)
+
+let private copyLatestModelToEval parms modelDir evalDir = 
+    getLatestModel parms modelDir
+    |> Option.iter (fun f->File.Copy(f,Path.Combine(evalDir,Path.GetFileName(f)),true))
+
+let copyModels (parms:Parms) =
+    let evalDir = root @@ "models_eval" 
+    let modelDir = root @@ "models"
+    if Directory.Exists evalDir |> not then Directory.CreateDirectory evalDir |> ignore
+    deleteExistingEval parms evalDir    
+    copyLatestModelToEval parms modelDir evalDir
 
 let evalModels parms = 
-    copyModels()
-    let evals = 
-        Directory.GetFiles(Path.Combine(root,"models_eval"),"*.bin")
-        |> Seq.map (evalModelFile parms)
-        |> Seq.toArray
-    evals
-    |> Seq.iter (fun (n,gainTst,gainTrain,dist) -> 
-        let dist = dist |> List.map (fun (a,b) -> string a, b)
-        dist |> Chart.Column |> Chart.withTitle $"Test action dist {n},<br>gain: %0.3f{gainTst}" |> Chart.show
-    )
+    copyModels parms
+    evalModelFile parms
+
     (*
     evals
     |> Seq.map (fun (m,tst,trn,_) -> tst)
@@ -95,9 +120,9 @@ let evalModels parms =
     |> Chart.show
     *)
 
-let runTest parms = 
-    saveInterim parms
-    evalModel parms interimModel
+//let runTest parms = 
+//    saveInterim parms
+//    evalModel parms interimModel
 
 let clearModels() = 
     let mdir = root @@ "models"

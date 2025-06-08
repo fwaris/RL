@@ -63,7 +63,7 @@ let trainEpisodes parms plcy ms =
     let agent = AgentState.Default 0 1.0 INITIAL_CASH parms.TuneParms
     (agent,[1..parms.Epochs])
     ||> List.fold (fun agent e -> 
-        let agent = AgentState.ResetForEpisode agent
-        let agent' = trainEpisode parms plcy {agent with Epoch=e} ms
-        //async{Test.evalModels parms} |> Async.Start      
-        agent')
+        let agent' = AgentState.ResetForEpisode agent
+        let agent'' = trainEpisode parms plcy {agent' with Epoch=e} ms        
+        Policy.saveModel parms agent''
+        agent'')

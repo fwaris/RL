@@ -11,7 +11,7 @@ open RL
 let ( @@ ) a b = Path.Combine(a,b)
 let EPISODE_LENGTH = 288/2 // 288 5 min. bars  = 24 hours
 let WARMUP = 5000
-let EPOCHS = 20
+let EPOCHS = 2
 let TREND_WINDOW_BARS_DFLT = 60
 let REWARD_HORIZON_BARS = 10
 let LOOKBACK_DFLT = int64 (TREND_WINDOW_BARS_DFLT / 2) // 30L

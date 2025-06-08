@@ -20,7 +20,7 @@ let private updateQOnline parms state =
     parms.Opt.Value.zero_grad()
     loss.backward()
     if verbosity.IsLow && state.Step.Num % 1000 = 0 then 
-        printfn $"Id: {state.AgentId}, Step {state.Step.Num} / Epoch: {state.Epoch} : MB Loss: %0.3f{avgLoss}"
+        printfn $"ParmsId: {parms.RunId}, Step {state.Step.Num} / Epoch: {state.Epoch} : MB Loss: %0.3f{avgLoss}"
         printfn $"Actions"
         let t_td_est = Tensor.getData<float32> td_tgt
         Seq.zip actions t_td_est 
@@ -46,6 +46,8 @@ let loadModel parms =
 
 let private syncModel parms s = 
     DQNModel.sync parms.DQN.Model
+
+let saveModel parms s = 
     let fn = root @@ "models" @@ $"model_{parms.RunId}_{s.Epoch}_{s.Step.Num}.bin"
     ensureDirForFilePath fn
     if parms.SaveModels then
