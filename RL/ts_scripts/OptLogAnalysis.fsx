@@ -88,6 +88,14 @@ let pickTopSolutions() =
         printfn "%A" c
     ()
 
+let pickDistinctTopSolutions() =
+    let hiGains = t_log |> List.filter(fun x-> float x.Gain > 0.0) 
+    let vecs = hiGains |> List.map (fun x -> x.Gain, toVec x) |> List.sortByDescending fst
+    let vecs = vecs |> List.distinctBy snd
+    let vecs = List.truncate 10 vecs
+    vecs |> List.iter (printfn "%A")
+    ()
+
 
 // hist2d "Gain vs Layers" (fun x -> float x.Gain) (fun x -> float x.Layers) t_log
 // hist2d "Gain vs TrendWindowBars" (fun x -> float x.Gain) (fun x -> float x.TendWindowBars) t_log
@@ -109,11 +117,13 @@ scatter "Gain vs NonInvestmentPenalty" (fun x -> float x.Gain) (fun x -> float x
 (*
 pickTopSolutions()
 dumpMemory()
+pickDistinctTopSolutions()
 *)
-
+(*
 t_log |> List.rev |> List.take 100 |> List.rev
 |> List.map (fun x -> $"Gn:{x.Gain}, {x.ActDist}, Lb: {x.Lookback}, Lrs: {x.Layers}, Gbr: {x.GoodBuyInterReward}, Gbs: {x.GoodSellInterReward}, Ibp: {x.ImpossibleBuyPenalty}, Isp: {x.ImpossibleSellPenalty}")
 |> List.iter (printfn "%s")
 
 t_log |> List.maxBy (fun x->x.Gain) |> toVec
+*)
 
