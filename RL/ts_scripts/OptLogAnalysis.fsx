@@ -50,18 +50,20 @@ let scatter (title:string) (f1:T_Log.Row->float) (f2:T_Log.Row->float) (xs:T_Log
     |> Chart.withTitle title
     |> Chart.show
 
+let basis = 0.01
 let toVec (r:T_Log.Row) = 
+    let trendWindwBars = float r.TendWindowBars * 10.
     [|
         float r.Layers
-        r.Lookback
-        r.TendWindowBars 
-        float r.GoodBuyInterReward
-        float r.GoodSellInterReward
-        float r.BadBuyInterPenalty
-        float r.BadSellInterPenalty
-        float r.ImpossibleBuyPenalty
-        float r.ImpossibleSellPenalty
-        float r.NonInvestmentPenalty
+        (trendWindwBars / 3.0)
+        trendWindwBars
+        float r.GoodBuyInterReward * basis
+        float r.GoodSellInterReward * basis
+        float r.BadBuyInterPenalty * basis
+        float r.BadSellInterPenalty * basis
+        float r.ImpossibleBuyPenalty * basis
+        float r.ImpossibleSellPenalty * basis
+        float r.NonInvestmentPenalty * basis
     |]
 
 open Microsoft.Diagnostics.NETCore.Client
@@ -93,37 +95,33 @@ let pickDistinctTopSolutions() =
     let vecs = hiGains |> List.map (fun x -> x.Gain, toVec x) |> List.sortByDescending fst
     let vecs = vecs |> List.distinctBy snd
     let vecs = List.truncate 10 vecs
-    vecs |> List.iter (printfn "%A")
+    for (g,v) in vecs do 
+        printfn $"// %0.5f{g}"
+        printfn "%A" v
     ()
 
+let plotHist2D() =
+    hist2d "Gain vs Layers" (fun x -> float x.Gain) (fun x -> float x.Layers) t_log
+    hist2d "Gain vs TrendWindowBars" (fun x -> float x.Gain) (fun x -> float x.TendWindowBars) t_log
+    hist2d "Gain vs GoodBuyReward" (fun x -> float x.Gain) (fun x -> float x.GoodBuyInterReward) t_log
+    hist2d "Gain vs GoodSellReward" (fun x -> float x.Gain) (fun x -> float x.GoodSellInterReward) t_log
+    hist2d "Gain vs BadBuyIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadBuyInterPenalty) t_log
+    hist2d "Gain vs BadSellIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadSellInterPenalty) t_log
 
-// hist2d "Gain vs Layers" (fun x -> float x.Gain) (fun x -> float x.Layers) t_log
-// hist2d "Gain vs TrendWindowBars" (fun x -> float x.Gain) (fun x -> float x.TendWindowBars) t_log
-// hist2d "Gain vs GoodBuyReward" (fun x -> float x.Gain) (fun x -> float x.GoodBuyInterReward) t_log
-// hist2d "Gain vs GoodSellReward" (fun x -> float x.Gain) (fun x -> float x.GoodSellInterReward) t_log
-// hist2d "Gain vs BadBuyIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadBuyInterPenalty) t_log
-// hist2d "Gain vs BadSellIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadSellInterPenalty) t_log
-
-scatter "Gain vs Layers" (fun x -> float x.Gain) (fun x -> float x.Layers) t_log
-scatter "Gain vs TrendWindowBars" (fun x -> float x.Gain) (fun x -> float x.TendWindowBars) t_log
-scatter "Gain vs GoodBuyReward" (fun x -> float x.Gain) (fun x -> float x.GoodBuyInterReward) t_log
-scatter "Gain vs GoodSellReward" (fun x -> float x.Gain) (fun x -> float x.GoodSellInterReward) t_log
-scatter "Gain vs BadBuyIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadBuyInterPenalty) t_log
-scatter "Gain vs BadSellIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadSellInterPenalty) t_log
-scatter "Gain vs ImpossibleBuyPenalty" (fun x -> float x.Gain) (fun x -> float x.ImpossibleBuyPenalty) t_log
-scatter "Gain vs ImpossibleSellPenalty" (fun x -> float x.Gain) (fun x -> float x.ImpossibleSellPenalty) t_log
-scatter "Gain vs NonInvestmentPenalty" (fun x -> float x.Gain) (fun x -> float x.NonInvestmentPenalty) t_log
+let plotGainVsX() = 
+    scatter "Gain vs Layers" (fun x -> float x.Gain) (fun x -> float x.Layers) t_log
+    scatter "Gain vs TrendWindowBars" (fun x -> float x.Gain) (fun x -> float x.TendWindowBars) t_log
+    scatter "Gain vs GoodBuyReward" (fun x -> float x.Gain) (fun x -> float x.GoodBuyInterReward) t_log
+    scatter "Gain vs GoodSellReward" (fun x -> float x.Gain) (fun x -> float x.GoodSellInterReward) t_log
+    scatter "Gain vs BadBuyIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadBuyInterPenalty) t_log
+    scatter "Gain vs BadSellIntrPenalty" (fun x -> float x.Gain) (fun x -> float x.BadSellInterPenalty) t_log
+    scatter "Gain vs ImpossibleBuyPenalty" (fun x -> float x.Gain) (fun x -> float x.ImpossibleBuyPenalty) t_log
+    scatter "Gain vs ImpossibleSellPenalty" (fun x -> float x.Gain) (fun x -> float x.ImpossibleSellPenalty) t_log
+    scatter "Gain vs NonInvestmentPenalty" (fun x -> float x.Gain) (fun x -> float x.NonInvestmentPenalty) t_log
 
 (*
 pickTopSolutions()
 dumpMemory()
 pickDistinctTopSolutions()
-*)
-(*
-t_log |> List.rev |> List.take 100 |> List.rev
-|> List.map (fun x -> $"Gn:{x.Gain}, {x.ActDist}, Lb: {x.Lookback}, Lrs: {x.Layers}, Gbr: {x.GoodBuyInterReward}, Gbs: {x.GoodSellInterReward}, Ibp: {x.ImpossibleBuyPenalty}, Isp: {x.ImpossibleSellPenalty}")
-|> List.iter (printfn "%s")
-
-t_log |> List.maxBy (fun x->x.Gain) |> toVec
 *)
 
