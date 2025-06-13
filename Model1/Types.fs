@@ -32,8 +32,10 @@ let INPUT_FILE = inputDir @@ "mes_hist_td2.csv"
 let createOpt lr (mps:Lazy<Modules.Parameter seq>) : Lazy<torch.optim.Optimizer> = lazy(
     torch.optim.RAdam(mps.Value, lr=lr,weight_decay=0.00001) :> _) 
 
-let createLrSched maxEpochs (opt:Lazy<torch.optim.Optimizer>) = lazy (
+let createLrSched_ maxEpochs (opt:Lazy<torch.optim.Optimizer>) = lazy (
     torch.optim.lr_scheduler.CosineAnnealingLR(opt.Value,T_max=maxEpochs,verbose=true))
+let createLrSched stepsPerEpoch maxEpochs (opt:Lazy<torch.optim.Optimizer>) = lazy (
+    torch.optim.lr_scheduler.OneCycleLR(opt.Value,max_lr=0.005,steps_per_epoch=stepsPerEpoch,epochs=maxEpochs,verbose=true))
 
 let ensureDirForFilePath (file:string) = 
     let dir = Path.GetDirectoryName(file)
@@ -142,10 +144,10 @@ type Parms =
         TuneParms        : TuneParms
     }
     with 
-        static member Default modelFn ddqn baseLearningRate id = 
+        static member Default modelFn ddqn baseLearningRate stepsPerEpoch id = 
             let mps = lazy(ddqn.Model.Online.Module.parameters())
             let opt = createOpt baseLearningRate mps
-            let lr_s = createLrSched (float EPOCHS) opt
+            let lr_s = createLrSched stepsPerEpoch (EPOCHS) opt
             {
                 LearnRate       = baseLearningRate
                 CreateModel     = modelFn

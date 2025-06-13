@@ -46,7 +46,7 @@ let toTParms (ps:float[]) =
         TrendWindowBars  = trendWindowBars
         Lookback = int64 (trendWindowBars/3)
         SkipBars = Some (EPISODE_LENGTH * 10)
-        TakeBars = Some (EPISODE_LENGTH * 7)
+        TakeBars = Some (EPISODE_LENGTH * 50)
     }
 
 let caparms = 
@@ -58,8 +58,8 @@ let caparms =
         I(-50,-100,-0) //BadSellInterPenalty = - 0.001
         I(-60,-100,-60) //ImpossibleSellPenalty = -0.05
         I(-1,-10,0) //NonInvestmentPenalty = -0.0101                        
-        I(5,1,5) //Layers
-        I(3,1,3)  // TrendWindowBars 
+        I(5,1,7) //Layers
+        I(3,1,5)  // TrendWindowBars 
     |]
 
 let optLogger = MailboxProcessor.Start(fun inbox -> 

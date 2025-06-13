@@ -99,6 +99,16 @@ let pickDistinctTopSolutions() =
         printfn $"// %0.5f{g}"
         printfn "%A" v
     ()
+let showTopPickActionDists() =
+    let hiGains = t_log |> List.filter(fun x-> float x.Gain > 0.0) 
+    let vecs = hiGains |> List.map (fun x -> x.Gain, x) |> List.sortByDescending fst
+    let vecs = vecs |> List.distinctBy snd
+
+    let vecs = List.truncate 10 vecs
+    for (g,v) in vecs do 
+        printfn $"// %0.5f{g}"
+        printfn "%A" v.ActDist
+    ()
 
 let plotHist2D() =
     hist2d "Gain vs Layers" (fun x -> float x.Gain) (fun x -> float x.Layers) t_log
@@ -123,5 +133,6 @@ let plotGainVsX() =
 pickTopSolutions()
 dumpMemory()
 pickDistinctTopSolutions()
+showTopPickActionDists()
 *)
 

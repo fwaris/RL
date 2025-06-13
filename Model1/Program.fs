@@ -37,8 +37,8 @@ let run() =
 
 verbosity <- LoggingLevel.L
 printfn $"*** Server GC = {System.Runtime.GCSettings.IsServerGC}"
-run()
-//async{ Opt.optimize() } |> Async.Start
+//run()
+async{ Opt.optimize() } |> Async.Start
 
 let rec readCommandKey() =
     let k = System.Console.ReadKey()
