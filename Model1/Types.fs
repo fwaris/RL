@@ -144,7 +144,7 @@ type Parms =
         TuneParms        : TuneParms
     }
     with 
-        static member Default modelFn ddqn baseLearningRate stepsPerEpoch id = 
+        static member Create modelFn ddqn baseLearningRate stepsPerEpoch id = 
             let mps = lazy(ddqn.Model.Online.Module.parameters())
             let opt = createOpt baseLearningRate mps
             let lr_s = createLrSched stepsPerEpoch (EPOCHS) opt
