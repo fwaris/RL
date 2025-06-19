@@ -30,19 +30,21 @@ let restartJobs =
     )
     |> List.map startReRun
  
-let run() =
+let _run() =
     Test.clearModels()
     Data.resetLogs()
     restartJobs |> Async.Parallel |> Async.Ignore |> Async.Start
 
 verbosity <- LoggingLevel.L
 printfn $"*** Server GC = {System.Runtime.GCSettings.IsServerGC}"
-//run()
-async{ Opt.optimize() } |> Async.Start
-
+let run() = async{ _run() } |> Async.Start
+let opt() =async{ Opt.optimize() } |> Async.Start
+printfn "o = optimize; r = run"
 let rec readCommandKey() =
     let k = System.Console.ReadKey()
     match k.KeyChar with 
+    | 'o' -> opt(); readCommandKey()
+    | 'r' -> run(); readCommandKey()
     | 'q' -> verbosity <- LoggingLevel.Q; readCommandKey()
     | 'l' -> verbosity <- LoggingLevel.L; readCommandKey()
     | 'h' -> verbosity <- LoggingLevel.H; readCommandKey()
