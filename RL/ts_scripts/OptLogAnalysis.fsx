@@ -30,7 +30,7 @@ let [<Literal>] INPUT_FILE = (@"e:\s\tradestation\model1\opt.csv")
 type T_Log = CsvProvider<INPUT_FILE>
 
 let logFilePath = Path.Combine(model1,logFileName model1)
-let t_log = T_Log.Load(logFilePath).Rows |> Seq.toList
+let t_log = T_Log.Load(logFilePath).Rows |> Seq.toList |> List.skip 1000
 
 let hist2d (title:string) (f1:T_Log.Row->float) (f2:T_Log.Row->float) (xs:T_Log.Row seq) =
     xs
@@ -135,4 +135,5 @@ dumpMemory()
 pickDistinctTopSolutions()
 showTopPickActionDists()
 *)
+
 

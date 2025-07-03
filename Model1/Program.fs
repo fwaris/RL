@@ -35,7 +35,7 @@ let _run() =
     Data.resetLogs()
     restartJobs |> Async.Parallel |> Async.Ignore |> Async.Start
 
-verbosity <- LoggingLevel.L
+verbosity <- LoggingLevel.Q
 printfn $"*** Server GC = {System.Runtime.GCSettings.IsServerGC}"
 let run() = async{ _run() } |> Async.Start
 let opt() =async{ Opt.optimize() } |> Async.Start
