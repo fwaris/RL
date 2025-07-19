@@ -46,7 +46,7 @@ let skipHead = torch.TensorIndex.Slice(1)
 
 let canBuy avgP s = s.CashOnHand > avgP + TX_COST_CNTRCT
 let canSell s = s.Stock > 0
-let couldBuy s = s.AgentBook |> List.tryHead |> Option.map (fun b -> b.Stock > s.Stock) |> Option.defaultValue false
+let couldBuy s = s.AgentBook |> List.tryHead |> Option.map (fun b -> b.Stock < s.Stock (*prev stk is < curr stk *)) |> Option.defaultValue false 
 let couldSell s = s.AgentBook |> List.tryHead |> Option.map (fun b -> b.Stock > s.Stock) |> Option.defaultValue false
 
 let hasBetterPriceForBuy currentPrice futurePrices = futurePrices |> List.exists (fun p -> p > currentPrice + TX_COST_CNTRCT)
@@ -67,8 +67,8 @@ let computeRewards parms env s action =
     match bar env (s.TimeStep-1) , bar env s.TimeStep with 
     | Some pBar,Some cBar ->
         let tp = parms.TuneParms
-        let avgP = Data.avgPrice  cBar.Bar
-        let prevP = Data.avgPrice pBar.Bar
+        let avgP = cBar.Bar.Close // Data.avgPrice  cBar.Bar
+        let prevP = cBar.Bar.Close //Data.avgPrice pBar.Bar
         let futurePrices = [s.TimeStep .. s.TimeStep + REWARD_HORIZON_BARS] |> List.choose (bar env) |> List.map _.Bar |> List.map Data.avgPrice
         let interReward = 
             match action with 
