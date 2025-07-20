@@ -11,7 +11,7 @@ open MathNet.Numerics.LinearAlgebra
 open Plotly.NET
 open Plotly.NET.StyleParam
 
-let avgPrice bar = 0.5 * (bar.High + bar.Low)        
+let effectivePrice bar =  bar.Close// 0.5 * (bar.High + bar.Low)        
 
 let isNaN (c:float) = Double.IsNaN c || Double.IsInfinity c
 
@@ -63,9 +63,10 @@ let private loadData tp =
         |> List.mapi (fun i xs ->
             let currBar = List.last xs
             let prevBar = xs.[xs.Length - 2]
-            let avgPrices = xs |> List.map avgPrice
-            let priceReturns = avgPrices |> List.pairwise |> List.map (fun (a,b) -> (b-a) / a)
-            let nrets = LinearAlgebra.CreateVector.DenseOfEnumerable(scaleN priceReturns)
+            let avgPrices = xs |> List.map effectivePrice
+            let priceReturns = avgPrices |> List.pairwise |> List.map (fun (a,b) -> (b-a) / a)             
+            let scaledReturns = scaleN priceReturns |> Seq.toList
+            let nrets = LinearAlgebra.CreateVector.DenseOfEnumerable(scaledReturns)
             use d_pts = torch.tensor(nrets.ToArray(), dtype=torch.float)
             use ptsFFt = torch.fft.rfft(d_pts, norm=FFTNormType.Forward)
             use ptsFFtR = ptsFFt.real
@@ -75,7 +76,9 @@ let private loadData tp =
             let slope = getSlope avgPrices
             let slopeMed = getSlope avgPricesMed
             let slopeShort = getSlope avgPricesShort
-            let stats = priceReturns |> scaleN |> Statistics.DescriptiveStatistics            
+            
+
+            let stats = priceReturns |> scaleN |> Statistics.DescriptiveStatistics 
             let d =
                 {
                     Freq1 = float t_ptsFFT.[0]

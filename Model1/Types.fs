@@ -11,9 +11,9 @@ open RL
 let ( @@ ) a b = Path.Combine(a,b)
 let EPISODE_LENGTH = 288/2 // 288 5 min. bars  = 24 hours
 let WARMUP = 5000
-let EPOCHS = 50
+let EPOCHS = 5
 let TREND_WINDOW_BARS_DFLT = 60
-let REWARD_HORIZON_BARS = 10
+let REWARD_HORIZON_BARS = 5
 let LOOKBACK_DFLT = int64 (TREND_WINDOW_BARS_DFLT / 2) // 30L
 let TX_COST_CNTRCT = 1.0
 let MAX_TRADE_SIZE = 1.
@@ -35,7 +35,7 @@ let createOpt lr (mps:Lazy<Modules.Parameter seq>) : Lazy<torch.optim.Optimizer>
 let createLrSched_ maxEpochs (opt:Lazy<torch.optim.Optimizer>) = lazy (
     torch.optim.lr_scheduler.CosineAnnealingLR(opt.Value,T_max=maxEpochs,verbose=true))
 let createLrSched stepsPerEpoch maxEpochs (opt:Lazy<torch.optim.Optimizer>) = lazy (
-    torch.optim.lr_scheduler.OneCycleLR(opt.Value,max_lr=0.1,steps_per_epoch=stepsPerEpoch,epochs=maxEpochs,verbose=true))
+    torch.optim.lr_scheduler.OneCycleLR(opt.Value,max_lr=0.01,steps_per_epoch=stepsPerEpoch,epochs=maxEpochs,verbose=true))
 
 let ensureDirForFilePath (file:string) = 
     let dir = Path.GetDirectoryName(file)

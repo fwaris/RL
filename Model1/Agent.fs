@@ -10,7 +10,7 @@ let bar (env:MarketSlice) t = env.Bar t
 let buy (env:MarketSlice) (s:AgentState) = 
     match bar env s.TimeStep with
     | Some nbar ->     
-        let avgP = Data.avgPrice nbar.Bar
+        let avgP = Data.effectivePrice nbar.Bar
         let priceWithCost = avgP + TX_COST_CNTRCT
         let stockToBuy = s.CashOnHand / priceWithCost |> floor |> max 0. |> min MAX_TRADE_SIZE
         let outlay = stockToBuy * priceWithCost
@@ -23,7 +23,7 @@ let buy (env:MarketSlice) (s:AgentState) =
 let sell (env:MarketSlice) (s:AgentState) =
     match bar env s.TimeStep with 
     | Some nbar -> 
-        let avgP = Data.avgPrice nbar.Bar
+        let avgP = Data.effectivePrice nbar.Bar
         let priceWithCost = avgP - TX_COST_CNTRCT
         let stockToSell = s.Stock |> min MAX_TRADE_SIZE
         let inlay = stockToSell * priceWithCost
@@ -48,13 +48,18 @@ let canBuy avgP s = s.CashOnHand > avgP + TX_COST_CNTRCT
 let canSell s = s.Stock > 0
 let couldBuy s = s.AgentBook |> List.tryHead |> Option.map (fun b -> b.Stock < s.Stock (*prev stk is < curr stk *)) |> Option.defaultValue false 
 let couldSell s = s.AgentBook |> List.tryHead |> Option.map (fun b -> b.Stock > s.Stock) |> Option.defaultValue false
-
-let hasBetterPriceForBuy currentPrice futurePrices = futurePrices |> List.exists (fun p -> p > currentPrice + TX_COST_CNTRCT)
-let hasBetterPriceForSell currentPrice futurePrices = futurePrices |> List.exists (fun p -> p < currentPrice -  TX_COST_CNTRCT)
+let hasBetterPriceForBuy buyPrice futurePrices = futurePrices |> List.exists (fun p -> p > buyPrice + TX_COST_CNTRCT)
+let hasBetterPriceForSell sellPrice futurePrices = futurePrices |> List.exists (fun p -> p < sellPrice -  TX_COST_CNTRCT)
+let buyReward buyPrice futurePrices rGood rBad = 
+    if List.isEmpty futurePrices then 0.0
+    else if hasBetterPriceForBuy buyPrice futurePrices then rGood else rBad
+let sellReward sellPrice futurePrices rGood rBad = 
+    if List.isEmpty futurePrices then 0.0
+    else if hasBetterPriceForSell sellPrice futurePrices then rGood else rBad
 
 let getObservations _ (env:MarketSlice) (s:AgentState) =         
     let b =  bar env s.TimeStep |> Option.defaultWith (fun () -> failwith "bar not found")
-    let avgP = Data.avgPrice b.Bar
+    let avgP = Data.effectivePrice b.Bar
     use buySell = torch.tensor([|canBuy avgP s; canSell s|],dtype=torch.float32)
     use t1 = torch.tensor([|b.Freq1;b.Freq2;b.TrendLong;b.TrendMed;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
     use t1 = torch.hstack(buySell,t1)
@@ -62,19 +67,19 @@ let getObservations _ (env:MarketSlice) (s:AgentState) =
     let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // LOOKBACK * INPUT_DIM
     s.PrevState.Dispose()
     {s with CurrentState = ts2; PrevState = s.CurrentState}
-        
+
 let computeRewards parms env s action =         
     match bar env (s.TimeStep-1) , bar env s.TimeStep with 
     | Some pBar,Some cBar ->
         let tp = parms.TuneParms
-        let avgP = cBar.Bar.Close // Data.avgPrice  cBar.Bar
-        let prevP = cBar.Bar.Close //Data.avgPrice pBar.Bar
-        let futurePrices = [s.TimeStep .. s.TimeStep + REWARD_HORIZON_BARS] |> List.choose (bar env) |> List.map _.Bar |> List.map Data.avgPrice
+        let avgP = Data.effectivePrice  cBar.Bar
+        let prevP = Data.effectivePrice pBar.Bar
+        let futurePrices = [s.TimeStep .. s.TimeStep + REWARD_HORIZON_BARS] |> List.choose (bar env) |> List.map _.Bar |> List.map Data.effectivePrice
         let interReward = 
             match action with 
-            | 0 when couldBuy s  -> if hasBetterPriceForBuy prevP futurePrices then tp.GoodBuyInterReward else tp.BadBuyInterPenalty 
+            | 0 when couldBuy s  -> buyReward prevP futurePrices tp.GoodBuyInterReward tp.BadBuyInterPenalty 
             | 0                  -> tp.ImpossibleBuyPenalty
-            | 1 when couldSell s -> if hasBetterPriceForSell prevP futurePrices then tp.GoodSellInterReward else tp.BadSellInterPenalty
+            | 1 when couldSell s -> sellReward prevP futurePrices tp.GoodSellInterReward tp.BadSellInterPenalty
             | 1                  -> tp.ImpossibleSellPenalty
             | _                  -> if s.Stock <= 0 then tp.NonInvestmentPenalty else 0.0 //if (s.CashOnHand / s.InitialCash) >= 1.0 then  +0.001 else -0.001
         let sGain    = ((avgP * float s.Stock + s.CashOnHand) - s.InitialCash) / s.InitialCash

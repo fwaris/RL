@@ -29,7 +29,7 @@ let evalModelTT tp (policy:IModel) (market:MarketSlice) =
     let rec loop actions s = 
         if market.IsDone (s.TimeStep + 1) then 
             let lastBar = market.LastBar
-            let avgPrice = Data.avgPrice lastBar.Bar
+            let avgPrice = Data.effectivePrice lastBar.Bar
             let equity = s.CashOnHand + (avgPrice * s.Stock)
             let gain = (equity - s.InitialCash) / s.InitialCash
             let years = (market.LastBar.Bar.Time - (market.Market.prices.[0].Bar.Time)).TotalDays / 365.0

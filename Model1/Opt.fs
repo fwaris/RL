@@ -51,15 +51,15 @@ let toTParms (ps:float[]) =
 
 let caparms = 
     [|                        
-        I(80,60,100) //GoodBuyInterReward = 0.01
-        I(-5,-30,-0) //BadBuyInterPenalty = -0.001
+        I(80,0,100) //GoodBuyInterReward = 0.01
+        I(-5,-100,-0) //BadBuyInterPenalty = -0.001
         I(-60,-100,-60) //ImpossibleBuyPenalty = -0.05
-        I(80,60,100) //GoodSellInterReward = 0.01
+        I(80,0,100) //GoodSellInterReward = 0.01
         I(-50,-100,-0) //BadSellInterPenalty = - 0.001
-        I(-60,-100,-60) //ImpossibleSellPenalty = -0.05
+        I(-60,-100,-0) //ImpossibleSellPenalty = -0.05
         I(-1,-10,0) //NonInvestmentPenalty = -0.0101                        
         I(5,1,7) //Layers
-        I(3,1,5)  // TrendWindowBars 
+        I(3,1,60)  // TrendWindowBars 
     |]
 
 let optLogger = MailboxProcessor.Start(fun inbox -> 
