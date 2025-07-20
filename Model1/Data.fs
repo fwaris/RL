@@ -63,26 +63,29 @@ let private loadData tp =
         |> List.mapi (fun i xs ->
             let currBar = List.last xs
             let prevBar = xs.[xs.Length - 2]
+            let pctRange = xs |> List.map (fun b -> (b.High - b.Close) / b.Close |> max -1.0 |> min 1.0)
+            let vols = xs |> List.map (fun b -> b.Volume)
+            let pctRangeVol = xs |> List.map (fun b -> (b.High - b.Close) / b.Close / b.Volume)
             let avgPrices = xs |> List.map effectivePrice
-            let priceReturns = avgPrices |> List.pairwise |> List.map (fun (a,b) -> (b-a) / a)             
-            let scaledReturns = scaleN priceReturns |> Seq.toList
-            let nrets = LinearAlgebra.CreateVector.DenseOfEnumerable(scaledReturns)
-            use d_pts = torch.tensor(nrets.ToArray(), dtype=torch.float)
-            use ptsFFt = torch.fft.rfft(d_pts, norm=FFTNormType.Forward)
-            use ptsFFtR = ptsFFt.real
-            let t_ptsFFT = Fun.Tensor.getData<float32>(ptsFFtR)
+            //let priceReturns = avgPrices |> List.pairwise |> List.map (fun (a,b) -> (b-a) / a)             
+            //let scaledReturns = scaleN priceReturns |> Seq.toList
+            //let nrets = LinearAlgebra.CreateVector.DenseOfEnumerable(scaledReturns)
+            //use d_pts = torch.tensor(nrets.ToArray(), dtype=torch.float)
+            //use ptsFFt = torch.fft.rfft(d_pts, norm=FFTNormType.Forward)
+            //use ptsFFtR = ptsFFt.real
+            //let t_ptsFFT = Fun.Tensor.getData<float32>(ptsFFtR)
             let avgPricesMed = avgPrices |> List.skip (xs.Length / 3 * 1)
             let avgPricesShort = avgPrices |> List.skip (xs.Length / 3 * 2 )
             let slope = getSlope avgPrices
             let slopeMed = getSlope avgPricesMed
             let slopeShort = getSlope avgPricesShort
-            
 
-            let stats = priceReturns |> scaleN |> Statistics.DescriptiveStatistics 
+            let statsRange = pctRange |> Statistics.DescriptiveStatistics 
+            let statsVol = vols |> Statistics.DescriptiveStatistics
             let d =
                 {
-                    Freq1 = float t_ptsFFT.[0]
-                    Freq2 = float stats.StandardDeviation
+                    Freq1 = float statsRange.Kurtosis
+                    Freq2 = float statsVol.Kurtosis
                     TrendLong = slope
                     TrendMed = slopeMed
                     TrendShort = slopeShort

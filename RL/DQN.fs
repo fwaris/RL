@@ -122,8 +122,10 @@ module DQN =
         use d_reward = d_reward'.``to``(device)  //reward to device (cpu/gpu)
         use d_isDone' = torch.tensor(isDone)
         use d_isDone = d_isDone'.``to``(device)  //was episode done?
-        use d_isDoneF = d_isDone.float()                         //convert boolean to float32
-        use ret = d_reward + (1.0f.ToScalar() -  d_isDoneF) * ddqn.Gamma.ToScalar() * q_target_best //reward + discounted value
+        use d_isDoneF = d_isDone.float()                  
+        use d_1 = 1.0f.ToScalar()
+        use d_gamma = ddqn.Gamma.ToScalar()       //convert boolean to float32
+        use ret = d_reward + (d_1 -  d_isDoneF) * d_gamma * q_target_best //reward + discounted value
 
         if false then //set to true to debug
             let t_d_isDoneF = Tensor.getDataNested<float32> d_isDoneF
