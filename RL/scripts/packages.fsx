@@ -11,6 +11,7 @@
 #r "nuget: FSharp.Data"
 #r "nuget: CAOpt"
 #r "nuget: Microsoft.Diagnostics.NETCore.Client"
+#r "nuget: Bezier"
 
 #load "../SeqUtils.fs"
 #load "../FsMsgPackRpc.fs"
