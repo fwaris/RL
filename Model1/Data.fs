@@ -38,8 +38,7 @@ let ftTrans (pts:float list) =
     MathNet.Numerics.IntegralTransforms.Fourier.Forward(pts)
     pts
 
-let private loadData tp = 
-    let data =
+let private loadBaseData() =
         File.ReadLines INPUT_FILE
         |> Seq.filter (fun l -> String.IsNullOrWhiteSpace l |> not)
         |> Seq.map(fun l -> 
@@ -57,6 +56,8 @@ let private loadData tp =
         |> Seq.filter (fun x -> x.High > 0. && x.Low > 0. && x.Open > 0. && x.Close > 0.)
         |> Seq.toList
 
+let private loadData tp = 
+    let data = loadBaseData()
     let pd (tp:TuneParms) = data |> List.windowed tp.TrendWindowBars 
     let pds tp =
         pd tp   
@@ -124,6 +125,12 @@ let private loadData tp =
 
 let numMarketSlices (xs:_[]) = xs.Length / EPISODE_LENGTH
 
+let getSlices tp = 
+    let data = loadBaseData()
+    let dataSet = data |> List.windowed tp.TrendWindowBars 
+    let trainSize  = float dataSet.Length * TRAIN_FRAC |> int
+    dataSet |> Seq.truncate trainSize |> Seq.toArray    
+    
 let testTrain tp = 
     let dataSet = loadData tp
     let dataSet = tp.SkipBars |> Option.map (fun skip -> dataSet |> List.skip skip) |> Option.defaultValue dataSet
@@ -165,6 +172,17 @@ let episodeLengthMarketSlices (trainData:NBar[]) =
         let endIdx = i + EPISODE_LENGTH - 1
         if endIdx <= i then failwith $"Invalid index {i}"
         {Market = {prices=trainData}; StartIndex=i; EndIndex=endIdx})
+
+let numberOfOEpisodeLengthMarketSlices<'a> (trainData:'a[]) =
+    let episodes = trainData.Length / EPISODE_LENGTH    
+    let idxs = [0 .. episodes-1] |> List.map (fun i -> i * EPISODE_LENGTH)
+    idxs
+    |> List.map(fun i -> 
+        let endIdx = i + EPISODE_LENGTH - 1
+        if endIdx <= i then failwith $"Invalid index {i}"
+        {|StartIndex=i; EndIndex=endIdx|})
+    |> List.length
+
 
 let singleMarketSlice (bars:NBar[]) = 
     {Market = {prices = bars}; StartIndex=0; EndIndex=bars.Length-1}
