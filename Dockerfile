@@ -22,22 +22,22 @@ ENV DOTNET_ROOT=/root/.dotnet
 ENV PATH=$DOTNET_ROOT:$PATH
 RUN echo "Dotnet SDK version:" && dotnet --version
 
-
-
 FROM gpu-base AS build
+
 WORKDIR /src
 COPY . .
-# RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-#     --mount=type=secret,id=nugetconfig \
-#     dotnet restore 
-# WORKDIR /src/Model1
-# RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-#     --mount=type=secret,id=nugetconfig \
-#     dotnet publish  -o /perfTest -r linux-x64 --self-contained
-    
 
-RUN dotnet restore
-RUN dotnet publish  -o /perfTest -r linux-x64 --self-contained
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet restore
+
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet build --configuration Release
+
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet publish  -o /perfTest -r linux-x64 --self-contained
+
+#RUN dotnet restore
+#RUN dotnet publish  -o /perfTest -r linux-x64 --self-contained
 
 FROM build AS final
 
