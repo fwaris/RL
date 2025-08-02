@@ -103,6 +103,6 @@ let caSols =
 
 let parmSpace = [0.001,tp]//; 0.001,8L; 0.001,10]///; 0.0001; 0.0002; 0.00001]
 //let parms = parmSpace |> List.mapi (fun i ps -> parms1 i ps)
-let parms = caSols |> List.mapi (fun i p -> parms1 i (0.001,p))
+let parms = lazy(caSols |> List.mapi (fun i p -> parms1 i (0.001,p)))
 
 

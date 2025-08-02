@@ -80,8 +80,8 @@ let optLogger = MailboxProcessor.Start(fun inbox ->
 let runOpt parms = 
     async {
         try 
-            parms.DQN.Model.Online.Module.``to``(device) |> ignore
-            parms.DQN.Model.Target.Module.``to``(device) |> ignore
+            parms.DQN.Model.Online.Module.``to``(device.Value) |> ignore
+            parms.DQN.Model.Target.Module.``to``(device.Value) |> ignore
             let plcy = Policy.policy parms
             let dTrain,dTest = Data.testTrain parms.TuneParms            
             let trainMarkets = Data.episodeLengthMarketSlices dTrain
