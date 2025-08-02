@@ -23,8 +23,8 @@ let TRAIN_FRAC = 0.7
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
 let device = if torch.cuda_is_available() then torch.CUDA else torch.CPU
 let data_dir = System.Environment.GetEnvironmentVariable("DATA_DRIVE")
-let root = data_dir @@ @"s\test_data\model1"
-let inputDir = data_dir @@ @"s\test_data"
+let root = data_dir @@ "s" @@ "test_data" @@ "model1" //this works on bothlinux and windows
+let inputDir = data_dir @@ "s" @@ "test_data"
 let INPUT_FILE = inputDir @@ "mes_hist_td2.csv"
 //let INPUT_FILE = inputDir @@ "mes_hist_td.csv"
 

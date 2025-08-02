@@ -18,7 +18,7 @@
 	
 	<ItemGroup>
 		<PackageReference Include="FSharp.Collections.ParallelSeq" Version="1.2.0" />
-		<PackageReference Include="TorchSharp-cuda-windows" Version="0.105.0" />
+		<PackageReference Include="TorchSharp-cuda-windows" Version="0.105.1" />
     <PackageReference Include="FsCgp" Version="3.0.1" />
 	</ItemGroup>
 	
@@ -27,7 +27,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Update="FSharp.Core" Version="9.0.202" />
+		<PackageReference Update="FSharp.Core" Version="9.0.300" />
 	</ItemGroup>
 
 </Project>
