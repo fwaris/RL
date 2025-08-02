@@ -3,9 +3,17 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.2.32630.192
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "RL", "RL\RL.fsproj", "{C33A8F9A-B4BA-4A97-A6E0-F354780634A0}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "RL", "src\RL\RL.fsproj", "{C33A8F9A-B4BA-4A97-A6E0-F354780634A0}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Model1", "Model1\Model1.fsproj", "{FD7DBEB7-FE38-4A9B-A9C4-3677D89C3879}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Model1", "src\Model1\Model1.fsproj", "{FD7DBEB7-FE38-4A9B-A9C4-3677D89C3879}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
+	ProjectSection(SolutionItems) = preProject
+		.dockerignore = .dockerignore
+		Dockerfile = Dockerfile
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -44,6 +52,10 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C33A8F9A-B4BA-4A97-A6E0-F354780634A0} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{FD7DBEB7-FE38-4A9B-A9C4-3677D89C3879} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {8F1D9265-B821-4E5B-BF5F-56194A7F6549}
