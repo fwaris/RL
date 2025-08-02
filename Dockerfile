@@ -1,4 +1,6 @@
-# docker run --gpus all --rm -p 52033:52033/tcp fsopenai:latest
+# docker run  -v /mnt/e:/mnt/e   -it -e DATA_DRIVE=/mnt/e --gpus all -rm  rl:latest
+# docker run  -v /mnt/e:/mnt/e   -it -e DATA_DRIVE=/mnt/e --gpus all  rl:latest
+# docker save -o perf-test.tar rl:latest
 FROM ghcr.io/ggml-org/llama.cpp:full-cuda AS gpu-base
 #FROM nvidia/cuda:12.9.1-cudnn-devel-ubuntu22.04 AS gpu-base
 EXPOSE 57101
@@ -27,17 +29,18 @@ FROM gpu-base AS build
 WORKDIR /src
 COPY . .
 
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+RUN --mount=type=secret,id=nugetconfig,target=/root/.nuget/NuGet/NuGet.Config \
     dotnet restore
 
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+RUN --mount=type=secret,id=nugetconfig,target=/root/.nuget/NuGet/NuGet.Config \
     dotnet build --configuration Release
+    
+WORKDIR /src/src/Model1
+RUN --mount=type=secret,id=nugetconfig,target=/root/.nuget/NuGet/NuGet.Config \
+    dotnet publish  -o /perfTest -r linux-x64 --self-contained -c Release 
 
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-    dotnet publish  -o /perfTest -r linux-x64 --self-contained
-
-#RUN dotnet restore
-#RUN dotnet publish  -o /perfTest -r linux-x64 --self-contained
+# RUN dotnet restore
+# RUN dotnet publish  -o /perfTest -r linux-x64 --self-contained --project Model1
 
 FROM build AS final
 
