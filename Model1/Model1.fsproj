@@ -23,8 +23,6 @@
   <ItemGroup>
     <PackageReference Include="FSharp.Collections.ParallelSeq" Version="1.2.0" />
     <PackageReference Include="MessagePack" Version="3.1.4" />
-    <PackageReference Include="TorchSharp-cuda-windows" Version="0.105.1" />
-    <PackageReference Include="TorchSharp-cuda-linux" Version="0.105.1" />
     <PackageReference Include="CAOpt" Version="3.0.7" />
   </ItemGroup>
   <ItemGroup>
