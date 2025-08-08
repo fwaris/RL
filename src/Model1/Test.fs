@@ -57,10 +57,10 @@ let evalModel parms (name:string) (model:IModel) =
         model.Module.train()
     
 let extractModelInfo (path: string) =
-    let pattern = @"model_(\d+)_(\d+)_(\d+)\.bin$"
+    let pattern = @"model_(\w+)_(\d+)_(\d+)\.bin$"
     let m = Regex.Match(path, pattern)
     if m.Success then
-        let runId = int m.Groups.[1].Value
+        let runId = string m.Groups.[1].Value
         let epoch = int m.Groups.[2].Value
         let stepNum = int m.Groups.[3].Value
         Some (runId, epoch, stepNum)

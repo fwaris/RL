@@ -138,7 +138,7 @@ type Parms =
         SyncEverySteps   : int
         BatchSize        : int
         Epochs           : int
-        RunId            : int
+        RunId            : string
         LogSteps         : bool
         SaveModels       : bool
         TuneParms        : TuneParms

@@ -7,7 +7,6 @@ open System.Text.RegularExpressions
 open OpenCvSharp
 open MachineLearning
 
-
 let dataDrive = Environment.GetEnvironmentVariable("DATA_DRIVE")
 
 let (|FileNumber|_|) (inp:string) = 
@@ -24,8 +23,8 @@ let logFileName (folder:string) =
     |> Option.map (fun n -> $"opt_{n}.csv")
     |> Option.defaultValue $"opt.csv"
 
-let model1 = @$"{dataDrive}/s/tradestation/model1/"
-let [<Literal>] INPUT_FILE = (@"e:\s\tradestation\model1\opt.csv")
+let model1 = @$"{dataDrive}/s/test_data/model1/"
+let [<Literal>] INPUT_FILE = (@"e:\s\test_data\model1\opt.csv")
 
 type T_Log = CsvProvider<INPUT_FILE>
 
@@ -99,6 +98,7 @@ let pickDistinctTopSolutions() =
         printfn $"// %0.5f{g}"
         printfn "%A" v
     ()
+
 let showTopPickActionDists() =
     let hiGains = t_log |> List.filter(fun x-> float x.Gain > 0.0) 
     let vecs = hiGains |> List.map (fun x -> x.Gain, x) |> List.sortByDescending fst

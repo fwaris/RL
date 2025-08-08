@@ -149,13 +149,13 @@ let resetLogs() =
 let logger = MailboxProcessor.Start(fun inbox -> 
     async {
         while true do
-            let! (episode:int,parmsId:int,line:string) = inbox.Receive()
+            let! (episode:int,parmsId:string,line:string) = inbox.Receive()
             try
                 let fn = root @@ "logs" @@ $"log_{episode}_{parmsId}.csv"
                 if File.Exists fn |> not then
                     Types.ensureDirForFilePath fn
                     //let logLine = $"{s.AgentId},{s.Episode},{s.Step.Num},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId}"
-                    let header = "agentId,episode,step,action,price,cash,stock,reward,gain,parmId,market,isDone"
+                    let header = "Timestamp,agentId,episode,step,action,price,cash,stock,reward,gain,parmId,market,isDone"
                     File.AppendAllLines(fn,[header;line])
                 else
                     File.AppendAllLines(fn,[line])

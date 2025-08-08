@@ -1,4 +1,5 @@
 ﻿module Agent
+open System
 open DQN
 open Experience
 open Types
@@ -93,8 +94,9 @@ let computeRewards parms env s action =
         if verbosity.isHigh || verbosity.IsMed && isDone then
             let act = if isDone then s.AgentBook |> List.map _.Action |> List.countBy id |> List.sortBy fst |> sprintf "%A" else $"{action}"
             printfn $"{s.AgentId}-{s.TimeStep}|{s.Step.Num} - P:%0.3f{avgP}, OnHand:{s.CashOnHand}, S:{s.Stock}, R:{reward}, A:{act}, Exp:%0.2f{s.Step.ExplorationRate} Gain:{sGain}"
-        let logLine = $"{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
+        let ts = DateTime.Now.ToString("u")
         if parms.LogSteps then
+            let logLine = $"{ts},{s.AgentId},{s.Epoch},{s.TimeStep},{action},{avgP},{s.CashOnHand},{s.Stock},{reward},{sGain},{parms.RunId},{env.StartIndex},{isDone}"
             Data.logger.Post (s.Epoch,parms.RunId,logLine)
         let expNextState = s.CurrentState.cpu()
         let exptCurrentState = s.PrevState.cpu()

@@ -66,10 +66,10 @@ let optLogger = MailboxProcessor.Start(fun inbox ->
     async {
         while true do
             let! (gain:float, actDist:List<int*int>, tp:TuneParms) = inbox.Receive()
-            let line = $"""{gain},"%A{actDist}",{tp.GoodBuyInterReward},{tp.BadBuyInterPenalty},{tp.ImpossibleBuyPenalty},{tp.GoodSellInterReward},{tp.BadSellInterPenalty},{tp.ImpossibleSellPenalty},{tp.NonInvestmentPenalty},{tp.Layers},{tp.TrendWindowBars},{tp.Lookback}"""
+            let line = $"""{DateTime.Now.ToString("u")},{gain},"%A{actDist}",{tp.GoodBuyInterReward},{tp.BadBuyInterPenalty},{tp.ImpossibleBuyPenalty},{tp.GoodSellInterReward},{tp.BadSellInterPenalty},{tp.ImpossibleSellPenalty},{tp.NonInvestmentPenalty},{tp.Layers},{tp.TrendWindowBars},{tp.Lookback}"""
             try               
                 if File.Exists OPT_LOG.Value |> not then
-                    let header = $"""gain,actDist,GoodBuyInterReward,BadBuyInterPenalty,ImpossibleBuyPenalty,GoodSellInterReward,BadSellInterPenalty,ImpossibleSellPenalty,NonInvestmentPenalty,Layers,TendWindowBars,Lookback"""
+                    let header = $"""Timestamp,gain,actDist,GoodBuyInterReward,BadBuyInterPenalty,ImpossibleBuyPenalty,GoodSellInterReward,BadSellInterPenalty,ImpossibleSellPenalty,NonInvestmentPenalty,Layers,TendWindowBars,Lookback"""
                     File.AppendAllLines(OPT_LOG.Value,[header;line])
                 else
                     File.AppendAllLines(OPT_LOG.Value,[line])
@@ -112,7 +112,7 @@ let nextId () = System.Threading.Interlocked.Increment &_id
 let fopt (parms:float[]) =
     async {
         let tp = toTParms parms
-        let baseParms = Model.parms1 (nextId()) (0.001, tp )                   //every fitness evaluation needs separate optimizer and model
+        let baseParms = Model.parms1 ($"{nextId()}") (0.001, tp )                   //every fitness evaluation needs separate optimizer and model
         let baseParms = {baseParms with LogSteps=false; SaveModels=false}
         let optParms = {baseParms with TuneParms = tp}
         let! gain = runOpt optParms

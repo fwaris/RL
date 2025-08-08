@@ -5,6 +5,7 @@ open TorchSharp
 open Types
 open System.ComponentModel
 open System
+open FSharp.Control
 
 let mutable _ps = Unchecked.defaultof<_>
 
@@ -30,11 +31,14 @@ let restartJobs() =
         )
         |> List.map startReRun
  
+let MAX_PARALLEL = 2
 let _run() =
     Test.clearModels()
     Data.resetLogs()
-    restartJobs() |> Async.Parallel |> Async.Ignore |> Async.Start
-
+    let jobs = restartJobs() |> AsyncSeq.ofSeq
+    jobs
+    |> AsyncSeq.iterAsyncParallelThrottled MAX_PARALLEL id
+    |> Async.Start
 
 [<EntryPoint>]
 let main args =
