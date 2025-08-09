@@ -12,6 +12,8 @@
 #r "nuget: CAOpt"
 #r "nuget: Microsoft.Diagnostics.NETCore.Client"
 #r "nuget: Bezier"
+#r "nuget: Microsoft.ML"
+#r "nuget: MLUtils"
 
 #load "../SeqUtils.fs"
 #load "../FsMsgPackRpc.fs"

@@ -5,8 +5,27 @@ open Plotly.NET
 open FSharp.Data
 open System.Text.RegularExpressions
 open OpenCvSharp
-open MachineLearning
+open Microsoft.ML
+open Microsoft.ML.Data
 
+type F = { [<VectorType(10)>] features:float32 array}
+
+let cluster (vecs:float[] list) k = 
+    let ctx = MLContext()
+    let tx = ctx.Clustering.Trainers.KMeans("features",numberOfClusters=k)
+    let sch = MLUtils.Schema.cleanSchema(typeof<F>)
+    let xs = vecs |> List.map (fun v -> {features= v |> Array.map float32})
+    let dt = ctx.Data.LoadFromEnumerable(xs,schemaDefinition=sch)
+    let model = tx.Fit(dt)
+    let mutable vbuffs = Unchecked.defaultof<_>
+    let mutable j = k
+    model.Model.GetClusterCentroids(&vbuffs, &j)
+    vbuffs
+    |> Seq.iter (fun b -> 
+        let vs = b.GetValues().ToArray()
+        printfn "%A" vs
+    )
+    
 let dataDrive = Environment.GetEnvironmentVariable("DATA_DRIVE")
 
 let (|FileNumber|_|) (inp:string) = 
@@ -79,15 +98,9 @@ let dumpMemory() =
     client.WriteDump(DumpType.Normal, model1 @@ "mem.dmp", logDumpGeneration=true)        
 
 let pickTopSolutions() =
-    let hiGains = t_log |> List.filter(fun x-> float x.Gain > 0.0) 
+    let hiGains = t_log |> List.filter(fun x-> float x.Gain > 0.2) 
     let vecs = hiGains |> List.map toVec    
-    let cfact xs k =  KMeansClustering.randomCentroids Probability.RNG.Value xs k |> List.map (fun (x:float[])->x,[])
-    let cdist (x,_) y = KMeansClustering.euclidean x y
-    let cavg (c,_) xs = (KMeansClustering.avgCentroid c xs),xs
-    let centroids,_ = KMeansClustering.kmeans cdist cfact cavg vecs 5
-    for c,_ in centroids do
-        printfn "%A" c
-    ()
+    cluster vecs 5
 
 let pickDistinctTopSolutions() =
     let hiGains = t_log |> List.filter(fun x-> float x.Gain > 0.0) 

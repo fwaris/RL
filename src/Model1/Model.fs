@@ -60,6 +60,24 @@ let tp = //0.34,-0.84,-0.57,0.98,-0.16,0,0,10
         Lookback = 30L // LOOKBACK
         TrendWindowBars = 60//TREND_WINDOW_BARS
     }   
+
+let solSet4 = [
+        "d1",[|3.866666794f; 1158.889038f; 3476.666748f; 0.006176668685f; 0.002513333224f;
+            -0.005016666371f; -0.004763333593f; -0.008186667226f; -0.008683334105f;
+            -0.0002000000386f|]
+        "d2",[|3.0f; 448.4848328f; 1345.45459f; 0.00416363636f; 0.002381818369f;
+          -0.00523636397f; -0.006399999373f; -0.007854545489f; -0.00848181732f;
+          -0.0001818181772f|]
+        "d3",[|1.75f; 108.3333282f; 325.0f; 0.002875000006f; 0.007649999578f; -0.00742499996f;
+          -0.005349999759f; -0.008975000121f; -0.006650000345f; -7.499999629e-05f|]
+        "d4",[|2.333333492f; 266.666687f; 800.0f; 0.004233333748f; 0.001899999916f;
+          -0.007583332714f; -0.007483333349f; -0.007966667414f; -0.00800000038f;
+          -0.0001000000047f|]
+        "d5",[|2.409090996f; 798.4848633f; 2395.45459f; 0.005586363841f; 0.003095454536f;
+          -0.006490909494f; -0.007059091236f; -0.008550000377f; -0.008672729135f;
+          -0.0003636363545f|]
+]
+
 let solSet3 = [
         // 0.54443
         "a1",[|4.0; 1166.666667; 3500.0; 0.0095; 0.0023; -0.0045; 0.0; -0.0083; -0.0098; 0.0|]
@@ -147,20 +165,20 @@ let solSet1 =
     ]
 
 let caSols =
-    solSet3
+    solSet4
     |> List.map (fun (id,v) -> 
         id,
         {TuneParms.Default with 
             Layers = int v.[0]
             Lookback = int v.[1]
             TrendWindowBars = int v.[2]
-            GoodBuyInterReward = v.[3]
-            GoodSellInterReward = v.[4]
-            BadBuyInterPenalty = v.[5]
-            BadSellInterPenalty = v.[6]
-            ImpossibleBuyPenalty = v.[7]
-            ImpossibleSellPenalty = v.[8]
-            NonInvestmentPenalty = v.[9]    
+            GoodBuyInterReward = float v.[3]
+            GoodSellInterReward = float v.[4]
+            BadBuyInterPenalty = float v.[5]
+            BadSellInterPenalty = float v.[6]
+            ImpossibleBuyPenalty = float v.[7]
+            ImpossibleSellPenalty = float v.[8]
+            NonInvestmentPenalty = float v.[9]    
         }
     )
 
