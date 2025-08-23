@@ -191,7 +191,7 @@ let solSet1 =
     ]
 
 let caSols =
-    solSet4
+    solSet5
     |> List.map (fun (id,v) -> 
         id,
         {TuneParms.Default with 

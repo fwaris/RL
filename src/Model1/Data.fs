@@ -83,6 +83,8 @@ let private loadData tp =
 
             let statsRange = pctRange |> Statistics.DescriptiveStatistics 
             let statsVol = vols |> Statistics.DescriptiveStatistics
+            let statsNstdv = statsRange.StandardDeviation / statsRange.Mean
+            let volNstdv = statsVol.StandardDeviation / statsVol.Mean
             let d =
                 {
                     Freq1 = float statsRange.Kurtosis
