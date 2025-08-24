@@ -7,7 +7,7 @@ open System.ComponentModel
 open System
 open FSharp.Control
 
-let mutable _ps = Unchecked.defaultof<_>
+//let mutable _ps = Unchecked.defaultof<_>
 
 let startReRun parms =     
     async {
@@ -16,8 +16,8 @@ let startReRun parms =
             let trainMarkets = Data.episodeLengthMarketSlices dTrain
             let plcy = Policy.policy parms
             let agent = Train.trainEpisodes parms plcy trainMarkets
-            _ps <- agent
             Test.evalModels parms
+            System.GC.Collect()
         with ex -> 
             printfn "%A" (ex.Message,ex.StackTrace)
     }
