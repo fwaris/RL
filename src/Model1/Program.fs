@@ -14,6 +14,7 @@ let startReRun parms =
         try 
             let dTrain,dTest = Data.testTrain parms.TuneParms            
             let trainMarkets = Data.episodeLengthMarketSlices dTrain
+            printfn $"{parms.RunId}: episodes: {trainMarkets.Length}, episode len: {trainMarkets.[0].Length}, test len {dTest.Length}"
             let plcy = Policy.policy parms
             let agent = Train.trainEpisodes parms plcy trainMarkets
             Test.evalModels parms
@@ -31,7 +32,7 @@ let restartJobs() =
         )
         |> List.map startReRun
  
-let MAX_PARALLEL = 2
+let MAX_PARALLEL = 5
 let _run() =
     Test.clearModels()
     Data.resetLogs()

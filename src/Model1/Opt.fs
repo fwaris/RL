@@ -84,9 +84,11 @@ let runOpt parms =
             parms.DQN.Model.Target.Module.``to``(device.Value) |> ignore
             let plcy = Policy.policy parms
             let dTrain,dTest = Data.testTrain parms.TuneParms            
-            let trainMarkets = Data.episodeLengthMarketSlices dTrain
+            let trainMarketSlices = Data.episodeLengthMarketSlices dTrain
             let testMarket = Data.singleMarketSlice dTest
-            let agent = Train.trainEpisodes parms plcy trainMarkets
+            let trainMarket = Data.singleMarketSlice dTrain
+            let agent = Train.trainEpisodes parms plcy trainMarketSlices
+            let trainGain,trainDist = Test.evalModelTT parms.TuneParms parms.DQN.Model.Online trainMarket
             let testGain,testDist = Test.evalModelTT parms.TuneParms parms.DQN.Model.Online testMarket
             printfn $"Gain; {testGain}; Test dist: {testDist}"
             optLogger.Post (testGain,testDist,parms.TuneParms)
@@ -94,9 +96,10 @@ let runOpt parms =
             parms.Opt.Value.Dispose()
             agent.CurrentState.Dispose()
             agent.PrevState.Dispose()
+            let gain = (trainGain * 0.3) + (testGain * 0.7)
             let adjGain = 
-                if testGain > 0.0 then testGain
-                elif testGain = 0.0 then 
+                if gain > 0.0 then gain
+                elif gain = 0.0 then 
                     if testDist.Length > 1 then testGain + (float testDist.Length * 0.001) else testGain
                 else 
                     testGain

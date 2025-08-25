@@ -46,10 +46,10 @@ let evalModel parms (name:string) (model:IModel) =
     try
         model.Module.eval()
         let dTrain,dTest = Data.testTrain parms.TuneParms
-        let testMarket =  Data.singleMarketSlice dTrain
-        let trainMarket = Data.singleMarketSlice dTest
-        let gainTest,testDist = evalModelTT parms.TuneParms model testMarket 
+        let trainMarket =  Data.singleMarketSlice dTrain
+        let testMarket = Data.singleMarketSlice dTest
         let gainTrain,trainDist = evalModelTT parms.TuneParms model trainMarket
+        let gainTest,testDist = evalModelTT parms.TuneParms model testMarket 
         printfn $"Emodel: {parms.RunId} {name}, Annual Gain -  Test: %0.3f{gainTest}, Train: %0.3f{gainTrain}"
         printfn $"Test dist: {testDist}; Train dist: {trainDist}"
         name,gainTest,gainTrain,testDist
