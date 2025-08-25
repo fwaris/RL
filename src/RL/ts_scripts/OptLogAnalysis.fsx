@@ -68,20 +68,19 @@ let scatter (title:string) (f1:T_Log.Row->float) (f2:T_Log.Row->float) (xs:T_Log
     |> Chart.withTitle title
     |> Chart.show
 
-let basis = 0.01
+
 let toVec (r:T_Log.Row) = 
-    let trendWindwBars = float r.TendWindowBars * 10.
     [|
         float r.Layers
-        (trendWindwBars / 3.0)
-        trendWindwBars
-        float r.GoodBuyInterReward * basis
-        float r.GoodSellInterReward * basis
-        float r.BadBuyInterPenalty * basis
-        float r.BadSellInterPenalty * basis
-        float r.ImpossibleBuyPenalty * basis
-        float r.ImpossibleSellPenalty * basis
-        float r.NonInvestmentPenalty * basis
+        float r.Lookback        
+        float r.TendWindowBars
+        float r.GoodBuyInterReward
+        float r.GoodSellInterReward
+        float r.BadBuyInterPenalty
+        float r.BadSellInterPenalty
+        float r.ImpossibleBuyPenalty
+        float r.ImpossibleSellPenalty
+        float r.NonInvestmentPenalty
     |]
 
 open Microsoft.Diagnostics.NETCore.Client
