@@ -61,11 +61,6 @@ let tp = //0.34,-0.84,-0.57,0.98,-0.16,0,0,10
         TrendWindowBars = 60//TREND_WINDOW_BARS
     }   
 
-let solSet6 = [
-    // 0.44549
-    "t13",[|2.0; 1933.333333; 5800.0; 0.0; 0.01; -0.005; -0.0003; -0.0072; -0.01; -0.001|]
-]
-
 let solSet5 = [
     // 0.46770
     "j1",[|5.0; 113.0; 340.0; 0.0; 0.0; -0.5; -0.42; -1.0; -1.0; -0.04|]
@@ -194,7 +189,7 @@ let solSet1 =
     ]
 
 let caSols =
-    solSet6
+    solSet5
     |> List.map (fun (id,v) -> 
         id,
         {TuneParms.Default with 
