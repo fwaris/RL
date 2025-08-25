@@ -62,7 +62,7 @@ let getObservations _ (env:MarketSlice) (s:AgentState) =
     let b =  bar env s.TimeStep |> Option.defaultWith (fun () -> failwith "bar not found")
     let avgP = Data.effectivePrice b.Bar
     use buySell = torch.tensor([|canBuy avgP s; canSell s|],dtype=torch.float32)
-    use t1 = torch.tensor([|b.Freq1;b.Freq2;b.TrendLong;b.TrendMed;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
+    use t1 = torch.tensor([|b.KurtosisRange;b.KurtosisVol;b.NStdvRange;b.NStdvVol;b.TrendLong;b.TrendMed;b.TrendShort;b.NOpen;b.NHigh;b.NLow;b.NClose|],dtype=torch.float32)
     use t1 = torch.hstack(buySell,t1)
     let ts = torch.vstack([|s.CurrentState;t1|])
     let ts2 = if ts.shape.[0] > s.LookBack then ts.index skipHead else ts  // LOOKBACK * INPUT_DIM

@@ -87,8 +87,10 @@ let private loadData tp =
             let volNstdv = statsVol.StandardDeviation / statsVol.Mean
             let d =
                 {
-                    Freq1 = float statsRange.Kurtosis
-                    Freq2 = float statsVol.Kurtosis
+                    KurtosisRange = float statsRange.Kurtosis
+                    KurtosisVol = float statsVol.Kurtosis
+                    NStdvRange = statsNstdv
+                    NStdvVol = volNstdv
                     TrendLong = slope
                     TrendMed = slopeMed
                     TrendShort = slopeShort

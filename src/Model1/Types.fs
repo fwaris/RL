@@ -18,7 +18,7 @@ let LOOKBACK_DFLT = int64 (TREND_WINDOW_BARS_DFLT / 2) // 30L
 let TX_COST_CNTRCT = 1.0
 let MAX_TRADE_SIZE = 1.
 let INITIAL_CASH = 100000.0
-let INPUT_DIM = 11L
+let INPUT_DIM = 13L
 let TRAIN_FRAC = 0.7
 let ACTIONS = 3 //0,1,2 - buy, sell, hold
 let device = lazy(if torch.cuda_is_available() then torch.CUDA else torch.CPU)
@@ -54,8 +54,10 @@ let mutable verbosity = LoggingLevel.Q
 
 type NBar =
     {
-        Freq1 : float
-        Freq2 : float
+        KurtosisRange : float
+        KurtosisVol : float
+        NStdvRange : float
+        NStdvVol   : float
         TrendShort : float
         TrendMed : float
         TrendLong : float
