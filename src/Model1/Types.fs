@@ -9,9 +9,10 @@ open DQN
 open RL
 
 let ( @@ ) a b = Path.Combine(a,b)
+let EXPERIENCE_BUFFER = 2e5
 let EPISODE_LENGTH = 288/2 // 288 5 min. bars  = 24 hours
-let WARMUP = 5000
-let EPOCHS = 5
+let WARMUP = 10000
+let EPOCHS = 25
 let TREND_WINDOW_BARS_DFLT = 60
 let REWARD_HORIZON_BARS = 5
 let LOOKBACK_DFLT = int64 (TREND_WINDOW_BARS_DFLT / 2) // 30L
@@ -35,7 +36,7 @@ let createOpt lr (mps:Lazy<Modules.Parameter seq>) : Lazy<torch.optim.Optimizer>
 let createLrSched_ maxEpochs (opt:Lazy<torch.optim.Optimizer>) = lazy (
     torch.optim.lr_scheduler.CosineAnnealingLR(opt.Value,T_max=maxEpochs,verbose=true))
 let createLrSched stepsPerEpoch maxEpochs (opt:Lazy<torch.optim.Optimizer>) = lazy (
-    torch.optim.lr_scheduler.OneCycleLR(opt.Value,max_lr=0.01,steps_per_epoch=stepsPerEpoch,epochs=maxEpochs,verbose=true))
+    torch.optim.lr_scheduler.OneCycleLR(opt.Value,max_lr=0.001,steps_per_epoch=stepsPerEpoch,epochs=maxEpochs,verbose=true))
 
 let ensureDirForFilePath (file:string) = 
     let dir = Path.GetDirectoryName(file)
@@ -154,10 +155,10 @@ type Parms =
                 LearnRate       = baseLearningRate
                 CreateModel     = modelFn
                 DQN             = ddqn
-                LossFn          = torch.nn.SmoothL1Loss()
+                LossFn          = torch.nn.HuberLoss(delta=1.0)
                 Opt             = opt //lazy creation  - optimizer should be created after model is moved to target device
                 Scheduler       = lr_s
-                LearnEverySteps = 3
+                LearnEverySteps = 5
                 SyncEverySteps  = 1000
                 BatchSize       = 32
                 Epochs          = 6
@@ -225,7 +226,7 @@ type AgentState =
             a
 
         static member Default agentId initExpRate initialCash tp = 
-            let expBuff = Experience.createStratifiedSampled (int 50e3) 5
+            let expBuff = Experience.createStratifiedSampled (int EXPERIENCE_BUFFER) 5
             {
                 TimeStep         = 0
                 AgentId          = agentId

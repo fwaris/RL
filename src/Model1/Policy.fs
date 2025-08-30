@@ -32,6 +32,7 @@ let private updateQOnline parms state =
         let t_td_est = Tensor.getDataNested<float32> td_est
         let t_td_tgt = Tensor.getDataNested<float32> td_tgt
         ()
+    let f = torch.nn.utils.clip_grad_norm_(parms.DQN.Model.Online.Module.parameters(),max_norm=10.0)
     parms.Opt.Value.step() |> ignore
     {state with CurrentLoss = avgLoss}
 
