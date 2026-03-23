@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<PlatformTarget>x64</PlatformTarget>
+		<IsPackable>true</IsPackable>
+		<PackageId>RL</PackageId>
+		<Title>RL</Title>
+		<Authors>Faisal Waris</Authors>
+		<Description>`RL` is an F# reinforcement learning library centered on Deep Q-Network (DQN) training for discrete action spaces.</Description>
+		<PackageProjectUrl>https://github.com/fwaris/RL</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/fwaris/RL</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageTags>reinforcement-learning;DQN;fsharp;dotnet</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+	</PropertyGroup>
+ <ItemGroup>
+   <EmbeddedResource Remove="scripts\**" />
+   <EmbeddedResource Remove="ts_scripts\**" />
+ </ItemGroup>
+
+	<ItemGroup>
+		<Compile Include="SeqUtils.fs" />
+		<Compile Include="RL.fs" />
+		<Compile Include="Experience.fs" />
+		<Compile Include="DQN.fs" />
+		<Compile Include="VExperience.fs" />
+		<Compile Include="VDQN.fs" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="FSharp.Collections.ParallelSeq" />
+		<PackageReference Include="FSharpx.Collections" />
+		<PackageReference Include="FsPickler" />
+		<PackageReference Include="MathNet.Numerics" />
+		<PackageReference Include="TorchSharp.Fun" />
+		<PackageReference Include="TorchSharp-cuda-windows" />
+		<PackageReference Include="TorchSharp-cuda-linux" />
+	</ItemGroup>
+	<!--<ItemGroup>
+    <ProjectReference Include="..\..\TorchSharp.Fun\TorchSharp.Fun\TorchSharp.Fun.fsproj" />
+  </ItemGroup>-->
+	<ItemGroup>
+		<PackageReference Update="FSharp.Core" />
+	</ItemGroup>
+</Project>

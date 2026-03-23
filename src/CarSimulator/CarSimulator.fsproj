@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="FsMsgPackRpc.fs" />
+    <Compile Include="AirSimCar.fs" />
+    <Compile Include="CollisionUtil.fs" />
+    <Compile Include="CarEnvironment.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Control.AsyncSeq" />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="MessagePack.FSharpExtensions" />
+    <PackageReference Include="TorchVision" />
+    <PackageReference Include="TorchSharp.Fun" />
+    <PackageReference Include="TorchSharp-cuda-windows" />
+    <PackageReference Include="TorchSharp-cuda-linux" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" />
+  </ItemGroup>
+</Project>

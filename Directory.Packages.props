@@ -1,0 +1,26 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="CAOpt" Version="3.0.7" />
+    <PackageVersion Include="FSharp.Collections.ParallelSeq" Version="1.2.0" />
+    <PackageVersion Include="FSharp.Control.AsyncSeq" Version="4.11.0" />
+    <PackageVersion Include="FSharpx.Collections" Version="3.1.0" />
+    <PackageVersion Include="FsCgp" Version="3.0.1" />
+    <PackageVersion Include="FsPickler" Version="5.3.2" />
+    <PackageVersion Include="MathNet.Numerics" Version="5.0.0" />
+    <PackageVersion Include="MessagePack" Version="3.1.4" />
+    <PackageVersion Include="MessagePack.FSharpExtensions" Version="4.0.0" />
+    <PackageVersion Include="Plotly.NET" Version="5.1.0" />
+    <PackageVersion Include="TorchSharp.Fun" Version="0.91.0" />
+    <PackageVersion Include="TorchSharp-cuda-linux" Version="0.106.0" />
+    <PackageVersion Include="TorchVision" Version="0.106.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageVersion Include="FSharp.Core" Version="9.0.300" Condition="'$(TargetFramework)' == 'net9.0'" />
+    <PackageVersion Include="FSharp.Core" Version="9.0.303" Condition="'$(TargetFramework)' == 'net10.0'" />
+    <PackageVersion Include="TorchSharp-cuda-windows" Version="0.105.1" Condition="'$(TargetFramework)' == 'net9.0'" />
+    <PackageVersion Include="TorchSharp-cuda-windows" Version="0.106.0" Condition="'$(TargetFramework)' == 'net10.0'" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,1 @@
+start AirSimNH -ResX=800 -ResY=400 -WINDOWED -RenderOffScreen
