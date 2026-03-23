@@ -63,7 +63,7 @@ Key modules:
 - `Experience.fs`: tensor-based replay buffers with uniform, stratified, and prioritized sampling
 - `VDQN.fs`: a lighter value-based DQN variant that works on `float[]` state/value functions
 - `VExperience.fs`: replay buffer support for the value-based path
-- `SeqUtils.fs`, `TsData.fs`: supporting utilities and timeseries/data helpers
+- `SeqUtils.fs`: supporting utilities and timeseries/data helpers
 
 ### `src/CarSimulator`
 
