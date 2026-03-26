@@ -9,10 +9,12 @@ open FSharp.Collections.ParallelSeq
 
 ///DDQNModel maintains target and online versions of a model
 type DDQNModel = {Target : IModel;  Online : IModel}
+type AveragedDDQNModel = {Targets : IModel array; Online : IModel; mutable SyncIndex : int}
 
 type Exploration = {Decay:float; Min:float; WarupSteps:int} with static member Default = {Decay = 0.999; Min=0.01; WarupSteps = 1000}
 type Step = {Num:int; ExplorationRate:float}
 type DQN = {Model:DDQNModel; Gamma:float32; Exploration:Exploration; Actions:int; }
+type AveragedDQN = {Model:AveragedDDQNModel; Gamma:float32; Exploration:Exploration; Actions:int; }
 
 module DQNModel =
     let device (models:DDQNModel) = 
@@ -49,6 +51,45 @@ module DQNModel =
         ddqn.Online.Module.Dispose()
         ddqn.Target.Module.Dispose()
 
+module AveragedDQNModel =
+    let device (models:AveragedDDQNModel) =
+        models.Online.Module.parameters()
+        |> Seq.tryHead
+        |> Option.map _.device
+        |> Option.defaultWith (fun _ -> failwith "unable to get torch device")
+
+    let create targetCount (fmodel: unit -> IModel) =
+        if targetCount <= 0 then failwith "AveragedDDQNModel requires at least one target model"
+        let online : IModel = fmodel()
+        let targets =
+            Array.init targetCount (fun _ ->
+                let target = fmodel()
+                target.Module.parameters() |> Seq.iter (fun p -> p.requires_grad <- false)
+                target.Module.load_state_dict(online.Module.state_dict()) |> ignore
+                target)
+        {Targets = targets; Online = online; SyncIndex = 0}
+
+    let sync models =
+        let idx = models.SyncIndex % models.Targets.Length
+        models.Targets.[idx].Module.load_state_dict(models.Online.Module.state_dict()) |> ignore
+        models.SyncIndex <- (idx + 1) % models.Targets.Length
+
+    let save (file:string) (avgdqn:AveragedDDQNModel) = avgdqn.Online.Module.save(file) |> ignore
+
+    let load targetCount (fmodel:unit -> IModel) (file:string) =
+        let avgdqn = create targetCount fmodel
+        try
+            avgdqn.Online.Module.load(file) |> ignore
+            avgdqn.Targets |> Array.iter (fun target -> target.Module.load(file) |> ignore)
+        with ex ->
+            printfn $"invalid model file {file} - returning empty averaged model"
+            printfn "%A" (ex.Message,ex.StackTrace)
+        avgdqn
+
+    let dispose (avgdqn:AveragedDDQNModel) =
+        avgdqn.Online.Module.Dispose()
+        avgdqn.Targets |> Array.iter (fun target -> target.Module.Dispose())
+
 
 module DQN =
     //use randomization from single source - pytorch
@@ -71,7 +112,7 @@ module DQN =
             ExplorationRate = expRate
         }
 
-    let create model gamma exploration actions =
+    let create (model:DDQNModel) gamma exploration actions : DQN =
         {
             Model = model
             Exploration = exploration
@@ -79,7 +120,7 @@ module DQN =
             Actions = actions
         }
 
-    let bestAction (state:torch.Tensor) ddqn = 
+    let bestAction (state:torch.Tensor) (ddqn:DQN) =
         use _noGrad = torch.no_grad()
         let device = DQNModel.device ddqn.Model
         let state = state.unsqueeze(0)
@@ -88,7 +129,7 @@ module DQN =
         use maxQAct = action_values.argmax()
         maxQAct.ToInt32(),false
 
-    let maskedBestAction (state:torch.Tensor) ddqn (validActions:int list) =
+    let maskedBestAction (state:torch.Tensor) (ddqn:DQN) (validActions:int list) =
         match validActions with
         | [] -> failwith "maskedBestAction requires at least one valid action"
         | [single] -> single,false
@@ -103,7 +144,7 @@ module DQN =
             |> List.maxBy (fun action -> qvals.[action])
             |> fun action -> action,false
 
-    let selectAction (state:torch.Tensor) ddqn step =
+    let selectAction (state:torch.Tensor) (ddqn:DQN) step =
         let actionIdx =
             if rand() < step.ExplorationRate then //explore
                 randint ddqn.Actions,true
@@ -111,7 +152,7 @@ module DQN =
                 bestAction state ddqn
         actionIdx
 
-    let selectActionMasked (state:torch.Tensor) ddqn step (validActions:int list) =
+    let selectActionMasked (state:torch.Tensor) (ddqn:DQN) step (validActions:int list) =
         match validActions with
         | [] -> failwith "selectActionMasked requires at least one valid action"
         | _ ->
@@ -143,7 +184,7 @@ module DQN =
     ///Then find the q-value of that action (for the same state) from the target model.
     ///Use the target q-value for the discounted reward for model update.
     ///Since target is lagged, as per DDQN this, stabilizes the q values (otherwise the model can 'chase its own tail')
-    let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) ddqn =
+    let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) (ddqn:DQN) =
         use t = torch.no_grad()                              //turn off gradient calculation
         use q_online = ddqn.Model.Online.forward(next_state) //online model estimate of value (from next state)
         use best_action = q_online.argmax(1L)                //optimum value action from online
@@ -174,4 +215,84 @@ module DQN =
 
         ret.float()   //convert to float32
 
+module AveragedDQN =
+    let private meanTargetQ (targets:IModel array) (next_state:torch.Tensor) =
+        let sum =
+            targets
+            |> Array.map (fun target -> target.forward(next_state))
+            |> Array.reduce (fun acc q ->
+                let ret = acc + q
+                acc.Dispose()
+                q.Dispose()
+                ret)
+        let count = float32 targets.Length
+        let mean = sum / count
+        sum.Dispose()
+        mean
+
+    let create (model:AveragedDDQNModel) gamma exploration actions : AveragedDQN =
+        {
+            Model = model
+            Exploration = exploration
+            Gamma = gamma
+            Actions = actions
+        }
+
+    let bestAction (state:torch.Tensor) (avgdqn:AveragedDQN) =
+        use _noGrad = torch.no_grad()
+        let device = AveragedDQNModel.device avgdqn.Model
+        let state = state.unsqueeze(0)
+        use state = state.``to``(device)
+        use action_values = avgdqn.Model.Online.forward(state)
+        use maxQAct = action_values.argmax()
+        maxQAct.ToInt32(),false
+
+    let maskedBestAction (state:torch.Tensor) (avgdqn:AveragedDQN) (validActions:int list) =
+        match validActions with
+        | [] -> failwith "maskedBestAction requires at least one valid action"
+        | [single] -> single,false
+        | _ ->
+            use _noGrad = torch.no_grad()
+            let device = AveragedDQNModel.device avgdqn.Model
+            let state = state.unsqueeze(0)
+            use state = state.``to``(device)
+            use action_values = avgdqn.Model.Online.forward(state)
+            let qvals = Tensor.getData<float32> action_values
+            validActions
+            |> List.maxBy (fun action -> qvals.[action])
+            |> fun action -> action,false
+
+    let selectAction (state:torch.Tensor) (avgdqn:AveragedDQN) step =
+        if DQN.rand() < step.ExplorationRate then
+            DQN.randint avgdqn.Actions,true
+        else
+            bestAction state avgdqn
+
+    let selectActionMasked (state:torch.Tensor) (avgdqn:AveragedDQN) step (validActions:int list) =
+        match validActions with
+        | [] -> failwith "selectActionMasked requires at least one valid action"
+        | _ ->
+            if DQN.rand() < step.ExplorationRate then
+                let idx = DQN.randint validActions.Length
+                validActions.[idx],true
+            else
+                maskedBestAction state avgdqn validActions
+
+    let td_target (reward:float32[]) (next_state:torch.Tensor) (isDone:bool[]) (avgdqn:AveragedDQN) =
+        use t = torch.no_grad()
+        use q_online = avgdqn.Model.Online.forward(next_state)
+        use best_action = q_online.argmax(1L)
+        let idx = DQN.actionIdx best_action
+        use q_target_mean = meanTargetQ avgdqn.Model.Targets next_state
+        use q_target_best = q_target_mean.index(idx)
+        let device = AveragedDQNModel.device avgdqn.Model
+        use d_reward' = torch.tensor(reward)
+        use d_reward = d_reward'.``to``(device)
+        use d_isDone' = torch.tensor(isDone)
+        use d_isDone = d_isDone'.``to``(device)
+        use d_isDoneF = d_isDone.float()
+        use d_1 = 1.0f.ToScalar()
+        use d_gamma = avgdqn.Gamma.ToScalar()
+        use ret = d_reward + (d_1 - d_isDoneF) * d_gamma * q_target_best
+        ret.float()
     

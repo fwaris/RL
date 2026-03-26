@@ -21,13 +21,13 @@ type ExperienceBuffer =
             | StratifiedSampled m -> m.BufferMap |> Map.toSeq |> Seq.sumBy (fun (_,v) -> v.Length)
             | PrioritizedSampled p -> p.Buffer.Length
 
-let createUniformSampled maxExperiance = UniformSampled {Buffer=RandomAccessList.empty; Max=maxExperiance}
+let createUniformSampled maxExperience = UniformSampled {Buffer=RandomAccessList.empty; Max=maxExperience}
 
-let createStratifiedSampled maxExperincePerStrata minSamplesPerStrata =    
-        StratifiedSampled {BufferMap=Map.empty; Max=maxExperincePerStrata; MinSamplesPerStrata=minSamplesPerStrata}
+let createStratifiedSampled maxExperiencePerStrata minSamplesPerStrata =    
+        StratifiedSampled {BufferMap=Map.empty; Max=maxExperiencePerStrata; MinSamplesPerStrata=minSamplesPerStrata}
 
-let createPrioritizedSampled maxExperiance alpha priorityEps =
-        PrioritizedSampled {Buffer=RandomAccessList.empty; Max=maxExperiance; Alpha=alpha; PriorityEps=priorityEps}
+let createPrioritizedSampled maxExperience alpha priorityEps =
+        PrioritizedSampled {Buffer=RandomAccessList.empty; Max=maxExperience; Alpha=alpha; PriorityEps=priorityEps}
          
 let private appendExperience max newExp (ls:RandomAccessList<Experience>) = 
     if ls.Length < max then 
