@@ -18,7 +18,7 @@ The repo also contains sample projects and scripts that use the library in both 
 
 A minimal CartPole DQN example inspired by the PyTorch CartPole tutorial, but implemented with this repo's `DQN` and `VExperience` modules. It is a good starting point if you want to see the library on a compact discrete-control problem before moving on to the larger AirSim samples.
 
-`RL` is based on [TorchSharp.Fun](https://github.com/fwaris/TorchSharp.Fun) (which wraps [TorchSharp](https://github.com/dotnet/TorchSharp)) such that models can be defined a function-composition style. The base DQN model for cart pole is given below:
+`RL` is based on [TorchSharp.Fun](https://github.com/fwaris/TorchSharp.Fun) (which wraps [TorchSharp](https://github.com/dotnet/TorchSharp)) such that models can be defined in a function-composition style. Example, the base DQN model for cart pole:
 ```F#
 let createModel () =
     torch.nn.Linear(4L, 128L)
